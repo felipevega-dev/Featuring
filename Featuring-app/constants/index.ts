@@ -6,6 +6,7 @@ import checkmark from "@/assets/icons/check.png";
 import close from "@/assets/icons/close.png";
 import dollar from "@/assets/icons/dollar.png";
 import email from "@/assets/icons/email.png";
+import facebook from "@/assets/icons/FacebookLogo.png";
 import eyecross from "@/assets/icons/eyecross.png";
 import google from "@/assets/icons/google.png";
 import home from "@/assets/icons/home.png";
@@ -70,6 +71,7 @@ export const icons = {
   star,
   target,
   to,
+  facebook
 };
 
 export const onboarding = [
