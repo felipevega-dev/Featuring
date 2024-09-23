@@ -74,22 +74,23 @@ export const icons = {
 export const onboarding = [
   {
     id: 1,
-    title: "El viaje perfecto esta a un toque!",
+    title: "Muestra tu talento",
     description:
-      "Tu viaje comienza con Ryde. Encuentra tu viaje ideal sin esfuerzo",
+      "Comparte proyectos músicales y recibe feedback valioso de la comunidad para crecer como artista.",
     image: images.onboarding1,
   },
   {
     id: 2,
-    title: "Los mejores automoviles en tus manos con Ryde",
-    description: "Descrubre las oportuniades de viaje que tenemos para ti.",
+    title: "Explora y conecta",
+    description:
+      "Descubre videos cortos inspiradores y conoce a otros artistas que comparten tu misma pasión!",
     image: images.onboarding2,
   },
   {
     id: 3,
-    title: "Tu viaje, tu manera, Vamos!",
+    title: "Colabora y crea",
     description:
-      "Ingresa a tu destino, relajate y dejanos encargarnos del resto",
+      "¡Haz match con artistas que complementen tu estilo y da vida a nuevos proyectos musicales!",
     image: images.onboarding3,
   },
 ];

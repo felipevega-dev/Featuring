@@ -32,7 +32,7 @@ const Onboarding = () => {
           />
         }
         activeDot={
-          <View className="w-[32px] h-[4px] mx-1 bg-[#0286FF]  rounded-full" />
+          <View className="w-[32px] h-[4px] mx-1 bg-[#6D29D2]  rounded-full" />
         }
         onIndexChanged={(index) => setActiveIndex(index)}
       >
@@ -55,7 +55,7 @@ const Onboarding = () => {
         ))}
       </Swiper>
       <CustomButton
-        title={isLastSlide ? "Get Started" : "Siguiente"}
+        title={isLastSlide ? "Comencemos" : "Siguiente"}
         onPress={() =>
           isLastSlide
             ? router.replace("/(auth)/sign-up")
