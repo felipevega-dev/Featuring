@@ -74,14 +74,14 @@ const SignIn = () => {
           {/* OAuth */}
           <OAuth />
           <Link
-    href="/sign-in"
-    className="text-xl text-center text-general-200 "
-  >
-    <View className="flex flex-col items-center">
-      <Text className="font-JakartaMedium">¿No tienes cuenta?</Text>
-      <Text className="font-JakartaMedium text-primary-500">Registrate</Text>
-    </View>
-  </Link>
+              href="/sign-in"
+              className="text-xl text-center text-general-200 mt-3"
+              >
+            <View className="flex flex-col items-center">
+                <Text className="font-JakartaMedium text-xl">¿Ya tienes una cuenta?</Text>
+                <Text className="font-JakartaBold text-xl text-primary-500">Registrate</Text>
+            </View>
+          </Link>
         </View>
 
         {/* Modal de verificación */}
