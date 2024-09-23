@@ -56,14 +56,15 @@ const SignUp = () => {
       });
 
       if (completeSignUp.status === "complete") {
-        await fetchAPI("/(api)/user", {
-          method: "POST",
-          body: JSON.stringify({
-            name: form.name,
-            email: form.email,
-            clerkId: completeSignUp.createdUserId,
-          }),
-        });
+        /*
+                          await fetchAPI("/(api)/user", {
+                            method: "POST",
+                            body: JSON.stringify({
+                              name: form.name,
+                              email: form.email,
+                              clerkId: completeSignUp.createdUserId,
+                            }),
+                          });*/
 
         await setActive({ session: completeSignUp.createdSessionId });
         setVerification({ ...verification, state: "success" });
@@ -138,9 +139,7 @@ const SignUp = () => {
           }}
         >
           <View className="bg-white px-7 py-9 rounded-2xl min-h-[300px]">
-            <Text className="text-2xl font-JakartaExtraBold mb-2">
-              Verificación
-            </Text>
+            <Text className="text-2xl font-Jakarta mb-2">Verificación</Text>
             <Text className="font-Jakarta mb-5">
               Envíamos un codigo de verificación al correo: {form.email}
             </Text>
