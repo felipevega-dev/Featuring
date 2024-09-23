@@ -3,9 +3,12 @@ import arrowUp from "@/assets/icons/arrow-up.png";
 import backArrow from "@/assets/icons/back-arrow.png";
 import chat from "@/assets/icons/chat.png";
 import checkmark from "@/assets/icons/check.png";
+import heart from "@/assets/icons/heart.png";
 import close from "@/assets/icons/close.png";
 import dollar from "@/assets/icons/dollar.png";
 import email from "@/assets/icons/email.png";
+import play from "@/assets/icons/play.png";
+import views from "@/assets/icons/views.png";
 import eyecross from "@/assets/icons/eyecross.png";
 import google from "@/assets/icons/google.png";
 import home from "@/assets/icons/home.png";
@@ -31,7 +34,8 @@ import onboarding1 from "@/assets/images/onboarding1.png";
 import onboarding2 from "@/assets/images/onboarding2.png";
 import onboarding3 from "@/assets/images/onboarding3.png";
 import signUpCar from "@/assets/images/signup-car.png";
-import FeaturingIcono from "@/assets/images/FeaturingIcono.png"
+import FeaturingIcono from "@/assets/images/FeaturingIcono.png";
+
 export const images = {
   onboarding1,
   onboarding2,
@@ -41,7 +45,7 @@ export const images = {
   check,
   noResult,
   message,
-  FeaturingIcono
+  FeaturingIcono,
 };
 
 export const icons = {
@@ -70,6 +74,9 @@ export const icons = {
   star,
   target,
   to,
+  play,
+  views,
+  heart,
 };
 
 export const onboarding = [
