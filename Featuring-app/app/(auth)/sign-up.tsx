@@ -124,13 +124,18 @@ const SignUp = () => {
           />
           {/* OAuth */}
           <OAuth />
-          <Link
-            href="/sign-in"
-            className="text-lg text-center text-general-200 mt-5"
-          >
-            <Text>¿Ya estás registrado?</Text>
-            <Text className="text-primary-500"> Iniciar Sesión</Text>
-          </Link>
+          <View className="flex-1 mt-3 items-center justify-center">
+  <Link
+    href="/sign-in"
+    className="text-xl text-center text-general-200 "
+  >
+    <View className="flex flex-col items-center">
+      <Text className="font-JakartaMedium">¿Ya estás registrado?</Text>
+      <Text className="font-JakartaMedium text-primary-500">Iniciar Sesión</Text>
+    </View>
+  </Link>
+</View>
+
         </View>
 
         <ReactNativeModal

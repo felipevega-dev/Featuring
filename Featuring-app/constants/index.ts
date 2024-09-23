@@ -9,6 +9,7 @@ import dollar from "@/assets/icons/dollar.png";
 import email from "@/assets/icons/email.png";
 import play from "@/assets/icons/play.png";
 import views from "@/assets/icons/views.png";
+import facebook from "@/assets/icons/FacebookLogo.png";
 import eyecross from "@/assets/icons/eyecross.png";
 import google from "@/assets/icons/google.png";
 import home from "@/assets/icons/home.png";
@@ -74,9 +75,10 @@ export const icons = {
   star,
   target,
   to,
+  heart,
   play,
   views,
-  heart,
+  facebook,
 };
 
 export const onboarding = [
