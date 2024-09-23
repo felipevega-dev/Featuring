@@ -125,15 +125,16 @@ const SignUp = () => {
           {/* OAuth */}
           <OAuth />
           <View className="flex-1 mt-3 items-center justify-center">
-  <Link
+          <Link
     href="/sign-in"
-    className="text-xl text-center text-general-200 "
-  >
+    className="text-xl text-center text-general-200"
+>
     <View className="flex flex-col items-center">
-      <Text className="font-JakartaMedium">¿Ya estás registrado?</Text>
-      <Text className="font-JakartaMedium text-primary-500">Iniciar Sesión</Text>
+        <Text className="font-JakartaMedium text-xl">¿Ya estás registrado?</Text>
+        <Text className="font-JakartaBold text-xl text-primary-500">Iniciar Sesión</Text>
     </View>
-  </Link>
+</Link>
+
 </View>
 
         </View>
