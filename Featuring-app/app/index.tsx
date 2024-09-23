@@ -1,6 +1,6 @@
 import { Redirect } from "expo-router";
 
 const Home = () => {
-  return <Redirect href="/(auth)\welcome"></Redirect>;
+  return <Redirect href="/(auth)/welcome"></Redirect>;
 };
 export default Home;
