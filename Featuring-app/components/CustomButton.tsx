@@ -3,6 +3,8 @@ import { ButtonProps } from "@/types/type";
 
 const getBgVariantStyle = (variant: ButtonProps["bgVariant"]) => {
   switch (variant) {
+    case "primary":
+      return "bg-primary-600"; // Usando el color púrpura principal
     case "secondary":
       return "bg-secondary-500"; // Usando el color cian
     case "danger":
@@ -19,7 +21,7 @@ const getBgVariantStyle = (variant: ButtonProps["bgVariant"]) => {
 const getTextVariantStyle = (variant: ButtonProps["textVariant"]) => {
   switch (variant) {
     case "primary":
-      return "text-primary-100";
+      return "text-primary-400";
     case "secondary":
       return "text-secondary-100";
     case "danger":

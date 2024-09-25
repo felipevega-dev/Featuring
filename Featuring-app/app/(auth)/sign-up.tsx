@@ -86,14 +86,17 @@ const SignUp = () => {
   return (
     <ScrollView className="flex-1 bg-white">
       <View className="flex-1 bg-white">
-
-      
-      <View className="relative w-full h-[140px] mt-20 flex items-center justify-center">
-       
-        <Image source={images.FeaturingIcono} className="z-0 w-[130px] h-[90px]" />
-  
-      </View>  
-
+        <View className="relative w-full h-[140px] mt-20 flex items-center justify-center">
+          <Image
+            source={images.FeaturingIcono}
+            className="z-0 w-[130px] h-[90px]"
+          />
+        </View>
+        <View className="flex flex-col items-center">
+          <Text className="text-lg font-JakartaSemiBold text-primary-500">
+            Registro
+          </Text>
+        </View>
         <View className="p-3">
           <InputField
             label="Nombre"
@@ -124,18 +127,18 @@ const SignUp = () => {
           />
           {/* OAuth */}
           <OAuth />
-          <View className="flex-1 mt-3 items-center justify-center">
-  <Link
-    href="/sign-in"
-    className="text-xl text-center text-general-200 "
-  >
-    <View className="flex flex-col items-center">
-      <Text className="font-JakartaMedium">¿Ya estás registrado?</Text>
-      <Text className="font-JakartaMedium text-primary-500">Iniciar Sesión</Text>
-    </View>
-  </Link>
-</View>
-
+          <View className="flex-1 mt-0.5 items-center justify-center">
+            <Link href="/sign-in">
+              <View className="flex flex-col items-center">
+                <Text className="font-JakartaMedium text-md">
+                  ¿Ya estás registrado?
+                </Text>
+                <Text className="font-JakartaMedium text-primary-500 text-md">
+                  Iniciar Sesión
+                </Text>
+              </View>
+            </Link>
+          </View>
         </View>
 
         <ReactNativeModal
@@ -153,7 +156,7 @@ const SignUp = () => {
             <InputField
               label="Code"
               icon={icons.lock}
-              placeholder="12345"
+              placeholder="123456"
               value={verification.code}
               keyboardType="numeric"
               onChangeText={(code) =>

@@ -43,13 +43,17 @@ const SignIn = () => {
   return (
     <ScrollView className="flex-1 bg-white">
       <View className="flex-1 bg-white">
-
-      
-<View className="relative w-full h-[140px] mt-20 flex items-center justify-center">
- 
-  <Image source={images.FeaturingIcono} className="z-0 w-[130px] h-[90px]" />
-
-</View>  
+        <View className="relative w-full h-[140px] mt-20 flex items-center justify-center">
+          <Image
+            source={images.FeaturingIcono}
+            className="z-0 w-[130px] h-[90px]"
+          />
+        </View>
+        <View className="flex flex-col items-center">
+          <Text className="text-lg font-JakartaSemiBold text-primary-500">
+            Login
+          </Text>
+        </View>
         <View className="p-5">
           <InputField
             label="Email"
@@ -74,17 +78,17 @@ const SignIn = () => {
           {/* OAuth */}
           <OAuth />
           <Link
-    href="/sign-in"
-    className="text-xl text-center text-general-200 "
-  >
-    <View className="flex flex-col items-center">
-      <Text className="font-JakartaMedium">¿No tienes cuenta?</Text>
-      <Text className="font-JakartaMedium text-primary-500">Registrate</Text>
-    </View>
-  </Link>
+            href="/sign-up"
+            className="text-xl text-center text-general-200 flex flex-col items-center m-2"
+          >
+            <View className="flex flex-col items-center mt-1">
+              <Text className="font-JakartaMedium">¿No tienes cuenta?</Text>
+              <Text className="font-JakartaMedium text-primary-500">
+                Registrate
+              </Text>
+            </View>
+          </Link>
         </View>
-
-        {/* Modal de verificación */}
       </View>
     </ScrollView>
   );
