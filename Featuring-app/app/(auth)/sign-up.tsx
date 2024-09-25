@@ -124,7 +124,8 @@ const SignUp = () => {
           />
           {/* OAuth */}
           <OAuth />
-          <View className="flex-1  items-center justify-center">
+
+
           <Link
               href="/sign-in"
               className="text-xl text-center text-general-200 mt-3"
@@ -135,7 +136,6 @@ const SignUp = () => {
             </View>
           </Link>
 
-</View>
 
         </View>
 
