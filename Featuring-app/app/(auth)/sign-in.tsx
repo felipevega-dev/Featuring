@@ -79,9 +79,9 @@ const SignIn = () => {
           <OAuth />
           <Link
             href="/sign-up"
-            className="text-xl text-center text-general-200 flex flex-col items-center m-2"
+            className="text-xl text-center text-general-200 "
           >
-            <View className="flex flex-col items-center mt-1">
+            <View className="flex flex-col items-center">
               <Text className="font-JakartaMedium">¿No tienes cuenta?</Text>
               <Text className="font-JakartaMedium text-primary-500">
                 Registrate
