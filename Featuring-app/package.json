@@ -5,8 +5,8 @@
   "scripts": {
     "start": "expo start",
     "reset-project": "node ./scripts/reset-project.js",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
     "web": "expo start --web",
     "test": "jest --watchAll",
     "lint": "expo lint"
@@ -31,6 +31,7 @@
     "expo-status-bar": "~1.12.1",
     "expo-system-ui": "~3.0.7",
     "expo-web-browser": "~13.0.3",
+    "firebase": "^10.13.2",
     "nativewind": "^2.0.11",
     "react": "18.2.0",
     "react-dom": "18.2.0",
@@ -42,7 +43,12 @@
     "react-native-screens": "3.31.1",
     "react-native-svg": "^15.7.1",
     "react-native-swiper": "^1.6.0",
-    "react-native-web": "~0.19.10"
+    "react-native-web": "~0.19.10",
+    "expo-auth-session": "~5.5.2",
+    "expo-crypto": "~13.0.2",
+    "expo-application": "~5.9.1",
+    "@react-native-async-storage/async-storage": "1.23.1",
+    "expo-dev-client": "~4.0.27"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",
