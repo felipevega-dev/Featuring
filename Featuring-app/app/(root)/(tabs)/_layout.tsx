@@ -172,6 +172,13 @@ const Layout = () => {
             headerShown: false,
           }}
         />
+        <Tabs.Screen
+          name="preguntas"
+          options={{
+            tabBarButton: () => null, // Esto excluye la pantalla de la barra inferior
+            headerShown: false,
+          }}
+        />
       </Tabs>
     </>
   );

@@ -18,10 +18,12 @@ export const tokenCache = {
       return null;
     }
   },
+
   async saveToken(key: string, value: string) {
     try {
       return SecureStore.setItemAsync(key, value);
     } catch (err) {
+      console.error("Error saving token: ", err);
       return;
     }
   },
@@ -30,18 +32,21 @@ export const tokenCache = {
 export const googleOAuth = async (startOAuthFlow: any) => {
   try {
     const { createdSessionId, setActive, signUp } = await startOAuthFlow({
-      redirectUrl: Linking.createURL("/(root)/(tabs)/home"),
+      redirectUrl: Linking.createURL("/(root)/(tabs)/preguntas"),
     });
 
     if (createdSessionId) {
       if (setActive) {
         await setActive({ session: createdSessionId });
 
-        if (signUp.createdUserId) {
+        if (signUp?.createdUserId) {
+          const username =
+            signUp?.username || `${signUp?.firstName} ${signUp?.lastName}`; // Ajusta esto según la respuesta
+
           await fetchAPI("/(api)/user", {
             method: "POST",
             body: JSON.stringify({
-              name: `${signUp.firstName} ${signUp.lastName}`,
+              username,
               email: signUp.emailAddress,
               clerkId: signUp.createdUserId,
             }),
@@ -50,7 +55,6 @@ export const googleOAuth = async (startOAuthFlow: any) => {
 
         return {
           success: true,
-          code: "success",
           message: "Te has registrado correctamente usando Google.",
         };
       }
@@ -58,14 +62,16 @@ export const googleOAuth = async (startOAuthFlow: any) => {
 
     return {
       success: false,
-      message: "Ha ocurrido un error al intentar registrarse con Google",
+      message: "Ha ocurrido un error al intentar registrarse con Google.",
     };
   } catch (err: any) {
-    console.error(err);
+    console.error("Google OAuth error: ", err);
     return {
       success: false,
-      code: err.code,
-      message: err?.errors[0]?.longMessage,
+      code: err.code || "UNKNOWN_ERROR",
+      message:
+        err?.errors?.[0]?.longMessage ||
+        "Error desconocido. Intenta nuevamente.",
     };
   }
 };

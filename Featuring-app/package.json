@@ -9,6 +9,7 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "test": "jest --watchAll",
+    "gen:types": "npx supabase gen types typescript --project-id ieptfdhimqlwkpazklvp > .\\types\\db_types.ts",
     "lint": "expo lint"
   },
   "jest": {
@@ -18,8 +19,8 @@
     "@clerk/clerk-expo": "^2.2.14",
     "@expo/metro-runtime": "~3.2.3",
     "@expo/vector-icons": "^14.0.2",
-    "@neondatabase/serverless": "^0.9.5",
     "@react-navigation/native": "^6.0.2",
+    "@supabase/supabase-js": "^2.45.4",
     "expo": "~51.0.28",
     "expo-constants": "~16.0.2",
     "expo-font": "~12.0.9",
@@ -42,7 +43,9 @@
     "react-native-screens": "3.31.1",
     "react-native-svg": "^15.7.1",
     "react-native-swiper": "^1.6.0",
-    "react-native-web": "~0.19.10"
+    "react-native-url-polyfill": "^2.0.0",
+    "react-native-web": "~0.19.10",
+    "expo-image-picker": "~15.0.7"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",
@@ -57,6 +60,7 @@
     "jest-expo": "~51.0.3",
     "prettier": "^3.3.3",
     "react-test-renderer": "18.2.0",
+    "supabase": "^1.200.3",
     "tailwindcss": "^3.3.2",
     "typescript": "~5.3.3"
   },

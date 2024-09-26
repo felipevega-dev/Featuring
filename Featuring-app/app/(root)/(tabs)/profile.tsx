@@ -26,10 +26,8 @@ const Profile = () => {
         </Text>
 
         <View className="mb-5">
-          <Text className="text-lg font-semibold mb-2">Nombre</Text>
-          <Text className="text-base">
-            {user?.firstName} {user?.lastName}
-          </Text>
+          <Text className="text-lg font-semibold mb-2">Usuario</Text>
+          <Text className="text-base">{user?.username}</Text>
         </View>
 
         <View className="mb-5">
