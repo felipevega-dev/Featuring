@@ -44,10 +44,7 @@ const SignIn = () => {
     <ScrollView className="flex-1 bg-white">
       <View className="flex-1 bg-white">
         <View className="relative w-full h-[140px] mt-20 flex items-center justify-center">
-          <Image
-            source={images.FeaturingIcono}
-            className="z-0 w-[130px] h-[90px]"
-          />
+          <Image source={images.FeatLogo} className="z-0 w-[180px] h-[100px]" />
         </View>
         <View className="flex flex-col items-center">
           <Text className="text-lg font-JakartaSemiBold text-primary-500">
