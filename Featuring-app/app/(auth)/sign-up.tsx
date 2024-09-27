@@ -197,7 +197,7 @@ const SignUp = () => {
               title="Ir al Inicio"
               onPress={() => {
                 setShowSuccessModal(false);
-                router.push("/(root)/(tabs)/preguntas");
+                router.push("/(auth)/preguntas")
               }}
             />
           </View>

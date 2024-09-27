@@ -18,7 +18,6 @@ export async function POST(request: Request) {
         {
           username: username,
           correo_electronico: email,
-          clerk_id: clerkId,
         },
       ]);
 
