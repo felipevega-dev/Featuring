@@ -26,7 +26,7 @@ const SignIn = () => {
     setIsLoading(true);
     try {
       const signInAttempt = await signIn.create({
-        identifier: form.email,
+        identifier: form.email.trim(),
         password: form.password,
       });
 
@@ -58,13 +58,15 @@ const SignIn = () => {
           </Text>
         </View>
         <View className="p-5">
-          <InputField
-            label="Email"
-            placeholder="Ingresa tu correo"
-            icon={icons.email}
-            value={form.email}
-            onChangeText={(value) => setForm({ ...form, email: value })}
-          />
+        <InputField
+          label="Email"
+          placeholder="Ingresa tu correo"
+          icon={icons.email}
+          value={form.email}
+          onChangeText={(value) => setForm({ ...form, email: value.trim() })}
+          keyboardType="email-address"
+          autoCapitalize="none"
+        />
           <InputField
             label="Contraseña"
             placeholder="Ingresa tu contraseña"

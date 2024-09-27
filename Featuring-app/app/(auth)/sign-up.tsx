@@ -1,6 +1,6 @@
-import { ScrollView, View, Text, Image, Alert } from "react-native";
+import { ScrollView, View, TouchableOpacity, Text, Image, Alert } from "react-native";
 import { icons, images } from "@/constants";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import InputField from "@/components/InputField";
 import CustomButton from "@/components/CustomButton";
 import { Link, router } from "expo-router";
@@ -9,14 +9,43 @@ import { useSignUp } from "@clerk/clerk-expo";
 import { ReactNativeModal } from "react-native-modal";
 import { supabase } from "@/lib/supabase";
 
+const USERNAME_MIN_LENGTH = 4;
+const USERNAME_MAX_LENGTH = 10;
+const PASSWORD_MIN_LENGTH = 8;
+const PASSWORD_MAX_LENGTH = 14;
+
 const SignUp = () => {
   const { isLoaded, signUp, setActive } = useSignUp();
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  const [form, setForm] = useState({
-    username: "",
-    email: "",
-    password: "",
+  const [form, setForm] = useState<{
+    username: string;
+    email: string;
+    password: string;
+    confirmPassword: string;
+  }>({
+    username: '',
+    email: '',
+    password: '',
+    confirmPassword: '',
+  });
+
+  const [errors, setErrors] = useState<{
+    username: string;
+    password: string;
+  }>({
+    username: '',
+    password: '',
+  });
+
+  const [touched, setTouched] = useState<{
+    username: boolean;
+    password: boolean;
+  }>({
+    username: false,
+    password: false,
   });
 
   const [verification, setVerification] = useState({
@@ -25,8 +54,42 @@ const SignUp = () => {
     code: "",
   });
 
+  useEffect(() => {
+    if (touched.username) validateUsername(form.username);
+    if (touched.password) validatePassword(form.password);
+  }, [form.username, form.password, touched]);
+
+  const validateUsername = (username: string) => {
+    if (username.length < USERNAME_MIN_LENGTH || username.length > USERNAME_MAX_LENGTH) {
+      setErrors(prev => ({...prev, username: `El usuario debe tener entre ${USERNAME_MIN_LENGTH} y ${USERNAME_MAX_LENGTH} caracteres.`}));
+    } else {
+      setErrors(prev => ({...prev, username: ''}));
+    }
+  };
+
+  const validatePassword = (password: string) => {
+    if (password.length < PASSWORD_MIN_LENGTH || password.length > PASSWORD_MAX_LENGTH) {
+      setErrors(prev => ({...prev, password: `La contraseña debe tener entre ${PASSWORD_MIN_LENGTH} y ${PASSWORD_MAX_LENGTH} caracteres.`}));
+    } else {
+      setErrors(prev => ({...prev, password: ''}));
+    }
+  };
+
   const onSignUpPress = async () => {
     if (!isLoaded) {
+      return;
+    }
+
+    setTouched({ username: true, password: true });
+
+    if (errors.username || errors.password) {
+      Alert.alert("Error", "Por favor, corrige los errores antes de continuar.");
+      return;
+    }
+
+    // Check if passwords match
+    if (form.password !== form.confirmPassword) {
+      Alert.alert("Error", "Las contraseñas no coinciden. Por favor, verifica e intenta nuevamente.");
       return;
     }
 
@@ -99,28 +162,69 @@ const SignUp = () => {
           </Text>
         </View>
         <View className="p-3">
-          <InputField
+        <InputField
             label="Usuario"
-            placeholder="Ingresa tu usuario"
+            placeholder={`Ingresa tu usuario`}
             icon={icons.person}
             value={form.username}
-            onChangeText={(value) => setForm({ ...form, username: value })}
+            onChangeText={(value) => {
+              setForm({ ...form, username: value });
+              if (!touched.username) setTouched({ ...touched, username: true });
+            }}
           />
+          {touched.username && errors.username ? <Text className="text-red-500 text-sm">{errors.username}</Text> : null}
           <InputField
             label="Email"
             placeholder="Ingresa tu correo"
             icon={icons.email}
             value={form.email}
-            onChangeText={(value) => setForm({ ...form, email: value })}
+            onChangeText={(value) => setForm({ ...form, email: value.trim() })}
+            keyboardType="email-address"
+            autoCapitalize="none"
           />
-          <InputField
-            label="Contraseña"
-            placeholder="Ingresa tu contraseña"
-            icon={icons.lock}
-            secureTextEntry={true}
-            value={form.password}
-            onChangeText={(value) => setForm({ ...form, password: value })}
-          />
+          <View className="relative">
+            <InputField
+              label="Contraseña"
+              placeholder={`Ingresa tu contraseña`}
+              icon={icons.lock}
+              secureTextEntry={!showPassword}
+              value={form.password}
+              onChangeText={(value) => {
+                setForm({ ...form, password: value });
+                if (!touched.password) setTouched({ ...touched, password: true });
+              }}
+            />
+            <TouchableOpacity
+              className="absolute right-3 top-1/2"
+              onPress={() => setShowPassword(!showPassword)}
+            >
+              <Image 
+                source={showPassword ? icons.hidePassword : icons.showPassword} 
+                className="w-6 h-6"
+              />
+            </TouchableOpacity>
+          </View>
+          {touched.password && errors.password ? <Text className="text-red-500 text-sm">{errors.password}</Text> : null}
+          
+          <View className="relative">
+            <InputField
+              label="Confirmar Contraseña"
+              placeholder="Confirma tu contraseña"
+              icon={icons.lock}
+              secureTextEntry={!showConfirmPassword}
+              value={form.confirmPassword}
+              onChangeText={(value) => setForm({ ...form, confirmPassword: value })}
+            />
+            <TouchableOpacity
+              className="absolute right-3 top-1/2"
+              onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+            >
+              <Image 
+                source={showConfirmPassword ? icons.hidePassword : icons.showPassword} 
+                className="w-6 h-6"
+              />
+            </TouchableOpacity>
+          </View>
           <CustomButton
             title="Registrarse"
             onPress={onSignUpPress}
@@ -177,7 +281,6 @@ const SignUp = () => {
             />
           </View>
         </ReactNativeModal>
-
         <ReactNativeModal isVisible={showSuccessModal}>
           <View className="bg-white px-7 py-9 rounded-2xl min-h-[300px]">
             <Image

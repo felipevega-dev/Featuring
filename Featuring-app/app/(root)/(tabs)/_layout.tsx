@@ -44,8 +44,7 @@ const TopBar = () => {
       <View className="bg-[#F6F8FA] h-15 flex-row justify-between items-center px-5 mt-2 border-b-2 border-b-cyan-200">
         {/* Icono de Notificaciones */}
         <TouchableOpacity
-          onPress={() =>         router.push("/(auth)/preguntas")
-          }
+          onPress={() => router.push("/(tabs)/notificaciones")}
         >
           <Image
             source={icons.bell}
@@ -168,13 +167,6 @@ const Layout = () => {
         />
         <Tabs.Screen
           name="chat"
-          options={{
-            tabBarButton: () => null, // Esto excluye la pantalla de la barra inferior
-            headerShown: false,
-          }}
-        />
-        <Tabs.Screen
-          name="preguntas"
           options={{
             tabBarButton: () => null, // Esto excluye la pantalla de la barra inferior
             headerShown: false,
