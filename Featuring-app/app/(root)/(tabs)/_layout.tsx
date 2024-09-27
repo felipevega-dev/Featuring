@@ -44,7 +44,8 @@ const TopBar = () => {
       <View className="bg-[#F6F8FA] h-15 flex-row justify-between items-center px-5 mt-2 border-b-2 border-b-cyan-200">
         {/* Icono de Notificaciones */}
         <TouchableOpacity
-          onPress={() => router.push("/(root)/(tabs)/notificaciones")}
+          onPress={() =>         router.push("/(auth)/preguntas")
+          }
         >
           <Image
             source={icons.bell}

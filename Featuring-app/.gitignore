@@ -10,11 +10,6 @@ npm-debug.*
 *.orig.*
 web-build/
 
-/.env
-.env/*
-.env.local/*
-
-lib/supabase.ts
 
 # macOS
 .DS_Store

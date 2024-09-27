@@ -17,7 +17,7 @@ const OAuth = () => {
 
       if (result.code === "session_exists") {
         Alert.alert("Success", "Session exists. Redirecting to home screen.");
-        router.replace("/(root)/(tabs)/home");
+        router.push("/(auth)/preguntas")
       } else {
         Alert.alert(result.success ? "Success" : "Error", result.message);
       }
@@ -32,7 +32,7 @@ const OAuth = () => {
     <View>
       <View className="flex flex-row justify-center items-center mt-1 gap-x-3">
         <View className="flex-1 h-[1px] bg-general-100" />
-        <Text className="text-md">Or</Text>
+        <Text className="text-md">O</Text>
         <View className="flex-1 h-[1px] bg-general-100" />
       </View>
 
