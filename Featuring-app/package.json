@@ -5,10 +5,11 @@
   "scripts": {
     "start": "expo start",
     "reset-project": "node ./scripts/reset-project.js",
-    "android": "expo run:android",
-    "ios": "expo run:ios",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
     "web": "expo start --web",
     "test": "jest --watchAll",
+    "gen:types": "npx supabase gen types typescript --project-id ieptfdhimqlwkpazklvp > .\\types\\db_types.ts",
     "lint": "expo lint"
   },
   "jest": {
@@ -18,8 +19,8 @@
     "@clerk/clerk-expo": "^2.2.14",
     "@expo/metro-runtime": "~3.2.3",
     "@expo/vector-icons": "^14.0.2",
-    "@neondatabase/serverless": "^0.9.5",
     "@react-navigation/native": "^6.0.2",
+    "@supabase/supabase-js": "^2.45.4",
     "expo": "~51.0.28",
     "expo-constants": "~16.0.2",
     "expo-font": "~12.0.9",
@@ -31,7 +32,6 @@
     "expo-status-bar": "~1.12.1",
     "expo-system-ui": "~3.0.7",
     "expo-web-browser": "~13.0.3",
-    "firebase": "^10.13.2",
     "nativewind": "^2.0.11",
     "react": "18.2.0",
     "react-dom": "18.2.0",
@@ -43,12 +43,9 @@
     "react-native-screens": "3.31.1",
     "react-native-svg": "^15.7.1",
     "react-native-swiper": "^1.6.0",
+    "react-native-url-polyfill": "^2.0.0",
     "react-native-web": "~0.19.10",
-    "expo-auth-session": "~5.5.2",
-    "expo-crypto": "~13.0.2",
-    "expo-application": "~5.9.1",
-    "@react-native-async-storage/async-storage": "1.23.1",
-    "expo-dev-client": "~4.0.27"
+    "expo-image-picker": "~15.0.7"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",
@@ -63,6 +60,7 @@
     "jest-expo": "~51.0.3",
     "prettier": "^3.3.3",
     "react-test-renderer": "18.2.0",
+    "supabase": "^1.200.3",
     "tailwindcss": "^3.3.2",
     "typescript": "~5.3.3"
   },

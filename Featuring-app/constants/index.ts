@@ -1,3 +1,4 @@
+//ICONOS
 import arrowDown from "@/assets/icons/arrow-down.png";
 import arrowUp from "@/assets/icons/arrow-up.png";
 import backArrow from "@/assets/icons/back-arrow.png";
@@ -27,6 +28,10 @@ import selectedMarker from "@/assets/icons/selected-marker.png";
 import star from "@/assets/icons/star.png";
 import target from "@/assets/icons/target.png";
 import to from "@/assets/icons/to.png";
+import globe from "@/assets/icons/globe.png";
+import community from "@/assets/icons/community.png";
+import bell from "@/assets/icons/bell.png";
+//IMAGENES
 import check from "@/assets/images/check.png";
 import getStarted from "@/assets/images/get-started.png";
 import message from "@/assets/images/message.png";
@@ -34,21 +39,27 @@ import noResult from "@/assets/images/no-result.png";
 import onboarding1 from "@/assets/images/onboarding1.png";
 import onboarding2 from "@/assets/images/onboarding2.png";
 import onboarding3 from "@/assets/images/onboarding3.png";
+import onboarding5 from "@/assets/images/onboarding5.png";
+import signUpCar from "@/assets/images/signup-car.png";
 import FeaturingIcono from "@/assets/images/FeaturingIcono.png";
-import Featuring120 from "@/assets/images/Featuring120.png";
-import Featuring320 from "@/assets/images/Featuring320.png";
+import FeatLogo from "@/assets/images/FeatLogo.png";
+import FeatSplash from "@/assets/images/FeatSplash.png";
+import FeatHeader from "@/assets/images/FeatHeader.png";
 
 export const images = {
   onboarding1,
   onboarding2,
   onboarding3,
+  onboarding5,
   getStarted,
+  signUpCar,
   check,
   noResult,
   message,
   FeaturingIcono,
-  Featuring120,
-  Featuring320,
+  FeatLogo,
+  FeatSplash,
+  FeatHeader,
 };
 
 export const icons = {
@@ -66,21 +77,21 @@ export const icons = {
   list,
   lock,
   map,
-  marker,
   out,
   person,
   pin,
   point,
   profile,
   search,
-  selectedMarker,
   star,
-  target,
   to,
   heart,
   play,
   views,
   facebook,
+  globe,
+  community,
+  bell,
 };
 
 export const onboarding = [

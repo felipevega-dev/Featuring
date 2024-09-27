@@ -1,3 +1,4 @@
+import { useState, useCallback } from "react";
 import { View, Text, Image, Alert } from "react-native";
 import CustomButton from "@/components/CustomButton";
 import { icons } from "@/constants";
@@ -7,17 +8,26 @@ import { router } from "expo-router";
 
 const OAuth = () => {
   const { startOAuthFlow } = useOAuth({ strategy: "oauth_google" });
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleGoogleSignIn = async () => {
-    const result = await googleOAuth(startOAuthFlow);
+  const handleGoogleSignIn = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const result = await googleOAuth(startOAuthFlow);
 
-    if (result.code === "session_exists") {
-      Alert.alert("Success", "Session exists. Redirecting to home screen.");
-      router.replace("/(root)/(tabs)/home");
+      if (result.code === "session_exists") {
+        Alert.alert("Success", "Session exists. Redirecting to home screen.");
+        router.replace("/(root)/(tabs)/home");
+      } else {
+        Alert.alert(result.success ? "Success" : "Error", result.message);
+      }
+    } catch (error) {
+      Alert.alert("Error", "An error occurred during the sign-in process.");
+    } finally {
+      setIsLoading(false);
     }
+  }, [startOAuthFlow]);
 
-    Alert.alert(result.success ? "Success" : "Error", result.message);
-  };
   return (
     <View>
       <View className="flex flex-row justify-center items-center mt-1 gap-x-3">
@@ -39,8 +49,10 @@ const OAuth = () => {
         bgVariant="outline"
         textVariant="primary"
         onPress={handleGoogleSignIn}
+        disabled={isLoading} // Desactiva el botón si está cargando
       />
     </View>
   );
 };
+
 export default OAuth;

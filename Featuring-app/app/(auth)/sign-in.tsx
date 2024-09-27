@@ -1,4 +1,4 @@
-import { ScrollView, View, Text, Image } from "react-native";
+import { ScrollView, View, Text, Image, Alert } from "react-native";
 import { icons, images } from "@/constants";
 import { useCallback, useState } from "react";
 import InputField from "@/components/InputField";
@@ -16,11 +16,14 @@ const SignIn = () => {
     password: "",
   });
 
+  const [isLoading, setIsLoading] = useState(false);
+
   const onSignInPress = useCallback(async () => {
     if (!isLoaded) {
       return;
     }
 
+    setIsLoading(true);
     try {
       const signInAttempt = await signIn.create({
         identifier: form.email,
@@ -31,12 +34,15 @@ const SignIn = () => {
         await setActive({ session: signInAttempt.createdSessionId });
         router.replace("/");
       } else {
-        // See https://clerk.com/docs/custom-flows/error-handling
-        // for more info on error handling
-        console.error(JSON.stringify(signInAttempt, null, 2));
+        Alert.alert(
+          "Error",
+          "Inicio de sesión fallido, revisa tus credenciales",
+        );
       }
-    } catch (err: any) {
-      console.error(JSON.stringify(err, null, 2));
+    } catch (err) {
+      Alert.alert("Error", "Ocurrió un error durante el logeo");
+    } finally {
+      setIsLoading(false);
     }
   }, [isLoaded, form.email, form.password]);
 
@@ -44,10 +50,7 @@ const SignIn = () => {
     <ScrollView className="flex-1 bg-white">
       <View className="flex-1 bg-white">
         <View className="relative w-full h-[140px] mt-20 flex items-center justify-center">
-          <Image
-              source={images.Featuring320}
-              className="z-0 w-[180px] h-[100px]"
-          />
+          <Image source={images.FeatLogo} className="z-0 w-[180px] h-[100px]" />
         </View>
         <View className="flex flex-col items-center">
           <Text className="text-lg font-JakartaSemiBold text-primary-500">
@@ -74,6 +77,7 @@ const SignIn = () => {
             title="Iniciar Sesión"
             onPress={onSignInPress}
             className="mt-6"
+            disabled={isLoading} // Desactiva el botón si está cargando
           />
           {/* OAuth */}
           <OAuth />
@@ -84,7 +88,7 @@ const SignIn = () => {
             <View className="flex flex-col items-center">
               <Text className="font-JakartaMedium">¿No tienes cuenta?</Text>
               <Text className="font-JakartaMedium text-primary-500">
-                Registrate
+                Regístrate
               </Text>
             </View>
           </Link>

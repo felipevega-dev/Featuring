@@ -1,3 +1,4 @@
+import "react-native-url-polyfill/auto";
 import { Redirect } from "expo-router";
 import { useAuth } from "@clerk/clerk-expo";
 

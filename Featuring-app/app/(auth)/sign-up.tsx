@@ -7,14 +7,14 @@ import { Link, router } from "expo-router";
 import OAuth from "@/components/OAuth";
 import { useSignUp } from "@clerk/clerk-expo";
 import { ReactNativeModal } from "react-native-modal";
-import { fetchAPI } from "@/lib/fetch";
+import { supabase } from "@/lib/supabase";
 
 const SignUp = () => {
   const { isLoaded, signUp, setActive } = useSignUp();
   const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   const [form, setForm] = useState({
-    name: "",
+    username: "",
     email: "",
     password: "",
   });
@@ -31,11 +31,14 @@ const SignUp = () => {
     }
 
     try {
+      // Crear usuario en Clerk
       await signUp.create({
+        username: form.username,
         emailAddress: form.email,
         password: form.password,
       });
 
+      // Preparar verificación de correo
       await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
 
       setVerification({
@@ -56,15 +59,16 @@ const SignUp = () => {
       });
 
       if (completeSignUp.status === "complete") {
-        await fetchAPI("/(api)/user", {
-          method: "POST",
-          body: JSON.stringify({
-            name: form.name,
-            email: form.email,
-            clerkId: completeSignUp.createdUserId,
-          }),
+        // Crear usuario en Supabase
+        const { data, error } = await supabase.from("usuario").insert({
+          username: form.username, // Cambiar a "name" según tu estructura
+          correo_electronico: form.email,
+          contrasena: form.password, // Asegúrate de usar un hash en producción
         });
 
+        if (error) throw error;
+
+        // Asignar sesión activa y redirigir
         await setActive({ session: completeSignUp.createdSessionId });
         setVerification({ ...verification, state: "success" });
       } else {
@@ -87,10 +91,7 @@ const SignUp = () => {
     <ScrollView className="flex-1 bg-white">
       <View className="flex-1 bg-white">
         <View className="relative w-full h-[140px] mt-20 flex items-center justify-center">
-          <Image
-            source={images.Featuring320}
-            className="z-0 w-[180px] h-[100px]"
-          />
+          <Image source={images.FeatLogo} className="z-0 w-[180px] h-[100px]" />
         </View>
         <View className="flex flex-col items-center">
           <Text className="text-lg font-JakartaSemiBold text-primary-500">
@@ -99,11 +100,11 @@ const SignUp = () => {
         </View>
         <View className="p-3">
           <InputField
-            label="Nombre"
-            placeholder="Ingresa tu nombre"
+            label="Usuario"
+            placeholder="Ingresa tu usuario"
             icon={icons.person}
-            value={form.name}
-            onChangeText={(value) => setForm({ ...form, name: value })}
+            value={form.username}
+            onChangeText={(value) => setForm({ ...form, username: value })}
           />
           <InputField
             label="Email"
@@ -125,7 +126,6 @@ const SignUp = () => {
             onPress={onSignUpPress}
             className="mt-6"
           />
-          {/* OAuth */}
           <OAuth />
           <View className="flex-1 mt-0.5 items-center justify-center">
             <Link href="/sign-in">
@@ -150,11 +150,11 @@ const SignUp = () => {
           <View className="bg-white px-7 py-9 rounded-2xl min-h-[300px]">
             <Text className="text-2xl font-Jakarta mb-2">Verificación</Text>
             <Text className="font-Jakarta mb-5">
-              Envíamos un codigo de verificación al correo: {form.email}
+              Envíamos un código de verificación al correo: {form.email}
             </Text>
 
             <InputField
-              label="Code"
+              label="Código"
               icon={icons.lock}
               placeholder="123456"
               value={verification.code}
@@ -174,7 +174,7 @@ const SignUp = () => {
               title="Verifica tu Correo"
               onPress={onPressVerify}
               className="mt-5 bg-success-400"
-            ></CustomButton>
+            />
           </View>
         </ReactNativeModal>
 
@@ -197,9 +197,9 @@ const SignUp = () => {
               title="Ir al Inicio"
               onPress={() => {
                 setShowSuccessModal(false);
-                router.push("/(root)/(tabs)/home");
+                router.push("/(root)/(tabs)/preguntas");
               }}
-            ></CustomButton>
+            />
           </View>
         </ReactNativeModal>
       </View>
