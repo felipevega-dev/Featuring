@@ -14,8 +14,6 @@ web-build/
 .env/*
 .env.local/*
 
-lib/supabase.ts
-
 # macOS
 .DS_Store
 
