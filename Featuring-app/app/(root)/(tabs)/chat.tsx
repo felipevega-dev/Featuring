@@ -14,13 +14,13 @@ type ChatScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Chat'>;
 
 const matches = [
   { id: 1, name: 'Martin', image: user1 },
-  { id: 2, name: 'Bob', image: user2 },
+  { id: 2, name: 'Bolt', image: user2 },
   { id: 3, name: 'Camilo', image: user3 },
 ];
 
 const chats = [
   { id: 1, name: 'Martin', lastMessage: 'Hola, me gustaría colaborar contigo', image: user1 },
-  { id: 2, name: 'Bob', lastMessage: 'Me gusta tu estilo', image: user2 },
+  { id: 2, name: 'Bolt', lastMessage: 'Me gusta tu estilo', image: user2 },
 ];
 
 const Chat = () => {
