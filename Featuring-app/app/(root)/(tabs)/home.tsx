@@ -7,6 +7,10 @@ const Inicio = () => {
     <SafeAreaView className="bg-white flex-1">
       <View className="flex flex-row justify-center">
         <Text>AQUI DEBERIAN APARECER ANUNCIOS O YO QUE SÉ</Text>
+        <Text>AQUI DEBERIAN APARECER ANUNCIOS O YO QUE SÉ</Text>
+      </View>
+      <View>
+        <Text>AQUI DEBERIAN APARECER ANUNCIOS O YO QUE SÉ</Text>
       </View>
     </SafeAreaView>
   );

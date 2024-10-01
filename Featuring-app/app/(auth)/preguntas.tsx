@@ -111,7 +111,7 @@ export default function Preguntas() {
   const handleNext = useCallback(() => {
     if (isLastSlide) {
       console.log({ nombre, genero, fechaNacimiento, generosMusicalesSeleccionados, descripcion, redesSociales, profileImage, location });
-      router.replace('/(auth)/sign-up');
+      router.replace('/');
     } else {
       switch (activeIndex) {
         case 0:
