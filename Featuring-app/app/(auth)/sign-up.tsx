@@ -124,30 +124,40 @@ const SignUp = () => {
       });
 
       if (completeSignUp.status === "complete") {
-        // Crear usuario en Supabase
-        const { data, error } = await supabase.from("usuario").insert({
-          username: form.username, 
-          clerk_id: completeSignUp.createdUserId,
-          correo_electronico: form.email,
-          contrasena: form.password, 
-        });
-
-        if (error) throw error;
-
-        // Asignar sesión activa y redirigir
+        // Asignar sesión activa primero
         await setActive({ session: completeSignUp.createdSessionId });
+
+        // Crear usuario en Supabase
+        const { data: newUser, error: userError } = await supabase
+          .from("usuario")
+          .insert({
+            username: form.username,
+            email: form.email,
+            contrasena: form.password,
+            clerk_id: completeSignUp.createdUserId
+          })
+          .select()
+          .single();
+
+        if (userError) {
+          console.error("Error al crear usuario en Supabase:", userError);
+          throw userError;
+        }
+
         setVerification({ ...verification, state: "success" });
+        setShowSuccessModal(true);
       } else {
         setVerification({
           ...verification,
-          error: "Verification failed",
+          error: "La verificación falló",
           state: "failed",
         });
       }
     } catch (err: any) {
+      console.error("Error durante la verificación o creación de usuario:", err);
       setVerification({
         ...verification,
-        error: err.errors[0].longMessage,
+        error: err.message || "Ocurrió un error durante el proceso de registro",
         state: "failed",
       });
     }
@@ -302,7 +312,7 @@ const SignUp = () => {
               title="Ir a las preguntas"
               onPress={() => {
                 setShowSuccessModal(false);
-                router.push("/(auth)/preguntas")
+                router.replace("/(auth)/preguntas");
               }}
             />
           </View>
