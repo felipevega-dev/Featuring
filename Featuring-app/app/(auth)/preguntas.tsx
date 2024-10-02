@@ -1,5 +1,5 @@
 import React, { useRef, useState, useCallback, useEffect } from 'react';
-import { SafeAreaView, Text, TextInput, View, TouchableOpacity, FlatList, KeyboardAvoidingView, Platform, Dimensions, ScrollView, Keyboard, Alert, Image } from 'react-native';
+import { Modal, SafeAreaView, Text, TextInput, View, TouchableOpacity, FlatList, KeyboardAvoidingView, Platform, Dimensions, ScrollView, Keyboard, Alert, Image } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import Swiper from 'react-native-swiper';
 import { useRouter } from 'expo-router';
@@ -39,6 +39,12 @@ export default function Preguntas() {
   //Variables para el dropdown de la fecha de nacimiento
 
 
+  const [modalVisible, setModalVisible] = useState(false);  // Modal para mostrar los generos o tipos de musicos
+  const [modalContent, setModalContent] = useState<'generos' | 'tipos'>('generos'); // Modal para mostrar los generos o tipos de musicos
+
+  const initialItemsCount = 8; // Número de items a mostrar inicialmente
+
+
   /* Variables */
   const { user } = useUser();
   const router = useRouter();
@@ -58,6 +64,7 @@ export default function Preguntas() {
   const generosMusicales = ['Rock', 'Pop', 'Hip-hop', 'Jazz', 'Clásica', 'Reggaetón', 'Salsa', 'Blues', 'Country', 'Electrónica',  'K-pop', 'J-pop', 'Disco', 'Techno', 'House', 'Dubstep', 'Drum and Bass', 
     'Gospel', 'Grunge', 'New Wave', 'Alternativo', 'Experimental', ];
   const tiposMusico = ['Cantante', 'Músico de Instrumento', 'Compositor', 'Productor', 'DJ', 'Guitarrista', 'Baterista', 'Bajista', 'Tecladista', 'Percusionista','Indie','Rapero','Bailarin','Liricista', 'Beatmaker','Corista'];
+  
   const isLastSlide = activeIndex === 7;
   const isFirstSlide = activeIndex === 0;
   const { userId: clerkUserId } = useAuth();
@@ -92,37 +99,57 @@ export default function Preguntas() {
   }, []);
 
   //Funcion para renderizar los generos musicales
-  const renderGenerosMusicales = useCallback(() => (
-    <FlatList
-      data={generosMusicales}
-      numColumns={2}
-      keyExtractor={(item) => item}
-      renderItem={({ item }) => (
+  const renderGenerosMusicales = useCallback((inModal: boolean) => (
+    <View className="flex-row flex-wrap justify-center">
+      {(inModal ? generosMusicales : generosMusicales.slice(0, initialItemsCount)).map((genero) => (
         <TouchableOpacity
-          className={`p-2 m-2 border ${generosMusicalesSeleccionados.includes(item) ? 'bg-purple-500' : 'bg-gray-200'}`}
-          onPress={() => toggleGeneroMusical(item)}
+          key={genero}
+          onPress={() => toggleGeneroMusical(genero)}
+          className={`m-2 p-3 rounded-full ${
+            generosMusicalesSeleccionados.includes(genero)
+              ? 'bg-blue-500'
+              : 'bg-gray-200'
+          }`}
         >
-          <Text className="text-black">{item}</Text>
+          <Text className={`text-center ${
+            generosMusicalesSeleccionados.includes(genero) ? 'text-white' : 'text-gray-800'
+          }`}>
+            {genero}
+          </Text>
         </TouchableOpacity>
-      )}
-    />
-  ), [generosMusicalesSeleccionados, toggleGeneroMusical]);
+      ))}
+    </View>
+  ), [generosMusicalesSeleccionados]);
+
 
   //Funcion para renderizar los tipos de musicos
-  const renderTiposMusico = useCallback(() => (
-    <FlatList
-      data={tiposMusico}
-      keyExtractor={(item) => item}
-      renderItem={({ item }) => (
+  const renderTiposMusico = useCallback((inModal: boolean) => (
+    <View className="flex-row flex-wrap justify-center">
+      {(inModal ? tiposMusico : tiposMusico.slice(0, initialItemsCount)).map((tipo) => (
         <TouchableOpacity
-          className={`p-2 m-2 border ${tipoMusico === item ? 'bg-purple-500' : 'bg-gray-200'}`}
-          onPress={() => setTipoMusico(item)}
+          key={tipo}
+          onPress={() => setTipoMusico(tipo)}
+          className={`m-2 p-3 rounded-full ${
+            tipoMusico === tipo
+              ? 'bg-blue-500'
+              : 'bg-gray-200'
+          }`}
         >
-          <Text className="text-black">{item}</Text>
+          <Text className={`text-center ${
+            tipoMusico === tipo ? 'text-white' : 'text-gray-800'
+          }`}>
+            {tipo}
+          </Text>
         </TouchableOpacity>
-      )}
-    />
+      ))}
+    </View>
   ), [tipoMusico]);
+
+//Funcion para abrir el modal
+  const openModal = (content: 'generos' | 'tipos') => {
+    setModalContent(content);
+    setModalVisible(true);
+  };
 
 
   //Funcion para seleccionar la foto de perfil
@@ -467,61 +494,32 @@ export default function Preguntas() {
               {/* Slide 3 - Fecha de Nacimiento */}
 
               {/* Slide 4 - Tipo de Músico */}
-            <View className="flex-1 justify-start items-center mt-8">
-              <Text className="text-lg text-blue-500 font-bold mb-4">Selecciona tu tipo de músico</Text>
-              <ScrollView className="w-full px-4">
-                <View className="flex-row flex-wrap justify-center">
-                  {tiposMusico.map((tipo) => (
-                    <TouchableOpacity
-                      key={tipo}
-                      onPress={() => setTipoMusico(tipo)}
-                      className={`m-2 p-3 rounded-full ${
-                        tipoMusico === tipo
-                          ? 'bg-blue-500'
-                          : 'bg-gray-200'
-                      }`}
-                    >
-                      <Text
-                        className={`text-center ${
-                          tipoMusico === tipo ? 'text-white' : 'text-gray-800'
-                        }`}
-                      >
-                        {tipo}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </ScrollView>
-              
-            </View>
-            {/* Slide 5 - Géneros musicales */}
-            <View className="flex-1 justify-start items-center mt-8">
-              <Text className="text-lg text-blue-500 font-bold mb-4">Selecciona tus 5 géneros musicales favoritos</Text>
-              <ScrollView className="w-full px-4">
-                <View className="flex-row flex-wrap justify-center">
-                  {generosMusicales.map((genero) => (
-                    <TouchableOpacity
-                      key={genero}
-                      onPress={() => toggleGeneroMusical(genero)}
-                      className={`m-2 p-3 rounded-full ${
-                        generosMusicalesSeleccionados.includes(genero)
-                          ? 'bg-blue-500'
-                          : 'bg-gray-200'
-                      }`}
-                    >
-                      <Text
-                        className={`text-center  ${
-                          generosMusicalesSeleccionados.includes(genero) ? 'text-white' : 'text-gray-800'
-                        }`}
-                      >
-                        {genero}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </ScrollView>
-            </View>
+      <View className="flex-1 justify-start items-center mt-8">
+        <Text className="text-lg text-blue-500 font-bold mb-4">Selecciona tu tipo de músico</Text>
+        {renderTiposMusico(false)}
+        {tiposMusico.length > initialItemsCount && (
+          <TouchableOpacity
+            onPress={() => openModal('tipos')}
+            className="mt-4 p-2 bg-purple-500 rounded-full"
+          >
+            <Text className="text-white text-center">Ver más</Text>
+          </TouchableOpacity>
+        )}
+      </View>
 
+      {/* Slide 5 - Géneros musicales */}
+      <View className="flex-1 justify-start items-center mt-8">
+        <Text className="text-lg text-blue-500 font-bold mb-4">Selecciona tus 5 géneros musicales favoritos</Text>
+        {renderGenerosMusicales(false)}
+        {generosMusicales.length > initialItemsCount && (
+          <TouchableOpacity
+            onPress={() => openModal('generos')}
+            className="mt-4 p-2 bg-purple-500 rounded-full"
+          >
+            <Text className="text-white text-center">Ver más</Text>
+          </TouchableOpacity>
+        )}
+      </View>
               {/* Slide 6 - Foto de perfil */}
               <View className="flex-1 justify-center items-center mb-10 pb-10">
                 <Text className="text-lg text-blue-500 font-bold">Selecciona tu foto de perfil</Text>
@@ -585,7 +583,30 @@ export default function Preguntas() {
             </Swiper>
           </View>
         </ScrollView>
-
+        
+        <Modal
+          animationType="slide"
+          transparent={true}
+          visible={modalVisible}
+          onRequestClose={() => setModalVisible(false)}
+        >
+          <View className="flex-1 justify-center items-center bg-black bg-opacity-50">
+            <View className="bg-white p-5 rounded-lg w-5/6 max-h-5/6">
+              <Text className="text-lg text-blue-500 font-bold mb-4">
+                {modalContent === 'generos' ? 'Todos los géneros musicales' : 'Todos los tipos de músico'}
+              </Text>
+              <ScrollView>
+                {modalContent === 'generos' ? renderGenerosMusicales(true) : renderTiposMusico(true)}
+              </ScrollView>
+              <TouchableOpacity
+                onPress={() => setModalVisible(false)}
+                className="mt-4 p-2 bg-purple-500 rounded-full"
+              >
+                <Text className="text-white text-center">Cerrar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
         {/* Botones para navegar */}
         {!keyboardVisible && (
           <View className="w-full absolute bottom-10 pt-10 flex flex-row justify-between items-center px-4">
