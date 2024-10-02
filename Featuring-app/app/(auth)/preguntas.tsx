@@ -55,8 +55,9 @@ export default function Preguntas() {
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
-  const generosMusicales = ['Rock', 'Pop', 'Hip-hop', 'Jazz', 'Clásica', 'Reggaetón', 'Salsa', 'Blues', 'Country', 'Electrónica'];
-  const tiposMusico = ['Cantante', 'Músico de Instrumento', 'Compositor', 'Productor'];
+  const generosMusicales = ['Rock', 'Pop', 'Hip-hop', 'Jazz', 'Clásica', 'Reggaetón', 'Salsa', 'Blues', 'Country', 'Electrónica',  'K-pop', 'J-pop', 'Disco', 'Techno', 'House', 'Dubstep', 'Drum and Bass', 
+    'Gospel', 'Grunge', 'New Wave', 'Alternativo', 'Experimental', ];
+  const tiposMusico = ['Cantante', 'Músico de Instrumento', 'Compositor', 'Productor', 'DJ', 'Guitarrista', 'Baterista', 'Bajista', 'Tecladista', 'Percusionista','Indie','Rapero','Bailarin','Liricista', 'Beatmaker','Corista'];
   const isLastSlide = activeIndex === 7;
   const isFirstSlide = activeIndex === 0;
   const { userId: clerkUserId } = useAuth();
@@ -232,6 +233,7 @@ export default function Preguntas() {
   const SaveProfile = async () => {
     try {
       console.log("Iniciando SaveProfile");
+      const edad = calcularEdad(dia, mes, anio);
       const fechaNacimiento = getFechaNacimiento();
       if (!user || !user.id) {
         console.log("Error: No se pudo obtener la información del usuario de Clerk");
@@ -278,7 +280,7 @@ export default function Preguntas() {
         redes_sociales: redesSociales,
         foto_perfil: profileImage,
         ubicacion: location ? `${location.coords.latitude},${location.coords.longitude}` : null,
-        edad: calcularEdad(fechaNacimiento),
+        edad: edad,
        
       };
 
@@ -412,8 +414,8 @@ export default function Preguntas() {
         {/* Slide 2 - Género */}
 
               {/* Slide 3 - Fecha de Nacimiento */}
-          <View className="flex-1 bg-pink-100 p-4">
-              <Text className="text-lg text-pink-700 font-bold pb-2 mt-5">Fecha de Nacimiento</Text>
+          <View className="flex-1 justify-center items-center bg-pink-100 p-4">
+              <Text className="text-lg text-pink-700 font-bold pb-2 ">Fecha de Nacimiento</Text>
               <View className="flex-row justify-between">
                 <View className="w-1/4">
                   <DropDownPicker
@@ -454,7 +456,13 @@ export default function Preguntas() {
                     textStyle={{color: 'pink-800'}}
                   />
                 </View> 
+                
               </View>
+              <Image
+                source={images.IconoMusical}
+                className="w-5/5 h-24 mb-10 mt-10"
+                resizeMode="contain"
+              />
             </View>
               {/* Slide 3 - Fecha de Nacimiento */}
 
@@ -486,20 +494,36 @@ export default function Preguntas() {
               </ScrollView>
               
             </View>
-
-              {/* Slide 5 - Géneros musicales */}
-              <View className="flex-1 justify-center items-center mt-8">
-                <Text className="text-lg text-blue-500 font-bold">Selecciona tus 5 géneros musicales favoritos</Text>
-                <View className="mt-4 flex-1">{renderGenerosMusicales()}</View>
-                <Image
-                  source={images.IconoMusical}
-                  className="w-4/5 h-24 mb-10 mt-10"
-                  resizeMode="contain"
-                />
-              </View>
+            {/* Slide 5 - Géneros musicales */}
+            <View className="flex-1 justify-start items-center mt-8">
+              <Text className="text-lg text-blue-500 font-bold mb-4">Selecciona tus 5 géneros musicales favoritos</Text>
+              <ScrollView className="w-full px-4">
+                <View className="flex-row flex-wrap justify-center">
+                  {generosMusicales.map((genero) => (
+                    <TouchableOpacity
+                      key={genero}
+                      onPress={() => toggleGeneroMusical(genero)}
+                      className={`m-2 p-3 rounded-full ${
+                        generosMusicalesSeleccionados.includes(genero)
+                          ? 'bg-blue-500'
+                          : 'bg-gray-200'
+                      }`}
+                    >
+                      <Text
+                        className={`text-center  ${
+                          generosMusicalesSeleccionados.includes(genero) ? 'text-white' : 'text-gray-800'
+                        }`}
+                      >
+                        {genero}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </ScrollView>
+            </View>
 
               {/* Slide 6 - Foto de perfil */}
-              <View className="flex-1 justify-center items-center mt-8">
+              <View className="flex-1 justify-center items-center mb-10 pb-10">
                 <Text className="text-lg text-blue-500 font-bold">Selecciona tu foto de perfil</Text>
                 <TouchableOpacity onPress={pickImage} className="mt-4 rounded-lg border-2 border-blue-500 p-3">
                   {profileImage ? (
@@ -510,38 +534,38 @@ export default function Preguntas() {
                     </View>
                   )}
                 </TouchableOpacity>
-                <Image
-                  source={images.IconoMusical}
-                  className="w-4/5 h-24 mb-10 mt-10"
-                  resizeMode="contain"
-                />
+               
               </View>
 
-              {/* Slide 7 - Descripción y Redes Sociales */}
-              <View className="flex-1 justify-center items-center mt-8">
-                <Text className="text-lg text-blue-500 font-bold">Descripción y Redes Sociales</Text>
+             {/* Slide 7 - Descripción y Redes Sociales */}
+            <View className="flex-1 justify-center items-center mb-10 pb-10">
+              <Text className="text-lg text-blue-500 font-bold ">Descripción y Redes Sociales</Text>
+              <View className="w-3/4">
                 <TextInput
-                  className="border p-3 w-3/4 mt-4"
-                  placeholder="Descripción"
+                  className="border-2 rounded-lg border-blue-500 p-3 mt-4"
+                  placeholder="Describe tu perfil musical (máximo 300 caracteres)"
                   value={descripcion}
-                  onChangeText={setDescripcion}
+                  onChangeText={(text) => setDescripcion(text.slice(0, 300))}
                   multiline
+                  numberOfLines={6}
+                  textAlignVertical="top"
+                  maxLength={300}
                 />
-                <TextInput
-                  className="border-2 rounded-lg border-blue-500 p-3 w-3/4 mt-4"
-                  placeholder="Redes Sociales (ej: Instagram, Twitter)"
-                  value={redesSociales}
-                  onChangeText={setRedesSociales}
-                />
-                <Image
-                  source={images.IconoMusical}
-                  className="w-4/5 h-24 mb-10 mt-10"
-                  resizeMode="contain"
-                />
+                <Text className="text-right text-gray-500 mt-1">
+                  {descripcion.length}/300
+                </Text>
               </View>
+              <TextInput
+                className="border-2 rounded-lg border-blue-500 p-3 w-3/4 mt-4"
+                placeholder="Redes Sociales (ej: Instagram, Twitter)"
+                value={redesSociales}
+                onChangeText={setRedesSociales}
+              />
+             
+            </View>
 
               {/* Slide 8 - Acceso a la Ubicación */}
-              <View className="flex-1 justify-center items-center mt-8">
+              <View className="flex-1 justify-center items-center mb-10 pb-10">
                 <Text className="text-lg text-blue-500 font-bold">¿Deseas acceder a tu ubicación?</Text>
                 <Text className="text-center text-blue-500 mt-4 px-4">
                   Al permitir el acceso a tu ubicación, podemos mejorar tu experiencia en la aplicación.
@@ -564,7 +588,7 @@ export default function Preguntas() {
 
         {/* Botones para navegar */}
         {!keyboardVisible && (
-          <View className="w-full absolute bottom-10 flex flex-row justify-between items-center px-4">
+          <View className="w-full absolute bottom-10 pt-10 flex flex-row justify-between items-center px-4">
             {!isFirstSlide && (
               <CustomButton
                 title="Atrás"

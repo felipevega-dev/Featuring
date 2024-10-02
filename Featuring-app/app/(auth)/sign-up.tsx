@@ -294,12 +294,12 @@ const SignUp = () => {
               Verificado
             </Text>
 
-            <Text className="text-base text-gray-400 font-Jakarta text-center mt-2">
+            <Text className="pb-3 text-base text-gray-400 font-Jakarta text-center mt-2">
               Has verificado exitosamente tu cuenta.
             </Text>
 
             <CustomButton
-              title="Ir al Inicio"
+              title="Ir a las preguntas"
               onPress={() => {
                 setShowSuccessModal(false);
                 router.push("/(auth)/preguntas")
