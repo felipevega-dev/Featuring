@@ -297,6 +297,23 @@ export default function Preguntas() {
         supabaseUserId = existingUser.id;
       }
 
+      //Obtener la ciudad y el pais
+      let ubicacion = null;
+
+      if (location) {
+        try {
+          const [{ city, country }] = await Location.reverseGeocodeAsync({
+            latitude: location.coords.latitude,
+            longitude: location.coords.longitude
+          });
+          if (city && country) {
+            ubicacion = `${city}, ${country}`;
+          }
+        } catch (error) {
+          console.error("Error al obtener la ciudad y país:", error);
+        }
+      }
+
       const perfilData = {
         usuario_id: supabaseUserId,
         clerk_id: user.id,
@@ -306,7 +323,7 @@ export default function Preguntas() {
         biografia: descripcion,
         redes_sociales: redesSociales,
         foto_perfil: profileImage,
-        ubicacion: location ? `${location.coords.latitude},${location.coords.longitude}` : null,
+        ubicacion: ubicacion,
         edad: edad,
        
       };
