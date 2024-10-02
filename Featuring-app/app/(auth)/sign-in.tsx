@@ -85,7 +85,7 @@ const SignIn = () => {
       }
 
       console.log("Inicio de sesión exitoso, redirigiendo a home");
-      router.replace("/(auth)/preguntas");
+      router.replace("/(root)/(tabs)/home");
     } catch (err) {
       console.error("Error durante el inicio de sesión:", err);
       Alert.alert("Error", err instanceof Error ? err.message : "Ocurrió un error durante el inicio de sesión");
