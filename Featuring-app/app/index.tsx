@@ -6,7 +6,10 @@ const Home = () => {
   const { isSignedIn } = useAuth();
 
   if (isSignedIn) {
-    return <Redirect href="/(root)/(tabs)/home" />;
+    //poner dsp de terminar perfiles
+    //return <Redirect href="/(root)/(tabs)/home" />;
+    return <Redirect href="/(auth)/preguntas" />;
+
   }
 
   return <Redirect href="/(auth)/welcome" />;

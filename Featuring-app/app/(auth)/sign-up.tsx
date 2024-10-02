@@ -8,6 +8,7 @@ import OAuth from "@/components/OAuth";
 import { useSignUp } from "@clerk/clerk-expo";
 import { ReactNativeModal } from "react-native-modal";
 import { supabase } from "@/lib/supabase";
+import { useUser } from "@clerk/clerk-expo";
 
 const USERNAME_MIN_LENGTH = 4;
 const USERNAME_MAX_LENGTH = 10;
@@ -15,6 +16,7 @@ const PASSWORD_MIN_LENGTH = 8;
 const PASSWORD_MAX_LENGTH = 14;
 
 const SignUp = () => {
+  const { user } = useUser();
   const { isLoaded, signUp, setActive } = useSignUp();
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -124,9 +126,10 @@ const SignUp = () => {
       if (completeSignUp.status === "complete") {
         // Crear usuario en Supabase
         const { data, error } = await supabase.from("usuario").insert({
-          username: form.username, // Cambiar a "name" según tu estructura
+          username: form.username, 
+          clerk_id: completeSignUp.createdUserId,
           correo_electronico: form.email,
-          contrasena: form.password, // Asegúrate de usar un hash en producción
+          contrasena: form.password, 
         });
 
         if (error) throw error;

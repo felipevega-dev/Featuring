@@ -7,10 +7,40 @@ import { images } from "@/constants";
 import CustomButton from "@/components/CustomButton";
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
+import { supabase } from '@/lib/supabase'; 
+import { useAuth } from "@clerk/clerk-expo";
+import { useUser } from "@clerk/clerk-expo";
+import DropDownPicker from 'react-native-dropdown-picker';
 
+//Obtener dimensiones de la pantalla
 const { height, width } = Dimensions.get('window');
 
+
+
+//Funcion principal
 export default function Preguntas() {
+  //Variables para el dropdown de la fecha de nacimiento
+  const [dia, setDia] = useState(1);
+  const [mes, setMes] = useState(1);
+  const [anio, setAnio] = useState(2000);
+
+  const [diaOpen, setDiaOpen] = useState(false);
+  const [mesOpen, setMesOpen] = useState(false);
+  const [anioOpen, setAnioOpen] = useState(false);
+
+  const dias = Array.from({ length: 31 }, (_, i) => ({ label: `${i + 1}`, value: i + 1 }));
+  const meses = [
+    { label: 'Enero', value: 1 },
+    { label: 'Febrero', value: 2 },
+    // ... otros meses ...
+    { label: 'Diciembre', value: 12 },
+  ];
+  const anios = Array.from({ length: 100 }, (_, i) => ({ label: `${2023 - i}`, value: 2023 - i }));
+  //Variables para el dropdown de la fecha de nacimiento
+
+
+  /* Variables */
+  const { user } = useUser();
   const router = useRouter();
   const swiperRef = useRef<Swiper>(null);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -29,7 +59,14 @@ export default function Preguntas() {
   const tiposMusico = ['Cantante', 'Músico de Instrumento', 'Compositor', 'Productor'];
   const isLastSlide = activeIndex === 7;
   const isFirstSlide = activeIndex === 0;
+  const { userId: clerkUserId } = useAuth();
+  /* Variables */
 
+
+  /* Funciones */
+
+
+  //Obtener el estado del teclado
   useEffect(() => {
     const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', () => setKeyboardVisible(true));
     const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => setKeyboardVisible(false));
@@ -40,6 +77,7 @@ export default function Preguntas() {
     };
   }, []);
 
+  //Funcion para seleccionar los generos musicales
   const toggleGeneroMusical = useCallback((genero: string) => {
     setGenerosMusicalesSeleccionados((prev) => {
       if (prev.includes(genero)) {
@@ -52,6 +90,7 @@ export default function Preguntas() {
     });
   }, []);
 
+  //Funcion para renderizar los generos musicales
   const renderGenerosMusicales = useCallback(() => (
     <FlatList
       data={generosMusicales}
@@ -68,6 +107,7 @@ export default function Preguntas() {
     />
   ), [generosMusicalesSeleccionados, toggleGeneroMusical]);
 
+  //Funcion para renderizar los tipos de musicos
   const renderTiposMusico = useCallback(() => (
     <FlatList
       data={tiposMusico}
@@ -83,6 +123,8 @@ export default function Preguntas() {
     />
   ), [tipoMusico]);
 
+
+  //Funcion para seleccionar la foto de perfil
   const pickImage = async () => {
     let result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -96,6 +138,7 @@ export default function Preguntas() {
     }
   };
 
+  //Funcion para solicitar el permiso de la ubicacion
   const requestLocationPermission = async () => {
     let { status } = await Location.requestForegroundPermissionsAsync();
     if (status !== 'granted') {
@@ -108,8 +151,10 @@ export default function Preguntas() {
     Alert.alert('Ubicación obtenida', 'Gracias por compartir tu ubicación');
   };
 
+  //Funcion para avanzar a la siguiente pagina
   const handleNext = useCallback(() => {
     if (isLastSlide) {
+      SaveProfile();
       console.log({ nombre, genero, fechaNacimiento, generosMusicalesSeleccionados, descripcion, redesSociales, profileImage, location });
       router.replace('/');
     } else {
@@ -158,24 +203,130 @@ export default function Preguntas() {
     }
   }, [isLastSlide, activeIndex, nombre, genero, tipoMusico, generosMusicalesSeleccionados, descripcion, profileImage, location, router]);
 
+  //Funcion para regresar a la pagina anterior
   const handleBack = useCallback(() => {
     if (!isFirstSlide) {
       swiperRef.current?.scrollBy(-1);
     }
   }, [isFirstSlide]);
 
+
+  //Funcion para obtener la fecha de nacimiento
+  const getFechaNacimiento = () => {
+    return new Date(anio, mes - 1, dia);
+  };
+  //Funcion para calcular la edad
+  const calcularEdad = (dia: number, mes: number, anio: number): number => {
+    const fechaNacimiento = new Date(anio, mes - 1, dia); // Nota: mes - 1 porque en JavaScript los meses van de 0 a 11
+    const hoy = new Date();
+    let edad = hoy.getFullYear() - fechaNacimiento.getFullYear();
+    const m = hoy.getMonth() - fechaNacimiento.getMonth();
+    
+    if (m < 0 || (m === 0 && hoy.getDate() < fechaNacimiento.getDate())) {
+      edad--;
+    }
+    
+    return edad;
+  };
+  //Funcion para guardar el perfil
+  const SaveProfile = async () => {
+    try {
+      console.log("Iniciando SaveProfile");
+      const fechaNacimiento = getFechaNacimiento();
+      if (!user || !user.id) {
+        console.log("Error: No se pudo obtener la información del usuario de Clerk");
+        Alert.alert("Error", "No se pudo obtener la información del usuario.");
+        return;
+      }
+
+      console.log("Usuario de Clerk obtenido:", user.id);
+
+      // Verificar si el usuario ya existe en la tabla usuarios de Supabase
+      let { data: existingUser, error: userCheckError } = await supabase
+        .from('usuario')
+        .select('id')
+        .eq('clerk_id', user.id)
+        .single();
+
+      if (userCheckError && userCheckError.code !== 'PGRST116') {
+        throw userCheckError;
+      }
+
+      let supabaseUserId;
+
+      if (!existingUser) {
+        // Si el usuario no existe, lo creamos
+        const { data: newUser, error: insertError } = await supabase
+          .from('usuario')
+          .insert({ clerk_id: user.id })
+          .select('id')
+          .single();
+
+        if (insertError) throw insertError;
+        supabaseUserId = newUser.id;
+      } else {
+        supabaseUserId = existingUser.id;
+      }
+
+      const perfilData = {
+        usuario_id: supabaseUserId,
+        clerk_id: user.id,
+        nombre_completo: nombre,
+        sexo: genero,
+        fecha_nacimiento: fechaNacimiento.toISOString(),
+        biografia: descripcion,
+        redes_sociales: redesSociales,
+        foto_perfil: profileImage,
+        ubicacion: location ? `${location.coords.latitude},${location.coords.longitude}` : null,
+        edad: calcularEdad(fechaNacimiento),
+       
+      };
+
+      console.log("Datos del perfil a insertar:", JSON.stringify(perfilData, null, 2));
+
+      const { data, error } = await supabase
+        .from("perfil")
+        .insert(perfilData);
+
+      if (error) {
+        console.error("Error al insertar en Supabase:", error);
+        throw error;
+      }
+
+      console.log("Inserción exitosa. Datos insertados:", data);
+
+      Alert.alert("Éxito", "Perfil guardado correctamente");
+      router.push("/(root)/(tabs)/home");
+    } catch (error) {
+      console.error('Error detallado al guardar el perfil:', error);
+      if (error.message) {
+        console.error('Mensaje de error:', error.message);
+      }
+      if (error.details) {
+        console.error('Detalles del error:', error.details);
+      }
+      Alert.alert("Error", "No se pudo guardar el perfil. Por favor, inténtalo de nuevo.");
+    }
+  };
+
+
+
+
   return (
     <SafeAreaView className="flex-1 bg-white">
+      {/* KeyboardAvoidingView para que el teclado no tape los campos */}
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={{ flex: 1 }}
         keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
       >
+      {/* ScrollView para que el teclado no tape los campos */}
         <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
           <View className="flex-1">
             <View className="relative w-full h-[100px] mt-10 flex items-center justify-center">
               <Image source={images.FeatLogo} className="z-0 w-[180px] h-[100px]" />
             </View>
+            {/* Swiper para las paginas */}
             <Swiper
               ref={swiperRef}
               loop={false}
@@ -189,78 +340,168 @@ export default function Preguntas() {
               style={{ height: height - 250 }}
             >
               {/* Slide 1 - Nombre */}
-              <View className="flex-1 justify-center items-center mt-8">
-                <Text className="text-lg font-bold">Ingresa tu nombre</Text>
+              <View className="flex-1 justify-center items-center mb-10">
+                <Text className="text-lg text-blue-500 font-bold">Ingresa tu nombre artistico</Text>
                 <TextInput
-                  className="border p-3 w-3/4 mt-4"
-                  placeholder="Tu nombre"
+                  className="border-1 rounded-full bg-blue-200 border-blue-500 p-3 w-3/4 mt-4"
+                  placeholder="Tu nombre artistico"
                   value={nombre}
                   onChangeText={setNombre}
                 />
+                <Image
+                  source={images.IconoMusical}
+                  className="w-4/5 h-24 mb-10 mt-10"
+                  resizeMode="contain"
+                />
               </View>
 
-              {/* Slide 2 - Género */}
-              <View className="flex-1 justify-center items-center mt-8">
-                <Text className="text-lg font-bold">Selecciona tu género</Text>
-                <View className="flex flex-row mt-4">
-                  <TouchableOpacity
-                    className={`p-3 mx-2 border ${genero === 'Masculino' ? 'bg-purple-500' : 'bg-gray-200'}`}
-                    onPress={() => setGenero('Masculino')}
-                  >
-                    <Text className="text-black">Masculino</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    className={`p-3 mx-2 border ${genero === 'Femenino' ? 'bg-purple-500' : 'bg-gray-200'}`}
-                    onPress={() => setGenero('Femenino')}
-                  >
-                    <Text className="text-black">Femenino</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    className={`p-3 mx-2 border ${genero === 'Otro' ? 'bg-purple-500' : 'bg-gray-200'}`}
-                    onPress={() => setGenero('Otro')}
-                  >
-                    <Text className="text-black">Otro</Text>
-                  </TouchableOpacity>
-                </View>
+                  
+                      {/* Slide 2 - Género */}
+            <View className="flex-1 justify-center items-center mb-10">
+              <Text className="text-lg text-blue-500 font-bold mb-5">Selecciona tu género</Text>
+              <View className="flex flex-row mb-10">
+                <TouchableOpacity
+                  className={`p-3 mx-2 border-1 rounded-full ${
+                    genero === 'Masculino'
+                      ? 'bg-blue-500'
+                      : 'bg-gray-200 '
+                  }`}
+                  onPress={() => setGenero('Masculino')}
+                >
+                  <Text className={`${
+                    genero === 'Masculino' ? 'text-white' : 'text-blue-500'
+                  } font-semibold`}>
+                    Masculino
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  className={`p-3 mx-2 border-1 rounded-full ${
+                    genero === 'Femenino'
+                      ? 'bg-pink-500'
+                      : 'bg-gray-200'
+                  }`}
+                  onPress={() => setGenero('Femenino')}
+                >
+                  <Text className={`${
+                    genero === 'Femenino' ? 'text-white' : 'text-pink-500'
+                  } font-semibold`}>
+                    Femenino
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  className={`p-3 mx-2 border-1 rounded-full ${
+                    genero === 'Otro'
+                      ? 'bg-gray-500 '
+                      : 'bg-gray-200'
+                  }`}
+                  onPress={() => setGenero('Otro')}
+                >
+                  <Text className={`${
+                    genero === 'Otro' ? 'text-white' : 'text-gray-500'
+                  } font-semibold`}>
+                    Otro
+                  </Text>
+                </TouchableOpacity>
               </View>
+              <Image
+                source={images.IconoMusical}
+                className="w-4/5 h-24 mb-10 mt-10"
+                resizeMode="contain"
+              />
+            </View>
+        {/* Slide 2 - Género */}
 
               {/* Slide 3 - Fecha de Nacimiento */}
-              <View className="flex-1 justify-center items-center mt-8">
-                <Text className="text-lg font-bold">Selecciona tu fecha de nacimiento</Text>
-                <TouchableOpacity onPress={() => setShowDatePicker(true)} className="border p-3 mt-4">
-                  <Text className="text-black">{fechaNacimiento.toLocaleDateString()}</Text>
-                </TouchableOpacity>
-                {showDatePicker && (
-                  <DateTimePicker
-                    value={fechaNacimiento}
-                    mode="date"
-                    display="default"
-                    onChange={(event, date) => {
-                      if (date) {
-                        setFechaNacimiento(date);
-                      }
-                      setShowDatePicker(false);
-                    }}
+          <View className="flex-1 bg-pink-100 p-4">
+              <Text className="text-lg text-pink-700 font-bold pb-2 mt-5">Fecha de Nacimiento</Text>
+              <View className="flex-row justify-between">
+                <View className="w-1/4">
+                  <DropDownPicker
+                    open={diaOpen}
+                    value={dia}
+                    items={dias}
+                    setOpen={setDiaOpen}
+                    setValue={setDia}
+                    zIndex={3000}
+                    zIndexInverse={1000}
+                    style={{backgroundColor: 'pink-200'}}
+                    textStyle={{color: 'pink-800'}}
                   />
-                )}
+                </View>
+                <View className="w-2/5">
+                  <DropDownPicker
+                    open={mesOpen}
+                    value={mes}
+                    items={meses}
+                    setOpen={setMesOpen}
+                    setValue={setMes}
+                    zIndex={2000}
+                    zIndexInverse={2000}
+                    style={{backgroundColor: 'pink-200'}}
+                    textStyle={{color: 'pink-800'}}
+                  />
+                </View>
+                <View className="w-1/3">
+                  <DropDownPicker
+                    open={anioOpen}
+                    value={anio}
+                    items={anios}
+                    setOpen={setAnioOpen}
+                    setValue={setAnio}
+                    zIndex={1000}
+                    zIndexInverse={3000}
+                    style={{backgroundColor: 'pink-200'}}
+                    textStyle={{color: 'pink-800'}}
+                  />
+                </View> 
               </View>
+            </View>
+              {/* Slide 3 - Fecha de Nacimiento */}
 
               {/* Slide 4 - Tipo de Músico */}
-              <View className="flex-1 justify-center items-center mt-8">
-                <Text className="text-lg font-bold">Selecciona tu tipo de músico</Text>
-                <View className="mt-4 flex-1">{renderTiposMusico()}</View>
-              </View>
+            <View className="flex-1 justify-start items-center mt-8">
+              <Text className="text-lg text-blue-500 font-bold mb-4">Selecciona tu tipo de músico</Text>
+              <ScrollView className="w-full px-4">
+                <View className="flex-row flex-wrap justify-center">
+                  {tiposMusico.map((tipo) => (
+                    <TouchableOpacity
+                      key={tipo}
+                      onPress={() => setTipoMusico(tipo)}
+                      className={`m-2 p-3 rounded-full ${
+                        tipoMusico === tipo
+                          ? 'bg-blue-500'
+                          : 'bg-gray-200'
+                      }`}
+                    >
+                      <Text
+                        className={`text-center ${
+                          tipoMusico === tipo ? 'text-white' : 'text-gray-800'
+                        }`}
+                      >
+                        {tipo}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </ScrollView>
+              
+            </View>
 
               {/* Slide 5 - Géneros musicales */}
               <View className="flex-1 justify-center items-center mt-8">
-                <Text className="text-lg font-bold">Selecciona tus 5 géneros musicales favoritos</Text>
+                <Text className="text-lg text-blue-500 font-bold">Selecciona tus 5 géneros musicales favoritos</Text>
                 <View className="mt-4 flex-1">{renderGenerosMusicales()}</View>
+                <Image
+                  source={images.IconoMusical}
+                  className="w-4/5 h-24 mb-10 mt-10"
+                  resizeMode="contain"
+                />
               </View>
 
               {/* Slide 6 - Foto de perfil */}
               <View className="flex-1 justify-center items-center mt-8">
-                <Text className="text-lg font-bold">Selecciona tu foto de perfil</Text>
-                <TouchableOpacity onPress={pickImage} className="mt-4">
+                <Text className="text-lg text-blue-500 font-bold">Selecciona tu foto de perfil</Text>
+                <TouchableOpacity onPress={pickImage} className="mt-4 rounded-lg border-2 border-blue-500 p-3">
                   {profileImage ? (
                     <Image source={{ uri: profileImage }} style={{ width: 200, height: 200, borderRadius: 100 }} />
                   ) : (
@@ -269,11 +510,16 @@ export default function Preguntas() {
                     </View>
                   )}
                 </TouchableOpacity>
+                <Image
+                  source={images.IconoMusical}
+                  className="w-4/5 h-24 mb-10 mt-10"
+                  resizeMode="contain"
+                />
               </View>
 
               {/* Slide 7 - Descripción y Redes Sociales */}
               <View className="flex-1 justify-center items-center mt-8">
-                <Text className="text-lg font-bold">Descripción y Redes Sociales</Text>
+                <Text className="text-lg text-blue-500 font-bold">Descripción y Redes Sociales</Text>
                 <TextInput
                   className="border p-3 w-3/4 mt-4"
                   placeholder="Descripción"
@@ -282,26 +528,36 @@ export default function Preguntas() {
                   multiline
                 />
                 <TextInput
-                  className="border p-3 w-3/4 mt-4"
+                  className="border-2 rounded-lg border-blue-500 p-3 w-3/4 mt-4"
                   placeholder="Redes Sociales (ej: Instagram, Twitter)"
                   value={redesSociales}
                   onChangeText={setRedesSociales}
+                />
+                <Image
+                  source={images.IconoMusical}
+                  className="w-4/5 h-24 mb-10 mt-10"
+                  resizeMode="contain"
                 />
               </View>
 
               {/* Slide 8 - Acceso a la Ubicación */}
               <View className="flex-1 justify-center items-center mt-8">
-                <Text className="text-lg font-bold">¿Deseas acceder a tu ubicación?</Text>
-                <Text className="text-center mt-4 px-4">
+                <Text className="text-lg text-blue-500 font-bold">¿Deseas acceder a tu ubicación?</Text>
+                <Text className="text-center text-blue-500 mt-4 px-4">
                   Al permitir el acceso a tu ubicación, podemos mejorar tu experiencia en la aplicación.
                 </Text>
                 <TouchableOpacity 
-                  className="bg-purple-500 p-3 mt-4 rounded-md"
+                  className="bg-purple-500 border-2 border-purple-700 p-3 mt-4 rounded-md"
                   onPress={requestLocationPermission}
                 >
                   <Text className="text-white">Permitir ubicación</Text>
                 </TouchableOpacity>
               </View>
+              <Image
+                  source={images.IconoMusical}
+                  className="w-4/5 h-24 mb-10 mt-10"
+                  resizeMode="contain"
+                />
             </Swiper>
           </View>
         </ScrollView>

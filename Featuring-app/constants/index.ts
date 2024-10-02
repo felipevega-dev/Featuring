@@ -44,6 +44,7 @@ import FeaturingIcono from "@/assets/images/FeaturingIcono.png";
 import FeatLogo from "@/assets/images/FeatLogo.png";
 import FeatSplash from "@/assets/images/FeatSplash.png";
 import FeatHeader from "@/assets/images/FeatHeader.png";
+import IconoMusical from "@/assets/images/IconoMusical.png";
 
 export const images = {
   onboarding1,
@@ -59,6 +60,7 @@ export const images = {
   FeatLogo,
   FeatSplash,
   FeatHeader,
+  IconoMusical
 };
 
 export const icons = {
