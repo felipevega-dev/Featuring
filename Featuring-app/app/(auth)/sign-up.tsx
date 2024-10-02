@@ -131,10 +131,9 @@ const SignUp = () => {
         const { data: newUser, error: userError } = await supabase
           .from("usuario")
           .insert({
-            id: completeSignUp.createdUserId, // Usar el ID de Clerk como ID principal
             username: form.username,
             email: form.email,
-            contrasena: form.password, // Nota: considera encriptar la contraseña
+            contrasena: form.password,
             clerk_id: completeSignUp.createdUserId
           })
           .select()
@@ -143,21 +142,6 @@ const SignUp = () => {
         if (userError) {
           console.error("Error al crear usuario en Supabase:", userError);
           throw userError;
-        }
-
-        // Crear perfil básico
-        const { error: profileError } = await supabase
-          .from("perfil")
-          .insert({
-            perfil_id: completeSignUp.createdUserId,
-            usuario_id: newUser.id,
-            clerk_id: completeSignUp.createdUserId,
-            nombre_completo: form.username // Usamos el username como nombre_completo inicialmente
-          });
-
-        if (profileError) {
-          console.error("Error al crear perfil en Supabase:", profileError);
-          // Considera si quieres lanzar este error o manejarlo de otra manera
         }
 
         setVerification({ ...verification, state: "success" });
@@ -170,7 +154,7 @@ const SignUp = () => {
         });
       }
     } catch (err: any) {
-      console.error("Error durante la verificación:", err);
+      console.error("Error durante la verificación o creación de usuario:", err);
       setVerification({
         ...verification,
         error: err.message || "Ocurrió un error durante el proceso de registro",
