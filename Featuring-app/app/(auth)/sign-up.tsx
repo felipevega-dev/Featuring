@@ -132,7 +132,7 @@ const SignUp = () => {
           .from("usuario")
           .insert({
             username: form.username,
-            email: form.email,
+            correo_electronico: form.email,
             contrasena: form.password,
             clerk_id: completeSignUp.createdUserId
           })

@@ -2,9 +2,9 @@ import { supabase } from "@/lib/supabase";
 
 export async function POST(request: Request) {
   try {
-    const { nombre_art, clerkId, sexo_art, fecha_nac, descripcion, redes_social, fotoperfil, ubi, edad_art, usuario_id, generos, habilidades } = await request.json();
+    const {  id_genero, nombre_genero } = await request.json();
 
-    if (!nombre_art || !sexo_art || !fecha_nac || !descripcion || !redes_social || !fotoperfil || !ubi || !edad_art || !usuario_id || !generos || !habilidades) {
+    if (!id_genero || !nombre_genero ) {
       return Response.json(
         { error: "Faltan campos requeridos" },
         { status: 400 },
@@ -13,18 +13,10 @@ export async function POST(request: Request) {
 
     // Almacena los datos del usuario en Supabase
     const { data: perfilData, error: perfilError } = await supabase
-      .from("perfil") 
+      .from("perfil_habilidad") 
       .insert({
-        usuario_id: usuario_id,
-        clerk_id: clerkId,
-        nombre_completo: nombre_art,
-        sexo: sexo_art,
-        fecha_nacimiento: fecha_nac,
-        biografia: descripcion,
-        redes_sociales: redes_social,
-        foto_perfil: fotoperfil,
-        ubicacion: ubi,
-        edad: edad_art
+        id : id_genero,
+        genero : nombre_genero
       })
       .select();
 
@@ -32,7 +24,8 @@ export async function POST(request: Request) {
       throw perfilError;
     }
 
-   
+  
+
     return new Response(JSON.stringify({ data: perfilData[0] }), {
       status: 201,
     });

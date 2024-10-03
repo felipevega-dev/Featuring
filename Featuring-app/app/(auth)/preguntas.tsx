@@ -54,7 +54,8 @@ export default function Preguntas() {
   const [genero, setGenero] = useState('');
   const [fechaNacimiento, setFechaNacimiento] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [tipoMusico, setTipoMusico] = useState('');
+  const [tipoMusico, setTipoMusico] = useState<string[]>([]);
+
   const [generosMusicalesSeleccionados, setGenerosMusicalesSeleccionados] = useState<string[]>([]);
   const [descripcion, setDescripcion] = useState('');
   const [redesSociales, setRedesSociales] = useState('');
@@ -85,18 +86,27 @@ export default function Preguntas() {
     };
   }, []);
 
-  //Funcion para seleccionar los generos musicales
-  const toggleGeneroMusical = useCallback((genero: string) => {
-    setGenerosMusicalesSeleccionados((prev) => {
-      if (prev.includes(genero)) {
-        return prev.filter((item) => item !== genero);
-      }
-      if (prev.length < 5) {
-        return [...prev, genero];
-      }
-      return prev;
-    });
-  }, []);
+// Estas funciones ya están bien para manejar selecciones múltiples
+const toggleGeneroMusical = useCallback((genero: string) => {
+  setGenerosMusicalesSeleccionados((prev) => {
+    if (prev.includes(genero)) {
+      return prev.filter((item) => item !== genero);
+    }
+    if (prev.length < 5) {
+      return [...prev, genero];
+    }
+    return prev;
+  });
+}, []);
+
+const toggleTipoMusico = useCallback((tipo: string) => {
+  setTipoMusico((prev) => {
+    if (prev.includes(tipo)) {
+      return prev.filter((item) => item !== tipo);
+    }
+    return [...prev, tipo];
+  });
+}, []);
 
   //Funcion para renderizar los generos musicales
   const renderGenerosMusicales = useCallback((inModal: boolean) => (
@@ -128,22 +138,22 @@ export default function Preguntas() {
       {(inModal ? tiposMusico : tiposMusico.slice(0, initialItemsCount)).map((tipo) => (
         <TouchableOpacity
           key={tipo}
-          onPress={() => setTipoMusico(tipo)}
+          onPress={() => toggleTipoMusico(tipo)}
           className={`m-2 p-3 rounded-full ${
-            tipoMusico === tipo
+            tipoMusico.includes(tipo)
               ? 'bg-blue-500'
               : 'bg-gray-200'
           }`}
         >
           <Text className={`text-center ${
-            tipoMusico === tipo ? 'text-white' : 'text-gray-800'
+            tipoMusico.includes(tipo) ? 'text-white' : 'text-gray-800'
           }`}>
             {tipo}
           </Text>
         </TouchableOpacity>
       ))}
     </View>
-  ), [tipoMusico]);
+  ), [tipoMusico, toggleTipoMusico]);
 
 //Funcion para abrir el modal
   const openModal = (content: 'generos' | 'tipos') => {
@@ -203,10 +213,11 @@ export default function Preguntas() {
           // No need to validate date of birth as it always has a default value
           break;
         case 3:
-          if (tipoMusico === '') {
-            Alert.alert("Error", "Por favor, selecciona tu tipo de músico.");
-            return;
-          }
+         // Para verificar si el array está vacío
+if (tipoMusico.length === 0) {
+  Alert.alert("Error", "Por favor, selecciona al menos un tipo de músico.");
+  return;
+}
           break;
         case 4:
           if (generosMusicalesSeleccionados.length === 0) {
@@ -256,33 +267,50 @@ export default function Preguntas() {
     
     return edad;
   };
-  //Funcion para guardar el perfil
+ 
+  const obtenerUbicacion = async (latitude: number, longitude: number): Promise<string> => {
+    try {
+      const [{ city, country }] = await Location.reverseGeocodeAsync({
+        latitude,
+        longitude
+      });
+  
+      if (city && country) {
+        return `${city}, ${country}`;
+      } else {
+        throw new Error("No se pudo obtener la ciudad y el país");
+      }
+    } catch (error) {
+      console.error("Error al obtener la ubicación:", error);
+      return ""; // Retorna una cadena vacía si hay un error
+    }
+  };
+  
   const SaveProfile = async () => {
     try {
       console.log("Iniciando SaveProfile");
-      const edad = calcularEdad(dia, mes, anio);
-      const fechaNacimiento = getFechaNacimiento();
+  
       if (!user || !user.id) {
         console.log("Error: No se pudo obtener la información del usuario de Clerk");
         Alert.alert("Error", "No se pudo obtener la información del usuario.");
         return;
       }
-
+  
       console.log("Usuario de Clerk obtenido:", user.id);
-
+  
       // Verificar si el usuario ya existe en la tabla usuarios de Supabase
       let { data: existingUser, error: userCheckError } = await supabase
         .from('usuario')
         .select('id')
         .eq('clerk_id', user.id)
         .single();
-
+  
       if (userCheckError && userCheckError.code !== 'PGRST116') {
         throw userCheckError;
       }
-
+  
       let supabaseUserId;
-
+  
       if (!existingUser) {
         // Si el usuario no existe, lo creamos
         const { data: newUser, error: insertError } = await supabase
@@ -290,30 +318,18 @@ export default function Preguntas() {
           .insert({ clerk_id: user.id })
           .select('id')
           .single();
-
+  
         if (insertError) throw insertError;
         supabaseUserId = newUser.id;
       } else {
         supabaseUserId = existingUser.id;
       }
-
-      //Obtener la ciudad y el pais
-      let ubicacion = null;
-
-      if (location) {
-        try {
-          const [{ city, country }] = await Location.reverseGeocodeAsync({
-            latitude: location.coords.latitude,
-            longitude: location.coords.longitude
-          });
-          if (city && country) {
-            ubicacion = `${city}, ${country}`;
-          }
-        } catch (error) {
-          console.error("Error al obtener la ciudad y país:", error);
-        }
-      }
-
+//Obtener la ubicacion
+      let ubicacion = "";
+    if (location) {
+      ubicacion = await obtenerUbicacion(location.coords.latitude, location.coords.longitude);
+    }
+  
       const perfilData = {
         usuario_id: supabaseUserId,
         clerk_id: user.id,
@@ -323,24 +339,72 @@ export default function Preguntas() {
         biografia: descripcion,
         redes_sociales: redesSociales,
         foto_perfil: profileImage,
+        //ubicacion: location ? `${location.coords.latitude},${location.coords.longitude}` : null,
         ubicacion: ubicacion,
-        edad: edad,
-       
+        edad: calcularEdad(dia, mes, anio),
       };
-
+  
       console.log("Datos del perfil a insertar:", JSON.stringify(perfilData, null, 2));
-
-      const { data, error } = await supabase
+  
+      const { data: perfilInsertado, error: perfilError } = await supabase
         .from("perfil")
-        .insert(perfilData);
-
-      if (error) {
-        console.error("Error al insertar en Supabase:", error);
-        throw error;
+        .insert(perfilData)
+        .select()
+        .single();
+  
+      if (perfilError) {
+        console.error("Error al insertar en Supabase:", perfilError);
+        throw perfilError;
       }
+  
+      console.log("Inserción exitosa. Datos insertados:", perfilInsertado);
 
-      console.log("Inserción exitosa. Datos insertados:", data);
+            // Insertar las habilidades del usuario
+        for (const habilidad of tipoMusico) {
+          const perfil_habilidadData = {
+            perfil_id: perfilInsertado.id,
+            habilidad: habilidad
+          };
+          
+          const { data: perfil_habilidadInsertado, error: perfil_habilidadError } = await supabase
+            .from("perfil_habilidad")
+            .insert(perfil_habilidadData)
+            .select()
+            .single();
 
+          if (perfil_habilidadError) {
+            console.error("Error al insertar habilidad en Supabase:", perfil_habilidadError);
+            // Decide si quieres lanzar el error o continuar con las demás habilidades
+            // throw perfil_habilidadError;
+          } else {
+            console.log("Habilidad insertada:", perfil_habilidadInsertado);
+          }
+        }
+
+                // Insertar los géneros musicales del usuario
+        for (const genero of generosMusicalesSeleccionados) {
+          const perfil_generoData = {
+            perfil_id: perfilInsertado.id,
+            genero: genero
+          };
+          
+          const { data: perfil_generoInsertado, error: perfil_generoError } = await supabase
+            .from("perfil_genero")
+            .insert(perfil_generoData)
+            .select()
+            .single();
+
+          if (perfil_generoError) {
+            console.error("Error al insertar género en Supabase:", perfil_generoError);
+            // Decide si quieres lanzar el error o continuar con los demás géneros
+            // throw perfil_generoError;
+          } else {
+            console.log("Género insertado:", perfil_generoInsertado);
+          }
+        }
+  
+
+      
       Alert.alert("Éxito", "Perfil guardado correctamente");
       router.push("/(root)/(tabs)/home");
     } catch (error) {
@@ -354,7 +418,8 @@ export default function Preguntas() {
       Alert.alert("Error", "No se pudo guardar el perfil. Por favor, inténtalo de nuevo.");
     }
   };
-
+ 
+  
 
 
 

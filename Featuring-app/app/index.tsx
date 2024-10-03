@@ -7,8 +7,8 @@ const Home = () => {
 
   if (isSignedIn) {
     //poner dsp de terminar perfiles
-    //return <Redirect href="/(root)/(tabs)/home" />;
-    return <Redirect href="/(auth)/preguntas" />;
+    return <Redirect href="/(root)/(tabs)/home" />;
+    //return <Redirect href="/(auth)/preguntas" />;
 
   }
 
