@@ -1,8 +1,13 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Image, ScrollView, Modal } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { Alert, View, Text, TextInput, TouchableOpacity, Image, ScrollView, Modal } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { styled } from 'nativewind';
 import { Ionicons } from '@expo/vector-icons';
+import DropDownPicker from 'react-native-dropdown-picker';
+import { supabase } from "@/lib/supabase";
+import { useAuth } from "@clerk/clerk-expo";
+import { useUser } from "@clerk/clerk-expo";
+import * as ImagePicker from 'expo-image-picker';
 
 const StyledView = styled(View)
 const StyledText = styled(Text)
@@ -18,7 +23,6 @@ const EditarPerfil = () => {
   const router = useRouter();
   const [nombre, setNombre] = useState('');
   const [nombreArtistico, setNombreArtistico] = useState('');
-  const [genero, setGenero] = useState('');
   const [edad, setEdad] = useState('');
   const [biografia, setBiografia] = useState('');
   const [habilidades, setHabilidades] = useState<string[]>([]);
@@ -31,6 +35,63 @@ const EditarPerfil = () => {
     setModalType(tipo);
     setModalVisible(true);
   };
+
+
+  const { user } = useUser();
+  const [fechaNacimientoModalVisible, setFechaNacimientoModalVisible] = useState(false);
+  const [diaOpen, setDiaOpen] = useState(false);
+  const [mesOpen, setMesOpen] = useState(false);
+  const [anioOpen, setAnioOpen] = useState(false);
+  const [dia, setDia] = useState(null);
+  const [mes, setMes] = useState(null);
+  const [anio, setAnio] = useState(null);
+  const [genero, setGenero] = useState('');
+  const [generoOpen, setGeneroOpen] = useState(false);
+  const [generoItems, setGeneroItems] = useState([
+    { label: 'Masculino', value: 'masculino' },
+    { label: 'Femenino', value: 'femenino' },
+    { label: 'Otro', value: 'otro' }
+  ]);
+
+  // Generar opciones para día, mes y año
+  const dias = Array.from({ length: 31 }, (_, i) => ({ label: `${i + 1}`, value: i + 1 }));
+  const meses = [
+    { label: 'Enero', value: 1 },
+    { label: 'Febrero', value: 2 },
+    { label: 'Marzo', value: 3 },
+    { label: 'Abril', value: 4 },
+    { label: 'Mayor', value: 5 },
+    { label: 'Junio', value: 6 },
+    { label: 'Julio', value: 7 },
+    { label: 'Agosto', value: 8 },
+    { label: 'Septiembre', value: 9 },
+    { label: 'Octubre', value: 10 },
+    { label: 'Noviembre', value: 11 },
+    { label: 'Diciembre', value: 12 }
+  ];
+  const anios = Array.from({ length: 100 }, (_, i) => ({ label: `${2023 - i}`, value: 2023 - i }));
+
+  useEffect(() => {
+    if (dia && mes && anio) {
+      const fechaNacimiento = new Date(anio, mes - 1, dia);
+      const hoy = new Date();
+      let edadCalculada = hoy.getFullYear() - fechaNacimiento.getFullYear();
+      const m = hoy.getMonth() - fechaNacimiento.getMonth();
+      if (m < 0 || (m === 0 && hoy.getDate() < fechaNacimiento.getDate())) {
+        edadCalculada--;
+      }
+      setEdad(edadCalculada.toString());
+    }
+  }, [dia, mes, anio]);
+
+  const confirmarFechaNacimiento = () => {
+    setFechaNacimientoModalVisible(false);
+    // Aquí puedes usar la edad calculada (variable 'edad') como necesites
+  };
+  const abrirModalFechaNacimiento = () => {
+    setFechaNacimientoModalVisible(true);
+  };
+
 
   const InputField = ({ label, value, onChangeText, placeholder, multiline = false, keyboardType = 'default' }) => (
     <StyledView className="mb-4">
@@ -89,11 +150,133 @@ const EditarPerfil = () => {
     setGeneros(generos.filter(g => g !== genero));
   };
 
-  const cambiarFoto = () => {
-    // Aquí iría la lógica para seleccionar una nueva foto
-    console.log('Cambiar foto de perfil');
+  
+  
+  const cambiarFoto = async () => {
+    try {
+      // Solicitar permiso para acceder a la galería
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Se necesita permiso para acceder a la galería');
+        return;
+      }
+  
+      // Abrir el selector de imágenes
+      let result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1], // Cambiado a [1, 1] para una imagen cuadrada
+        quality: 1,
+      });
+  
+      if (!result.canceled && result.assets && result.assets[0].uri) {
+        // Actualizar el estado local con la URI de la nueva imagen
+        setFotoPerfil(result.assets[0].uri);
+        
+        console.log('Nueva foto de perfil seleccionada:', result.assets[0].uri);
+        Alert.alert('Éxito', 'Foto de perfil seleccionada correctamente');
+        
+        // Aquí podrías llamar a una función para subir la imagen a tu servidor o a Supabase
+        // Por ejemplo: await subirImagenASupabase(result.assets[0].uri);
+      }
+    } catch (error) {
+      console.error('Error al cambiar la foto de perfil:', error);
+      Alert.alert('Error', 'No se pudo cambiar la foto de perfil');
+    }
   };
+  
 
+{/*const actualizarPerfil = async () => {
+    try {
+      console.log("Iniciando actualización del perfil");
+  
+      if (!user || !user.id) {
+        console.log("Error: No se pudo obtener la información del usuario de Clerk");
+        Alert.alert("Error", "No se pudo obtener la información del usuario.");
+        return;
+      }
+  
+      console.log("Usuario de Clerk obtenido:", user.id);
+  
+      // Obtener el ID del perfil existente
+      let { data: perfilExistente, error: perfilCheckError } = await supabase
+        .from('perfil')
+        .select('id')
+        .eq('clerk_id', user.id)
+        .single();
+  
+      if (perfilCheckError) {
+        throw perfilCheckError;
+      }
+  
+      if (!perfilExistente) {
+        Alert.alert("Error", "No se encontró un perfil existente para actualizar.");
+        return;
+      }
+  
+      // Obtener la ubicación
+    
+  
+      const perfilData = {
+        nombre_completo: nombre,
+        sexo: genero,
+        fecha_nacimiento: 
+        biografia: 
+        redes_sociales: 
+        foto_perfil: fotoPerfil,
+        edad: 
+      };
+  
+      console.log("Datos del perfil a actualizar:", JSON.stringify(perfilData, null, 2));
+  
+      const { data: perfilActualizado, error: perfilError } = await supabase
+        .from("perfil")
+        .update(perfilData)
+        .eq('id', perfilExistente.id)
+        .select()
+        .single();
+  
+      if (perfilError) {
+        console.error("Error al actualizar en Supabase:", perfilError);
+        throw perfilError;
+      }
+  
+      console.log("Actualización exitosa. Datos actualizados:", perfilActualizado);
+  
+      // Actualizar las habilidades del usuario
+      // Primero, eliminar todas las habilidades existentes
+      await supabase
+        .from("perfil_habilidad")
+        .delete()
+        .eq('perfil_id', perfilExistente.id);
+  
+      // Luego, insertar las nuevas habilidades
+      for (const habilidad of habilidades) {
+        const perfil_habilidadData = {
+          perfil_id: perfilExistente.id,
+          habilidad: habilidad
+        };
+        
+        const { data: perfil_habilidadInsertado, error: perfil_habilidadError } = await supabase
+          .from("perfil_habilidad")
+          .insert(perfil_habilidadData)
+          .select()
+          .single();
+  
+        if (perfil_habilidadError) {
+          console.error("Error al insertar habilidad en Supabase:", perfil_habilidadError);
+        } else {
+          console.log("Habilidad insertada:", perfil_habilidadInsertado);
+        }
+      }
+  
+      Alert.alert("Éxito", "Perfil actualizado correctamente");
+    } catch (error) {
+      console.error("Error al actualizar el perfil:", error);
+      Alert.alert("Error", "Hubo un problema al actualizar el perfil. Por favor, intenta de nuevo.");
+    }
+  };
+*/}
   return (
     <StyledScrollView className="flex-1 bg-white">
       <StyledView className="p-6 mt-10">
@@ -120,10 +303,38 @@ const EditarPerfil = () => {
         
         <InputField label="Nombre:" value={nombre} onChangeText={setNombre} placeholder="Tu nombre completo" />
         <InputField label="Nombre Artístico:" value={nombreArtistico} onChangeText={setNombreArtistico} placeholder="Tu nombre artístico" />
-        <InputField label="Género:" value={genero} onChangeText={setGenero} placeholder="Tu género" />
-        <InputField label="Edad:" value={edad} onChangeText={setEdad} placeholder="Tu edad" keyboardType="numeric" />
+
+
+        <View className="mb-4">
+          <StyledText className="text-lg font-bold mb-2">Género:</StyledText>
+          <DropDownPicker
+            open={generoOpen}
+            value={genero}
+            items={generoItems}
+            setOpen={setGeneroOpen}
+            setValue={setGenero}
+            setItems={setGeneroItems}
+            placeholder="Selecciona tu género"
+            containerStyle={{ height: 40 }}
+            style={{ backgroundColor: '#fafafa' }}
+            dropDownStyle={{ backgroundColor: '#fafafa' }}
+            zIndex={3000}
+            zIndexInverse={1000}
+          />
+        </View>
+
         <InputField label="Biografía:" value={biografia} onChangeText={setBiografia} placeholder="Cuéntanos sobre ti" multiline={true} />
         
+
+        <StyledTouchableOpacity 
+            className="border border-blue-500 rounded-full py-2 px-4 mb-2"
+            onPress={abrirModalFechaNacimiento}
+              >
+            <StyledText className="text-blue-500 text-center">
+              {dia && mes && anio ? `${dia}/${mes}/${anio}` : 'Seleccionar fecha de nacimiento'}
+            </StyledText>
+      </StyledTouchableOpacity>
+
         <MultiInputField 
           label="Habilidad " 
           items={habilidades} 
@@ -138,14 +349,94 @@ const EditarPerfil = () => {
           removeItem={eliminarGenero}
         />
 
+
         <StyledTouchableOpacity 
           className="bg-blue-500 p-4 rounded-md items-center mt-6"
           onPress={() => console.log('Guardar cambios')}
         >
           <StyledText className="text-white font-bold text-lg">Guardar Cambios</StyledText>
         </StyledTouchableOpacity>
+
+
       </StyledView>
 
+
+
+
+
+      <Modal
+  animationType="slide"
+  transparent={true}
+  visible={fechaNacimientoModalVisible}
+  onRequestClose={() => setFechaNacimientoModalVisible(false)}
+>
+  <StyledView className="flex-1 justify-end">
+    <StyledView className="bg-white rounded-t-3xl shadow-lg">
+      <StyledView className="p-4 border-b border-gray-200">
+        <StyledText className="text-xl font-bold text-center">
+          Fecha de Nacimiento
+        </StyledText>
+        <StyledTouchableOpacity 
+          className="absolute right-4 top-4"
+          onPress={() => setFechaNacimientoModalVisible(false)}
+        >
+          <Ionicons name="close" size={24} color="black" />
+        </StyledTouchableOpacity>
+      </StyledView>
+      <StyledView className="p-4">
+        <StyledView className="flex-row justify-between">
+          <StyledView className="w-1/4">
+            <DropDownPicker
+              open={diaOpen}
+              value={dia}
+              items={dias}
+              setOpen={setDiaOpen}
+              setValue={setDia}
+              zIndex={3000}
+              zIndexInverse={1000}
+              placeholder="Día"
+            />
+          </StyledView>
+          <StyledView className="w-2/5">
+            <DropDownPicker
+              open={mesOpen}
+              value={mes}
+              items={meses}
+              setOpen={setMesOpen}
+              setValue={setMes}
+              zIndex={2000}
+              zIndexInverse={2000}
+              placeholder="Mes"
+            />
+          </StyledView>
+          <StyledView className="w-1/3">
+            <DropDownPicker
+              open={anioOpen}
+              value={anio}
+              items={anios}
+              setOpen={setAnioOpen}
+              setValue={setAnio}
+              zIndex={1000}
+              zIndexInverse={3000}
+              placeholder="Año"
+            />
+          </StyledView>
+        </StyledView>
+        {edad && (
+          <StyledText className="mt-4 text-center text-lg">
+            Edad calculada: {edad} años
+          </StyledText>
+        )}
+        <StyledTouchableOpacity 
+          className="mt-4 bg-blue-500 p-2 rounded-md"
+          onPress={confirmarFechaNacimiento}
+        >
+          <StyledText className="text-white text-center">Confirmar</StyledText>
+        </StyledTouchableOpacity>
+      </StyledView>
+    </StyledView>
+  </StyledView>
+</Modal>
       <Modal
   animationType="slide"
   transparent={true}
@@ -183,6 +474,5 @@ const EditarPerfil = () => {
   );
 };
 
-// ... (InputField y MultiInputField permanecen iguales)
 
 export default EditarPerfil;

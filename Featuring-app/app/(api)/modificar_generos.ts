@@ -2,9 +2,9 @@ import { supabase } from "@/lib/supabase";
 
 export async function PUT(request: Request) {
   try {
-    const { id_habilidad, nombre_habilidad } = await request.json();
+    const { id_genero, nombre_genero } = await request.json();
 
-    if (!id_habilidad || !nombre_habilidad) {
+    if (!id_genero || !nombre_genero) {
       return Response.json(
         { error: "Faltan campos requeridos" },
         { status: 400 },
@@ -15,9 +15,9 @@ export async function PUT(request: Request) {
     const { data: perfilData, error: perfilError } = await supabase
       .from("perfil_habilidad")
       .update({
-        habilidad: nombre_habilidad
+        genero: nombre_genero
       })
-      .eq('id', id_habilidad)
+      .eq('id', id_genero)
       .select();
 
     if (perfilError) {
@@ -26,7 +26,7 @@ export async function PUT(request: Request) {
 
     if (!perfilData || perfilData.length === 0) {
       return Response.json(
-        { error: "No se encontró la habilidad para actualizar" },
+        { error: "No se encontró el registro para actualizar" },
         { status: 404 },
       );
     }
