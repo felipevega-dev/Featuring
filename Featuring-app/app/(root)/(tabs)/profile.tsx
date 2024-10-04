@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, Image, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { Alert, View, Text, Image, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { supabase } from '@/lib/supabase';
 import { useUser } from '@clerk/clerk-expo';
 import { Ionicons } from '@expo/vector-icons';
-import { Link } from 'expo-router';
+import { Link, router } from 'expo-router';
+import { useAuth } from '@clerk/clerk-expo';
 
 type PerfilData = {
   id: number;
@@ -19,7 +20,8 @@ type PerfilData = {
 
 export default function PerfilScreen() {
   const { user } = useUser();
-  const [perfilData, setPerfilData] = useState<PerfilData | null>(null);
+  const { signOut } = useAuth();
+   const [perfilData, setPerfilData] = useState<PerfilData | null>(null);
   const [generos, setGeneros] = useState<string[]>([]);
   const [habilidades, setHabilidades] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -30,6 +32,41 @@ export default function PerfilScreen() {
       fetchPerfilData();
     }
   }, [user]);
+
+
+  const handleSignOut = async () => {
+    Alert.alert(
+      "Cerrar Sesión",
+      "¿Estás seguro de que quieres cerrar sesión?",
+      [
+        {
+          text: "Cancelar",
+          style: "cancel"
+        },
+        {
+          text: "Sí, cerrar sesión",
+          onPress: async () => {
+            try {
+              // Cerrar sesión en Supabase
+              const { error: supabaseError } = await supabase.auth.signOut();
+              if (supabaseError) {
+                throw new Error('Error al cerrar sesión en Supabase');
+              }
+
+              // Cerrar sesión en Clerk
+              await signOut();
+              
+              // Redirigir al usuario
+              router.replace("/(auth)/sign-in");
+            } catch (error) {
+              console.error('Error al cerrar sesión:', error);
+              Alert.alert("Error", "No se pudo cerrar sesión completamente. Por favor, inténtalo de nuevo.");
+            }
+          }
+        }
+      ]
+    );
+  };
 
   const fetchPerfilData = async () => {
     setIsLoading(true);
@@ -116,17 +153,13 @@ export default function PerfilScreen() {
   return (
     <ScrollView className="flex-1 bg-purple-100">
       <View className="bg-purple-700 pt-10 pb-5 flex-row justify-between items-center px-4">
-        <Link href="/editarPerfil" asChild>
-          <TouchableOpacity>
-            <Ionicons name="create-outline" size={24} color="white" />
-          </TouchableOpacity>
-        </Link>
-        <Text className="text-white text-2xl font-bold text-center">Perfil</Text>
-        <Link href="/preferencias" asChild>
-          <TouchableOpacity>
-            <Ionicons name="settings-outline" size={24} color="white" />
-          </TouchableOpacity>
-        </Link>
+      <TouchableOpacity onPress={() => router.push('/(root)/(edit)/editar_perfil')}>
+        <Ionicons name="create-outline" size={24} color="white" />
+      </TouchableOpacity>
+      <Text className="text-white text-2xl font-bold text-center">Perfil</Text>
+      <TouchableOpacity onPress={() => router.push('/preferencias')}>
+        <Ionicons name="settings-outline" size={24} color="white" />
+      </TouchableOpacity>
       </View>
       <View className="items-center mt-5">
         <Image source={{ uri: perfilData.foto_perfil }} className="w-32 h-32 rounded-full border-4 border-white" />
@@ -199,10 +232,12 @@ export default function PerfilScreen() {
           content={<Text>{perfilData.redes_sociales}</Text>}
         />
       </View>
-
-      <TouchableOpacity className="bg-red-500 mx-4 mt-5 mb-20 p-3 rounded-lg">
-        <Text className="text-white text-center font-bold">Cerrar Sesión</Text>
-      </TouchableOpacity>
+      <TouchableOpacity 
+  className="bg-red-500 mx-4 mt-5 mb-20 p-3 rounded-lg"
+  onPress={handleSignOut}
+>
+  <Text className="text-white text-center font-bold">Cerrar Sesión</Text>
+</TouchableOpacity>
     </ScrollView>
   );
 }

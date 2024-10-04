@@ -69,6 +69,12 @@ export default function Preguntas() {
   const isLastSlide = activeIndex === 7;
   const isFirstSlide = activeIndex === 0;
   const { userId: clerkUserId } = useAuth();
+
+  // Añade esta nueva variable de estado
+const [redesSocialesSeleccionadas, setRedesSocialesSeleccionadas] = useState<string[]>([]);
+
+// Añade esta lista de redes sociales disponibles
+const redesSocialesDisponibles = ['Instagram', 'Twitter', 'TikTok', 'YouTube', 'Facebook', 'LinkedIn', 'SoundCloud', 'Spotify'];
   /* Variables */
 
 
@@ -85,6 +91,19 @@ export default function Preguntas() {
       keyboardDidHideListener.remove();
     };
   }, []);
+
+  
+
+// Añade esta función para manejar la selección de redes sociales
+const toggleRedSocial = useCallback((red: string) => {
+  setRedesSocialesSeleccionadas((prev) => {
+    if (prev.includes(red)) {
+      return prev.filter((item) => item !== red);
+    }
+    return [...prev, red];
+  });
+}, []);
+
 
 // Estas funciones ya están bien para manejar selecciones múltiples
 const toggleGeneroMusical = useCallback((genero: string) => {
@@ -107,6 +126,9 @@ const toggleTipoMusico = useCallback((tipo: string) => {
     return [...prev, tipo];
   });
 }, []);
+
+
+
 
   //Funcion para renderizar los generos musicales
   const renderGenerosMusicales = useCallback((inModal: boolean) => (
@@ -154,6 +176,31 @@ const toggleTipoMusico = useCallback((tipo: string) => {
       ))}
     </View>
   ), [tipoMusico, toggleTipoMusico]);
+
+  const renderRedesSociales = useCallback((inModal: boolean) => (
+    <View className="flex-row flex-wrap justify-center">
+      {(inModal ? redesSocialesDisponibles : redesSocialesDisponibles.slice(0, initialItemsCount)).map((red) => (
+        <TouchableOpacity
+          key={red}
+          onPress={() => toggleRedSocial(red)}
+          className={`m-2 p-3 rounded-full ${
+            redesSocialesSeleccionadas.includes(red)
+              ? 'bg-blue-500'
+              : 'bg-gray-200'
+          }`}
+        >
+          <Text className={`text-center ${
+            redesSocialesSeleccionadas.includes(red) ? 'text-white' : 'text-gray-800'
+          }`}>
+            {red}
+          </Text>
+        </TouchableOpacity>
+      ))}
+    </View>
+  ), [redesSocialesSeleccionadas, toggleRedSocial]);
+
+
+  
 
 //Funcion para abrir el modal
   const openModal = (content: 'generos' | 'tipos') => {
@@ -619,7 +666,7 @@ if (tipoMusico.length === 0) {
 
              {/* Slide 7 - Descripción y Redes Sociales */}
             <View className="flex-1 justify-center items-center mb-10 pb-10">
-              <Text className="text-lg text-blue-500 font-bold ">Descripción y Redes Sociales</Text>
+              <Text className="text-lg text-blue-500 font-bold ">Agrega una descripcion</Text>
               <View className="w-3/4">
                 <TextInput
                   className="border-2 rounded-lg border-blue-500 p-3 mt-4"
@@ -635,12 +682,13 @@ if (tipoMusico.length === 0) {
                   {descripcion.length}/300
                 </Text>
               </View>
-              <TextInput
+              
+            <TextInput
                 className="border-2 rounded-lg border-blue-500 p-3 w-3/4 mt-4"
                 placeholder="Redes Sociales (ej: Instagram, Twitter)"
                 value={redesSociales}
                 onChangeText={setRedesSociales}
-              />
+              /> 
              
             </View>
 

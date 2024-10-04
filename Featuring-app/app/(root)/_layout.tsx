@@ -4,6 +4,7 @@ const Layout = () => {
   return (
     <Stack>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen name="(edit)/editar_perfil" options={{ headerShown: false, presentation: 'modal' }} />
     </Stack>
   );
 };
