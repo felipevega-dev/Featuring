@@ -88,7 +88,20 @@ const SignIn = () => {
       router.replace("/(root)/(tabs)/home");
     } catch (err) {
       console.error("Error durante el inicio de sesión:", err);
-      Alert.alert("Error", err instanceof Error ? err.message : "Ocurrió un error durante el inicio de sesión");
+      let mensajeError = "Ocurrió un error durante el inicio de sesión";
+      
+      if (err.errors && err.errors.length > 0) {
+        const primerError = err.errors[0];
+        if (primerError.code === 'form_password_incorrect') {
+          mensajeError = "La contraseña es incorrecta";
+        } else if (primerError.code === 'form_identifier_not_found') {
+          mensajeError = "El correo electrónico no está registrado";
+        } else {
+          mensajeError = primerError.message || mensajeError;
+        }
+      }
+      
+      Alert.alert("Error", mensajeError);
     } finally {
       setIsLoading(false);
     }

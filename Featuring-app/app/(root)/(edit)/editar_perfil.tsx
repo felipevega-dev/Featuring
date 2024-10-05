@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Alert, View, Text, TextInput, TouchableOpacity, Image, ScrollView, Modal } from 'react-native';
+import React, { useState, useEffect ,useRef, useCallback  } from 'react';
+import {KeyboardAvoidingView, Platform, Alert, View, Text, TextInput, TouchableOpacity, Image, ScrollView, Modal } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { styled } from 'nativewind';
 import { Ionicons } from '@expo/vector-icons';
@@ -36,7 +36,9 @@ const EditarPerfil = () => {
     setModalVisible(true);
   };
 
-
+  const nombreRef = useRef<TextInput>(null);
+  const nombreArtisticoRef = useRef<TextInput>(null);
+  const biografiaRef = useRef<TextInput>(null);
   const { user } = useUser();
   const [fechaNacimientoModalVisible, setFechaNacimientoModalVisible] = useState(false);
   const [diaOpen, setDiaOpen] = useState(false);
@@ -91,9 +93,16 @@ const EditarPerfil = () => {
   const abrirModalFechaNacimiento = () => {
     setFechaNacimientoModalVisible(true);
   };
-
-
-  const InputField = ({ label, value, onChangeText, placeholder, multiline = false, keyboardType = 'default' }) => (
+  const InputField = useCallback(({ 
+    label, 
+    value, 
+    onChangeText, 
+    placeholder, 
+    multiline = false, 
+    keyboardType = 'default', 
+    inputRef, 
+    onSubmitEditing
+  }) => (
     <StyledView className="mb-4">
       <StyledText className="text-lg font-bold mb-2">{label}</StyledText>
       <StyledTextInput
@@ -103,9 +112,16 @@ const EditarPerfil = () => {
         placeholder={placeholder}
         multiline={multiline}
         keyboardType={keyboardType}
+        ref={inputRef}
+        onSubmitEditing={onSubmitEditing}
+        blurOnSubmit={!onSubmitEditing}
       />
     </StyledView>
-  );
+  ), []);
+
+  const handleTextChange = useCallback((setter) => (text) => {
+    setter(text);
+  }, []);
 
   const MultiInputField = ({ label, items, addItem, removeItem }) => (
     <StyledView className="mb-4">
@@ -184,9 +200,7 @@ const EditarPerfil = () => {
       Alert.alert('Error', 'No se pudo cambiar la foto de perfil');
     }
   };
-  
-
-{/*const actualizarPerfil = async () => {
+  const actualizarPerfil = async () => {
     try {
       console.log("Iniciando actualización del perfil");
   
@@ -214,17 +228,16 @@ const EditarPerfil = () => {
         return;
       }
   
-      // Obtener la ubicación
-    
+      // Construir la fecha de nacimiento
+      const fechaNacimiento = dia && mes && anio ? new Date(anio, mes - 1, dia).toISOString() : null;
   
       const perfilData = {
-        nombre_completo: nombre,
+        nombre_completo: nombreArtistico,
         sexo: genero,
-        fecha_nacimiento: 
-        biografia: 
-        redes_sociales: 
+        fecha_nacimiento: fechaNacimiento,
+        biografia: biografia,
         foto_perfil: fotoPerfil,
-        edad: 
+        edad: edad,
       };
   
       console.log("Datos del perfil a actualizar:", JSON.stringify(perfilData, null, 2));
@@ -244,29 +257,44 @@ const EditarPerfil = () => {
       console.log("Actualización exitosa. Datos actualizados:", perfilActualizado);
   
       // Actualizar las habilidades del usuario
-      // Primero, eliminar todas las habilidades existentes
       await supabase
         .from("perfil_habilidad")
         .delete()
         .eq('perfil_id', perfilExistente.id);
   
-      // Luego, insertar las nuevas habilidades
       for (const habilidad of habilidades) {
         const perfil_habilidadData = {
           perfil_id: perfilExistente.id,
           habilidad: habilidad
         };
         
-        const { data: perfil_habilidadInsertado, error: perfil_habilidadError } = await supabase
+        const { error: perfil_habilidadError } = await supabase
           .from("perfil_habilidad")
-          .insert(perfil_habilidadData)
-          .select()
-          .single();
+          .insert(perfil_habilidadData);
   
         if (perfil_habilidadError) {
           console.error("Error al insertar habilidad en Supabase:", perfil_habilidadError);
-        } else {
-          console.log("Habilidad insertada:", perfil_habilidadInsertado);
+        }
+      }
+  
+      // Actualizar los géneros musicales favoritos
+      await supabase
+        .from("perfil_genero_musical")
+        .delete()
+        .eq('perfil_id', perfilExistente.id);
+  
+      for (const generoMusical of generos) {
+        const perfil_generoData = {
+          perfil_id: perfilExistente.id,
+          genero: generoMusical
+        };
+        
+        const { error: perfil_generoError } = await supabase
+          .from("perfil_genero")
+          .insert(perfil_generoData);
+  
+        if (perfil_generoError) {
+          console.error("Error al insertar género musical en Supabase:", perfil_generoError);
         }
       }
   
@@ -276,9 +304,12 @@ const EditarPerfil = () => {
       Alert.alert("Error", "Hubo un problema al actualizar el perfil. Por favor, intenta de nuevo.");
     }
   };
-*/}
   return (
-    <StyledScrollView className="flex-1 bg-white">
+    <KeyboardAvoidingView 
+    behavior={Platform.OS === "ios" ? "padding" : "height"}
+    style={{ flex: 1 }}
+  >
+    <StyledScrollView keyboardShouldPersistTaps="handled" className="flex-1 bg-white">
       <StyledView className="p-6 mt-10">
         <Stack.Screen options={{ title: 'Editar Perfil', headerShown: false }} />
         
@@ -301,9 +332,34 @@ const EditarPerfil = () => {
           </StyledTouchableOpacity>
         </StyledView>
         
-        <InputField label="Nombre:" value={nombre} onChangeText={setNombre} placeholder="Tu nombre completo" />
-        <InputField label="Nombre Artístico:" value={nombreArtistico} onChangeText={setNombreArtistico} placeholder="Tu nombre artístico" />
+           
+          <StyledView className="p-6 mt-10">
+            {/* ... (contenido existente) */}
+            
+            <InputField 
+              label="Nombre Artístico:" 
+              value={nombreArtistico} 
+              onChangeText={handleTextChange(setNombreArtistico)}
+              placeholder="Tu nombre artístico"
+              inputRef={nombreArtisticoRef}
+              onSubmitEditing={() => biografiaRef.current?.focus()}
+            />
 
+           
+            <InputField 
+              label="Biografía:" 
+              value={biografia} 
+              onChangeText={handleTextChange(setBiografia)}
+              placeholder="Cuéntanos sobre ti" 
+              multiline={true}
+              inputRef={biografiaRef}
+              onSubmitEditing={() => {}} // Función vacía para el último campo
+            />
+
+
+            {/* ... (resto del contenido) */}
+
+          </StyledView>
 
         <View className="mb-4">
           <StyledText className="text-lg font-bold mb-2">Género:</StyledText>
@@ -323,8 +379,7 @@ const EditarPerfil = () => {
           />
         </View>
 
-        <InputField label="Biografía:" value={biografia} onChangeText={setBiografia} placeholder="Cuéntanos sobre ti" multiline={true} />
-        
+      
 
         <StyledTouchableOpacity 
             className="border border-blue-500 rounded-full py-2 px-4 mb-2"
@@ -350,13 +405,12 @@ const EditarPerfil = () => {
         />
 
 
-        <StyledTouchableOpacity 
-          className="bg-blue-500 p-4 rounded-md items-center mt-6"
-          onPress={() => console.log('Guardar cambios')}
-        >
-          <StyledText className="text-white font-bold text-lg">Guardar Cambios</StyledText>
-        </StyledTouchableOpacity>
-
+<StyledTouchableOpacity 
+  className="bg-blue-500 p-4 rounded-md items-center mt-6"
+  onPress={actualizarPerfil}
+>
+  <StyledText className="text-white font-bold text-lg">Guardar Cambios</StyledText>
+</StyledTouchableOpacity>
 
       </StyledView>
 
@@ -471,7 +525,10 @@ const EditarPerfil = () => {
   </StyledView>
 </Modal>
     </StyledScrollView>
+    </KeyboardAvoidingView>
+
   );
+
 };
 
 
