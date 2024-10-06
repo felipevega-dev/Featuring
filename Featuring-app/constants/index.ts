@@ -9,6 +9,7 @@ import close from "@/assets/icons/close.png";
 import dollar from "@/assets/icons/dollar.png";
 import email from "@/assets/icons/email.png";
 import play from "@/assets/icons/play.png";
+import pause from "@/assets/icons/pause.png";
 import views from "@/assets/icons/views.png";
 import facebook from "@/assets/icons/FacebookLogo.png";
 import eyecross from "@/assets/icons/eyecross.png";
@@ -30,6 +31,15 @@ import to from "@/assets/icons/to.png";
 import globe from "@/assets/icons/globe.png";
 import community from "@/assets/icons/community.png";
 import bell from "@/assets/icons/bell.png";
+import generos from "@/assets/icons/generos.png";
+import cerrarSesion from "@/assets/icons/cerrar-sesion-alt.png";
+import biografia from "@/assets/icons/biografia.png";
+import usuarioperfil from "@/assets/icons/usuarioperfil.png";
+import watch from "@/assets/icons/watch.png";
+import comentario from "@/assets/icons/comentario.png";
+import hearto from "@/assets/icons/hearto.png";
+import shuffle from "@/assets/icons/shuffle.png";
+import trespuntos from "@/assets/icons/trespuntos.png";
 //IMAGENES
 import check from "@/assets/images/check.png";
 import getStarted from "@/assets/images/get-started.png";
@@ -46,6 +56,7 @@ import FeatSplash from "@/assets/images/FeatSplash.png";
 import FeatHeader from "@/assets/images/FeatHeader.png";
 import IconoMusical from "@/assets/images/IconoMusical.png";
 
+
 export const images = {
   onboarding1,
   onboarding2,
@@ -60,10 +71,14 @@ export const images = {
   FeatLogo,
   FeatSplash,
   FeatHeader,
-  IconoMusical
+  IconoMusical,
 };
 
 export const icons = {
+  shuffle,
+  email,
+  comentario,
+  cerrarSesion,
   arrowDown,
   arrowUp,
   backArrow,
@@ -71,7 +86,7 @@ export const icons = {
   checkmark,
   close,
   dollar,
-  email,
+  hearto,
   eyecross,
   google,
   home,
@@ -95,6 +110,12 @@ export const icons = {
   bell,
   hidePassword,
   showPassword,
+  generos,
+  biografia,
+  usuarioperfil,
+  pause,
+  watch,
+  trespuntos,
 };
 
 export const onboarding = [

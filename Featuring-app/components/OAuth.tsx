@@ -2,31 +2,26 @@ import { useState, useCallback } from "react";
 import { View, Text, Image, Alert } from "react-native";
 import CustomButton from "@/components/CustomButton";
 import { icons } from "@/constants";
-import { useOAuth } from "@clerk/clerk-expo";
-import { googleOAuth } from "@/lib/auth";
+import { supabase } from "@/lib/supabase";
 import { router } from "expo-router";
 
 const OAuth = () => {
-  const { startOAuthFlow } = useOAuth({ strategy: "oauth_google" });
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleGoogleSignIn = useCallback(async () => {
-    setIsLoading(true);
+  const handleGoogleSignIn = async () => {
     try {
-      const result = await googleOAuth(startOAuthFlow);
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+      });
 
-      if (result.code === "session_exists") {
-        Alert.alert("Success", "Session exists. Redirecting to home screen.");
-        router.push("/(auth)/preguntas")
-      } else {
-        Alert.alert(result.success ? "Success" : "Error", result.message);
-      }
+      if (error) throw error;
+
+      // Manejar el éxito de la autenticación
+      router.push("/(auth)/preguntas");
     } catch (error) {
       Alert.alert("Error", "An error occurred during the sign-in process.");
-    } finally {
-      setIsLoading(false);
     }
-  }, [startOAuthFlow]);
+  };
 
   return (
     <View>

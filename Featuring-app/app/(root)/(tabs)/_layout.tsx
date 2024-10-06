@@ -122,7 +122,7 @@ const Layout = () => {
             title: "Watch",
             headerShown: false,
             tabBarIcon: ({ focused }) => (
-              <TabIcon focused={focused} source={icons.play} />
+              <TabIcon focused={focused} source={icons.watch} />
             ),
           }}
         />

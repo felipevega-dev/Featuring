@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import { View, Text, Image, ScrollView, ActivityIndicator, TouchableOpacity, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { supabase } from "@/lib/supabase";
@@ -6,8 +6,8 @@ import { router } from "expo-router";
 import { icons } from "@/constants";
 
 interface Perfil {
-  usuario_id: number;
-  full_name: string;
+  username: string;
+  full_name: string; // Añadimos esta línea
   foto_perfil: string;
   sexo: string;
   edad: number;
@@ -20,7 +20,11 @@ export default function Profile() {
   const [perfil, setPerfil] = useState<Perfil | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const fetchPerfil = useCallback(async () => {
+  useEffect(() => {
+    fetchPerfil();
+  }, []);
+
+  const fetchPerfil = async () => {
     try {
       setIsLoading(true);
       const { data: { user }, error: userError } = await supabase.auth.getUser();
@@ -30,7 +34,7 @@ export default function Profile() {
       const { data, error } = await supabase
         .from('perfil')
         .select(`
-          usuario_id,
+          username,
           foto_perfil,
           sexo,
           edad,
@@ -44,9 +48,9 @@ export default function Profile() {
       if (error) throw error;
 
       if (data) {
-        const perfilData: Perfil = {
+        const perfilData = {
           ...data,
-          full_name: user.user_metadata?.full_name || '',
+          full_name: user.user_metadata?.full_name || '', // Obtener full_name directamente de los metadatos del usuario
           generos: data.perfil_genero.map(g => g.genero),
           habilidades: data.perfil_habilidad.map(h => h.habilidad)
         };
@@ -61,11 +65,7 @@ export default function Profile() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
-
-  useEffect(() => {
-    fetchPerfil();
-  }, [fetchPerfil]);
+  };
 
   const handleLogout = async () => {
     Alert.alert(
@@ -108,33 +108,34 @@ export default function Profile() {
 
   return (
     <View className="flex-1 bg-primary-600 p-1">
-      <View className="mb-2 mt-2">
-        <Text className="text-xl text-center font-semibold text-white">
-          Perfil de usuario
-        </Text>
-      </View>
-      <ScrollView className="flex-1">
+          <View className="mb-2 mt-2">
+            <Text className="text-xl text-center font-semibold text-white">
+            Perfil de usuario
+          </Text>
+          </View>
+        <ScrollView className="flex-1">
+          
         <View className="px-4 pb-8">
           <View className="bg-white rounded-xl shadow-lg shadow-black/30 p-6 mb-10">
-            <View className="items-center pb-4">
-              <View className="w-36 h-36 rounded-full shadow-lg shadow-black/50 mb-4">
-                {perfil.foto_perfil ? (
-                  <Image
-                    source={{ uri: perfil.foto_perfil }}
-                    className="w-full h-full rounded-full border-10 border-secondary-500"
-                  />
-                ) : (
-                  <View className="w-full h-full rounded-full bg-gray-300 justify-center items-center border-4 border-secondary-500">
-                    <Image source={icons.person} className="w-20 h-20" />
-                  </View>
-                )}
+          <View className="items-center pb-4">
+          <View className="w-36 h-36 rounded-full shadow-lg shadow-black/50 mb-4">
+            {perfil.foto_perfil ? (
+              <Image
+                source={{ uri: perfil.foto_perfil }}
+                className="w-full h-full rounded-full border-10 border-secondary-500"
+              />
+            ) : (
+              <View className="w-full h-full rounded-full bg-gray-300 justify-center items-center border-4 border-secondary-500">
+                <Image source={icons.person} className="w-20 h-20" />
               </View>
-              <Text className="text-xl font-semibold text-primary-500 text-center">
-                {perfil.username}
-              </Text>
+            )}
+            </View>
+            <Text className="text-xl font-semibold text-primary-500 text-center">
+            {perfil.username}
+            </Text>
             </View>
             <ProfileSection icon={icons.usuarioperfil} title="Información Personal">
-              <ProfileItem label="Nombre" value={perfil.full_name} />
+            <ProfileItem label="Nombre" value={perfil.full_name} />
               <ProfileItem label="Género" value={perfil.sexo} />
               <ProfileItem label="Edad" value={perfil.edad.toString()} />
             </ProfileSection>
@@ -164,13 +165,15 @@ export default function Profile() {
             </ProfileSection>
 
             <TouchableOpacity
-              onPress={handleLogout}
-              className="bg-red-500 rounded-full py-2 px-6 flex-row justify-center items-center shadow-lg shadow-black/30"
-            >
-              <Image source={icons.cerrarSesion} className="w-5 h-5 mr-2" style={{ tintColor: 'white' }} />
-              <Text className="text-white font-bold text-lg">Cerrar Sesión</Text>
-            </TouchableOpacity>
+            onPress={handleLogout}
+            className="bg-red-500 rounded-full py-2 px-6 flex-row justify-center items-center shadow-lg shadow-black/30"
+          >
+            <Image source={icons.cerrarSesion} className="w-5 h-5 mr-2" style={{ tintColor: 'white' }} />
+            <Text className="text-white font-bold text-lg">Cerrar Sesión</Text>
+          </TouchableOpacity>
           </View>
+
+          
         </View>
       </ScrollView>
     </View>

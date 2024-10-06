@@ -5,8 +5,8 @@ import { styled } from 'nativewind';
 import { Ionicons } from '@expo/vector-icons';
 import DropDownPicker from 'react-native-dropdown-picker';
 import { supabase } from "@/lib/supabase";
-import { useAuth } from "@clerk/clerk-expo";
-import { useUser } from "@clerk/clerk-expo";
+//import { useAuth } from "@clerk/clerk-expo";
+//import { useUser } from "@clerk/clerk-expo";
 import * as ImagePicker from 'expo-image-picker';
 
 const StyledView = styled(View)
@@ -36,10 +36,10 @@ const EditarPerfil = () => {
     setModalVisible(true);
   };
 
-  const nombreRef = useRef<TextInput>(null);
-  const nombreArtisticoRef = useRef<TextInput>(null);
-  const biografiaRef = useRef<TextInput>(null);
-  const { user } = useUser();
+  //const nombreRef = useRef<TextInput>(null);
+  //const nombreArtisticoRef = useRef<TextInput>(null);
+  //const biografiaRef = useRef<TextInput>(null);
+  //const { user } = useUser();
   const [fechaNacimientoModalVisible, setFechaNacimientoModalVisible] = useState(false);
   const [diaOpen, setDiaOpen] = useState(false);
   const [mesOpen, setMesOpen] = useState(false);
