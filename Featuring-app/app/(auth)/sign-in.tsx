@@ -68,7 +68,7 @@ const onSignInPress = useCallback(async () => {
     });
 
     if (error) {
-      // Manejar errores específicos
+      console.error("Error de inicio de sesión:", error.message);
       switch (error.message) {
         case 'Invalid login credentials':
           Alert.alert("Error", "Correo electrónico o contraseña incorrectos");
@@ -77,19 +77,41 @@ const onSignInPress = useCallback(async () => {
           Alert.alert("Error", "Por favor, confirma tu correo electrónico antes de iniciar sesión");
           break;
         default:
-          Alert.alert("Error", "Ocurrió un error durante el inicio de sesión");
+          Alert.alert("Error", `Ocurrió un error durante el inicio de sesión: ${error.message}`);
       }
-      throw error;
+      return;
     }
 
     if (data.user) {
-      // ... (código existente para guardar datos y verificar perfil)
+      console.log("Usuario autenticado:", data.user);
+
+      // Guardar el user.id en AsyncStorage para uso futuro
+      await AsyncStorage.setItem('usuario_id', data.user.id);
+
+      if (rememberMe) {
+        await AsyncStorage.setItem('savedEmail', form.email);
+        await AsyncStorage.setItem('savedPassword', form.password);
+        await AsyncStorage.setItem('rememberMe', 'true');
+      } else {
+        await AsyncStorage.removeItem('savedEmail');
+        await AsyncStorage.removeItem('savedPassword');
+        await AsyncStorage.setItem('rememberMe', 'false');
+      }
+
+      const isProfileComplete = await checkProfileCompletion(data.user.id);
+      console.log("Perfil completo:", isProfileComplete);
+
+      if (isProfileComplete) {
+        router.replace("/(root)/(tabs)/home");
+      } else {
+        router.replace("/(auth)/preguntas");
+      }
     } else {
       throw new Error("No se pudo obtener la información del usuario");
     }
   } catch (error) {
     console.error("Error durante el inicio de sesión:", error);
-    // No es necesario mostrar otra alerta aquí, ya que se manejó arriba
+    Alert.alert("Error", "Ocurrió un error inesperado durante el inicio de sesión");
   } finally {
     setIsLoading(false);
   }

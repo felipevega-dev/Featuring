@@ -1,280 +1,199 @@
-import React, { useEffect, useState, useCallback } from "react";
-import {
-  Alert,
-  View,
-  Text,
-  Image,
-  ScrollView,
-  TouchableOpacity,
-  ActivityIndicator,
-} from "react-native";
+import React, { useState, useEffect, useCallback } from "react";
+import { View, Text, Image, ScrollView, ActivityIndicator, TouchableOpacity, Alert } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { supabase } from "@/lib/supabase";
-import { Ionicons } from "@expo/vector-icons";
-import { Link, router } from "expo-router";
+import { router } from "expo-router";
+import { icons } from "@/constants";
 
-type PerfilData = {
-  id: number;
-  nombre_completo: string;
-  sexo: string;
-  fecha_nacimiento: string;
-  biografia: string;
-  redes_sociales: string;
+interface Perfil {
+  usuario_id: number;
+  full_name: string;
   foto_perfil: string;
-  ubicacion: string;
+  sexo: string;
   edad: number;
-};
+  biografia: string;
+  generos: string[];
+  habilidades: string[];
+}
 
-export default function PerfilScreen() {
-  const [perfilData, setPerfilData] = useState<PerfilData | null>(null);
-  const [generos, setGeneros] = useState<string[]>([]);
-  const [habilidades, setHabilidades] = useState<string[]>([]);
+export default function Profile() {
+  const [perfil, setPerfil] = useState<Perfil | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const fetchPerfilData = useCallback(async () => {
-    setIsLoading(true);
+  const fetchPerfil = useCallback(async () => {
     try {
+      setIsLoading(true);
       const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError) throw userError;
+      if (!user) throw new Error("Usuario no autenticado");
 
-      if (userError) {
-        console.error("Error obteniendo el usuario:", userError);
-        throw userError;
-      }
-
-      if (!user) {
-        console.error("No se encontró un usuario autenticado");
-        router.replace("/(auth)/sign-in");
-        return;
-      }
-
-      console.log("Fetching profile data for user:", user.id);
-
-      const { data: perfilData, error: perfilError } = await supabase
-        .from("perfil")
-        .select("*")
-        .eq("usuario_id", user.id)
+      const { data, error } = await supabase
+        .from('perfil')
+        .select(`
+          usuario_id,
+          foto_perfil,
+          sexo,
+          edad,
+          biografia,
+          perfil_genero (genero),
+          perfil_habilidad (habilidad)
+        `)
+        .eq('usuario_id', user.id)
         .single();
 
-      if (perfilError) {
-        console.error("Error fetching profile:", perfilError);
-        throw perfilError;
+      if (error) throw error;
+
+      if (data) {
+        const perfilData: Perfil = {
+          ...data,
+          full_name: user.user_metadata?.full_name || '',
+          generos: data.perfil_genero.map(g => g.genero),
+          habilidades: data.perfil_habilidad.map(h => h.habilidad)
+        };
+      
+        setPerfil(perfilData);
+      } else {
+        throw new Error("No se encontró el perfil");
       }
-
-      console.log("Profile data:", perfilData);
-      setPerfilData(perfilData);
-
-      // Obtener géneros
-      const { data: generosData, error: generosError } = await supabase
-        .from("perfil_genero")
-        .select("genero")
-        .eq("perfil_id", perfilData.id);
-
-      if (generosError) {
-        console.error("Error fetching genres:", generosError);
-        throw generosError;
-      }
-
-      setGeneros(generosData.map((g) => g.genero));
-
-      // Obtener habilidades
-      const { data: habilidadesData, error: habilidadesError } = await supabase
-        .from("perfil_habilidad")
-        .select("habilidad")
-        .eq("perfil_id", perfilData.id);
-
-      if (habilidadesError) {
-        console.error("Error fetching skills:", habilidadesError);
-        throw habilidadesError;
-      }
-      setHabilidades(habilidadesData.map((h) => h.habilidad));
     } catch (error) {
-      console.error("Error al obtener datos del perfil:", error);
-      Alert.alert("Error", "No se pudieron cargar los datos del perfil");
+      console.error("Error al obtener el perfil:", error);
+      Alert.alert("Error", "No se pudo cargar el perfil del usuario");
     } finally {
       setIsLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    fetchPerfilData();
-  }, [fetchPerfilData]);
+    fetchPerfil();
+  }, [fetchPerfil]);
 
-  const handleRefresh = useCallback(() => {
-    fetchPerfilData();
-  }, [fetchPerfilData]);
-
-  const handleSignOut = async () => {
+  const handleLogout = async () => {
     Alert.alert(
       "Cerrar Sesión",
       "¿Estás seguro de que quieres cerrar sesión?",
       [
-        {
-          text: "Cancelar",
-          style: "cancel",
-        },
-        {
-          text: "Sí, cerrar sesión",
+        { text: "Cancelar", style: "cancel" },
+        { 
+          text: "Sí, cerrar sesión", 
           onPress: async () => {
             try {
-              const { error: supabaseError } = await supabase.auth.signOut();
-              if (supabaseError) {
-                throw new Error("Error al cerrar sesión en Supabase");
-              }
-              router.replace("/(auth)/sign-in");
+              const { error } = await supabase.auth.signOut();
+              if (error) throw error;
+              router.replace("/sign-in");
             } catch (error) {
               console.error("Error al cerrar sesión:", error);
-              Alert.alert(
-                "Error",
-                "No se pudo cerrar sesión completamente. Por favor, inténtalo de nuevo."
-              );
+              Alert.alert("Error", "No se pudo cerrar la sesión");
             }
-          },
-        },
+          }
+        }
       ]
     );
   };
 
-  const InfoSection = ({ icon, title, content }) => (
-    <View className="bg-white rounded-lg mb-4 p-4 shadow-md">
-      <View className="flex-row items-center mb-2">
-        <Ionicons name={icon} size={24} color="purple" />
-        <Text className="text-lg font-semibold ml-2 text-purple-700">
-          {title}
-        </Text>
-      </View>
-      {content}
-    </View>
-  );
-
   if (isLoading) {
     return (
-      <View className="flex-1 justify-center items-center">
-        <ActivityIndicator size="large" color="purple" />
+      <View className="flex-1 justify-center items-center bg-primary-600">
+        <ActivityIndicator size="large" color="#ffffff" />
       </View>
     );
   }
 
-  if (!perfilData) {
+  if (!perfil) {
     return (
-      <View className="flex-1 justify-center items-center">
-        <Text>No se encontró un perfil. Por favor, crea uno.</Text>
-        <TouchableOpacity
-          className="bg-purple-500 px-4 py-2 rounded-lg mt-4"
-          onPress={() => {
-            router.replace("/(auth)/preguntas");
-          }}
-        >
-          <Text className="text-white">Crear Perfil</Text>
-        </TouchableOpacity>
+      <View className="flex-1 justify-center items-center bg-primary-600">
+        <Text className="text-white text-lg">No se pudo cargar el perfil</Text>
       </View>
     );
   }
 
   return (
-    <ScrollView className="flex-1 bg-purple-100">
-      <View className="bg-purple-700 pt-10 pb-5 flex-row justify-between items-center px-4">
-        <TouchableOpacity
-          onPress={() => router.push("/(root)/(edit)/editar_perfil")}
-        >
-          <Ionicons name="create-outline" size={24} color="white" />
-        </TouchableOpacity>
-        <TouchableOpacity onPress={handleRefresh}>
-          <Ionicons name="refresh-outline" size={24} color="white" />
-        </TouchableOpacity>
-        <TouchableOpacity onPress={handleRefresh}>
-          <Ionicons name="settings-outline" size={24} color="white" />
-        </TouchableOpacity>
+    <View className="flex-1 bg-primary-600 p-1">
+      <View className="mb-2 mt-2">
+        <Text className="text-xl text-center font-semibold text-white">
+          Perfil de usuario
+        </Text>
       </View>
-      <View className="items-center mt-5">
-        <Text className="text-white text-purple-500 text-2xl mb-5 font-bold text-center">
-          Perfil
-        </Text>
-        <Image
-          source={{ uri: perfilData.foto_perfil }}
-          className="w-32 h-32 rounded-full border-4 border-white"
-        />
-        <Text className="text-2xl font-bold mt-2 text-purple-800">
-          {perfilData.nombre_completo}
-        </Text>
-        <View className="flex-row items-center mt-2">
-          <Ionicons name="location-outline" size={16} color="purple" />
-          <Text className="text-purple-600 ml-1">{perfilData.ubicacion}</Text>
+      <ScrollView className="flex-1">
+        <View className="px-4 pb-8">
+          <View className="bg-white rounded-xl shadow-lg shadow-black/30 p-6 mb-10">
+            <View className="items-center pb-4">
+              <View className="w-36 h-36 rounded-full shadow-lg shadow-black/50 mb-4">
+                {perfil.foto_perfil ? (
+                  <Image
+                    source={{ uri: perfil.foto_perfil }}
+                    className="w-full h-full rounded-full border-10 border-secondary-500"
+                  />
+                ) : (
+                  <View className="w-full h-full rounded-full bg-gray-300 justify-center items-center border-4 border-secondary-500">
+                    <Image source={icons.person} className="w-20 h-20" />
+                  </View>
+                )}
+              </View>
+              <Text className="text-xl font-semibold text-primary-500 text-center">
+                {perfil.username}
+              </Text>
+            </View>
+            <ProfileSection icon={icons.usuarioperfil} title="Información Personal">
+              <ProfileItem label="Nombre" value={perfil.full_name} />
+              <ProfileItem label="Género" value={perfil.sexo} />
+              <ProfileItem label="Edad" value={perfil.edad.toString()} />
+            </ProfileSection>
+
+            <ProfileSection icon={icons.biografia} title="Biografía">
+              <Text className="text-gray-600">{perfil.biografia || "No hay biografía disponible."}</Text>
+            </ProfileSection>
+
+            <ProfileSection icon={icons.generos} title="Géneros Musicales">
+              <View className="flex-row flex-wrap">
+                {perfil.generos.map((genero, index) => (
+                  <View key={index} className="bg-primary-100 rounded-full px-3 py-1 m-1">
+                    <Text className="text-primary-600">{genero}</Text>
+                  </View>
+                ))}
+              </View>
+            </ProfileSection>
+
+            <ProfileSection icon={icons.star} title="Habilidades Musicales">
+              <View className="flex-row flex-wrap">
+                {perfil.habilidades.map((habilidad, index) => (
+                  <View key={index} className="bg-secondary-100 rounded-full px-3 py-1 m-1">
+                    <Text className="text-secondary-500">{habilidad}</Text>
+                  </View>
+                ))}
+              </View>
+            </ProfileSection>
+
+            <TouchableOpacity
+              onPress={handleLogout}
+              className="bg-red-500 rounded-full py-2 px-6 flex-row justify-center items-center shadow-lg shadow-black/30"
+            >
+              <Image source={icons.cerrarSesion} className="w-5 h-5 mr-2" style={{ tintColor: 'white' }} />
+              <Text className="text-white font-bold text-lg">Cerrar Sesión</Text>
+            </TouchableOpacity>
+          </View>
         </View>
+      </ScrollView>
+    </View>
+  );
+}
+
+function ProfileSection({ icon, title, children }) {
+  return (
+    <View className="mb-4">
+      <View className="flex-row items-center mb-2">
+        <Image source={icon} className="w-6 h-6 mr-2" />
+        <Text className="text-xl font-semibold text-gray-800">{title}</Text>
       </View>
+      {children}
+    </View>
+  );
+}
 
-      <View className="bg-white rounded-xl mx-4 mt-5 p-6 shadow-lg">
-        <InfoSection
-          icon="person-outline"
-          title="Información Personal"
-          content={
-            <>
-              <View className="flex-row justify-between mb-2">
-                <Text className="text-gray-600">Nombre artístico</Text>
-                <Text>{perfilData.nombre_completo}</Text>
-              </View>
-              <View className="flex-row justify-between mb-2">
-                <Text className="text-gray-600">Género</Text>
-                <Text>{perfilData.sexo}</Text>
-              </View>
-              <View className="flex-row justify-between">
-                <Text className="text-gray-600">Edad</Text>
-                <Text>{perfilData.edad}</Text>
-              </View>
-            </>
-          }
-        />
-
-        <InfoSection
-          icon="book-outline"
-          title="Biografía"
-          content={<Text>{perfilData.biografia}</Text>}
-        />
-
-        <InfoSection
-          icon="musical-notes-outline"
-          title="Géneros Musicales"
-          content={
-            <View className="flex-row flex-wrap">
-              {generos.map((genero, index) => (
-                <View
-                  key={index}
-                  className="bg-purple-100 rounded-full px-3 py-1 m-1"
-                >
-                  <Text className="text-purple-700">{genero}</Text>
-                </View>
-              ))}
-            </View>
-          }
-        />
-
-        <InfoSection
-          icon="star-outline"
-          title="Habilidades Musicales"
-          content={
-            <View className="flex-row flex-wrap">
-              {habilidades.map((habilidad, index) => (
-                <View
-                  key={index}
-                  className="bg-cyan-100 rounded-full px-3 py-1 m-1"
-                >
-                  <Text className="text-cyan-700">{habilidad}</Text>
-                </View>
-              ))}
-            </View>
-          }
-        />
-
-        <InfoSection
-          icon="share-social-outline"
-          title="Redes Sociales"
-          content={<Text>{perfilData.redes_sociales}</Text>}
-        />
-      </View>
-      <TouchableOpacity
-        className="bg-red-500 mx-4 mt-5 mb-20 p-3 rounded-lg"
-        onPress={handleSignOut}
-      >
-        <Text className="text-white text-center font-bold">Cerrar Sesión</Text>
-      </TouchableOpacity>
-    </ScrollView>
+function ProfileItem({ label, value }) {
+  return (
+    <View className="flex-row justify-between items-center py-1">
+      <Text className="text-gray-600 font-medium">{label}</Text>
+      <Text className="text-gray-800">{value || "No especificado"}</Text>
+    </View>
   );
 }
