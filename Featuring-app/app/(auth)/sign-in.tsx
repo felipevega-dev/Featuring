@@ -48,7 +48,7 @@ const SignIn = () => {
   const checkProfileCompletion = async (userId: string) => {
     const { data, error } = await supabase
       .from('perfil')
-      .select('username')
+      .select('nombre_completo')
       .eq('usuario_id', userId)
       .maybeSingle();
 
@@ -57,7 +57,7 @@ const SignIn = () => {
       return false;
     }
 
-  return !!data?.username;
+  return !!data?.nombre_completo;
 };
 const onSignInPress = useCallback(async () => {
   setIsLoading(true);
