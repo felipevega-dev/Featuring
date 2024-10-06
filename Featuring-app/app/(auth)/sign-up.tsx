@@ -8,8 +8,6 @@ import { ReactNativeModal } from "react-native-modal";
 import { supabase } from "@/lib/supabase";
 import OAuth from "@/components/OAuth";
 
-const USERNAME_MIN_LENGTH = 4;
-const USERNAME_MAX_LENGTH = 10;
 const PASSWORD_MIN_LENGTH = 8;
 const PASSWORD_MAX_LENGTH = 14;
 
@@ -19,17 +17,20 @@ export default function SignUp() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const [form, setForm] = useState({
+    nombreCompleto: "",
     email: "",
     password: "",
     confirmPassword: "",
   });
 
   const [errors, setErrors] = useState({
+    nombreCompleto: "",
     email: "",
     password: "",
   });
 
   const [touched, setTouched] = useState({
+    nombreCompleto: false,
     email: false,
     password: false,
   });
@@ -54,10 +55,18 @@ export default function SignUp() {
     }
   };
 
-  const onSignUpPress = async () => {
-    setTouched({ email: true, password: true });
+  const validateNombreCompleto = (nombre: string) => {
+    if (nombre.trim().length === 0) {
+      setErrors((prev) => ({ ...prev, nombreCompleto: "El nombre completo es requerido." }));
+    } else {
+      setErrors((prev) => ({ ...prev, nombreCompleto: "" }));
+    }
+  };
 
-    if (errors.email || errors.password) {
+  const onSignUpPress = async () => {
+    setTouched({ nombreCompleto: true, email: true, password: true });
+
+    if (errors.nombreCompleto || errors.email || errors.password) {
       Alert.alert("Error", "Por favor, corrige los errores antes de continuar.");
       return;
     }
@@ -71,6 +80,11 @@ export default function SignUp() {
       const { data, error } = await supabase.auth.signUp({
         email: form.email,
         password: form.password,
+        options: {
+          data: {
+            full_name: form.nombreCompleto,
+          },
+        },
       });
 
       if (error) throw error;
@@ -88,12 +102,25 @@ export default function SignUp() {
   return (
     <ScrollView className="flex-1 bg-white">
       <View className="flex-1 bg-white">
-        <View className="relative w-full h-[80px] mt-14 flex items-center justify-center">
+        <View className="relative w-full h-[80px] mt-14 flex items-center justify-center mb-6">
           <Image source={images.FeatLogo} className="z-0 w-[180px] h-[100px]" />
           <Text className="text-lg font-bold text-primary-500">Registro</Text>
         </View>
 
         <View className="p-4">
+          <InputField
+            label="Nombre Completo"
+            placeholder="Ingresa tu nombre completo"
+            icon={icons.person}
+            value={form.nombreCompleto}
+            onChangeText={(value) => {
+              setForm({ ...form, nombreCompleto: value });
+              if (!touched.nombreCompleto) setTouched({ ...touched, nombreCompleto: true });
+              validateNombreCompleto(value);
+            }}
+          />
+          {touched.nombreCompleto && errors.nombreCompleto ? <Text className="text-red-500 text-sm">{errors.nombreCompleto}</Text> : null}
+
           <InputField
             label="Email"
             placeholder="Ingresa tu correo"

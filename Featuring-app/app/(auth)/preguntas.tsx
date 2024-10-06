@@ -6,7 +6,6 @@ import {
   TextInput,
   View,
   TouchableOpacity,
-  FlatList,
   KeyboardAvoidingView,
   Platform,
   Dimensions,
@@ -15,9 +14,8 @@ import {
   Alert,
   Image,
 } from "react-native";
-import DateTimePicker from "@react-native-community/datetimepicker";
 import Swiper from "react-native-swiper";
-import { useRouter } from "expo-router";
+import { router } from "expo-router";
 import { images } from "@/constants";
 import CustomButton from "@/components/CustomButton";
 import * as ImagePicker from "expo-image-picker";
@@ -25,138 +23,47 @@ import * as Location from "expo-location";
 import { supabase } from "@/lib/supabase";
 import DropDownPicker from "react-native-dropdown-picker";
 
-//Obtener dimensiones de la pantalla
 const { height, width } = Dimensions.get("window");
 
-//Funcion principal
 export default function Preguntas() {
-  //Variables para el dropdown de la fecha de nacimiento
-  const [dia, setDia] = useState(1);
-  const [mes, setMes] = useState(1);
-  const [anio, setAnio] = useState(2000);
+  const swiperRef = useRef<Swiper>(null);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [modalContent, setModalContent] = useState<"generos" | "habilidades">("generos");
 
+  const [username, setUsername] = useState("");
+  const [usernameError, setUsernameError] = useState("");
+  const [telefono, setTelefono] = useState("");
+  const [genero, setGenero] = useState("");
+  const [dia, setDia] = useState(null);
+  const [mes, setMes] = useState(null);
+  const [anio, setAnio] = useState(null);
   const [diaOpen, setDiaOpen] = useState(false);
   const [mesOpen, setMesOpen] = useState(false);
   const [anioOpen, setAnioOpen] = useState(false);
-
-  const dias = Array.from({ length: 31 }, (_, i) => ({
-    label: `${i + 1}`,
-    value: i + 1,
-  }));
-  const meses = [
-    { label: "Enero", value: 1 },
-    { label: "Febrero", value: 2 },
-    // ... otros meses ...
-    { label: "Diciembre", value: 12 },
-  ];
-  const anios = Array.from({ length: 100 }, (_, i) => ({
-    label: `${2023 - i}`,
-    value: 2023 - i,
-  }));
-  //Variables para el dropdown de la fecha de nacimiento
-
-  const [modalVisible, setModalVisible] = useState(false); // Modal para mostrar los generos o tipos de musicos
-  const [modalContent, setModalContent] = useState<"generos" | "tipos">(
-    "generos"
-  ); // Modal para mostrar los generos o tipos de musicos
-
-  const initialItemsCount = 8; // Número de items a mostrar inicialmente
-
-  /* Variables */
-  const router = useRouter();
-  const swiperRef = useRef<Swiper>(null);
-  const [activeIndex, setActiveIndex] = useState(0);
-  const [nombre, setNombre] = useState("");
-  const [genero, setGenero] = useState("");
-  const [fechaNacimiento, setFechaNacimiento] = useState(new Date());
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [tipoMusico, setTipoMusico] = useState<string[]>([]);
-
-  const [generosMusicalesSeleccionados, setGenerosMusicalesSeleccionados] =
-    useState<string[]>([]);
   const [descripcion, setDescripcion] = useState("");
-  const [redesSociales, setRedesSociales] = useState("");
   const [profileImage, setProfileImage] = useState<string | null>(null);
-  const [location, setLocation] = useState<Location.LocationObject | null>(
-    null
-  );
-  const [keyboardVisible, setKeyboardVisible] = useState(false);
-  const generosMusicales = [
-    "Rock",
-    "Pop",
-    "Hip-hop",
-    "Jazz",
-    "Clásica",
-    "Reggaetón",
-    "Salsa",
-    "Blues",
-    "Country",
-    "Electrónica",
-    "K-pop",
-    "J-pop",
-    "Disco",
-    "Techno",
-    "House",
-    "Dubstep",
-    "Drum and Bass",
-    "Gospel",
-    "Grunge",
-    "New Wave",
-    "Alternativo",
-    "Experimental",
-  ];
-  const tiposMusico = [
-    "Cantante",
-    "Músico de Instrumento",
-    "Compositor",
-    "Productor",
-    "DJ",
-    "Guitarrista",
-    "Baterista",
-    "Bajista",
-    "Tecladista",
-    "Percusionista",
-    "Indie",
-    "Rapero",
-    "Bailarin",
-    "Liricista",
-    "Beatmaker",
-    "Corista",
-  ];
+  const [location, setLocation] = useState<(Location.LocationObject & { ubicacion?: string }) | null>(null);
 
-  const isLastSlide = activeIndex === 7;
+  const [habilidadesMusicales, setHabilidadesMusicales] = useState([
+    "Canto", "Guitarra", "Piano", "Batería", "Bajo", "Violín", "Saxofón", "Trompeta",
+    "Flauta", "Ukulele", "DJ", "Producción", "Composición", "Arreglos"
+  ]);
+  const [habilidadesMusicalesSeleccionadas, setHabilidadesMusicalesSeleccionadas] = useState<string[]>([]);
+
+  const [generosMusicales, setGenerosMusicales] = useState([
+    "Pop", "Rock", "Hip Hop", "R&B", "Jazz", "Clásica", "Electrónica", "Reggaeton",
+    "Country", "Folk", "Blues", "Metal", "Punk", "Indie", "Salsa", "Reggae"
+  ]);
+  const [generosMusicalesSeleccionados, setGenerosMusicalesSeleccionados] = useState<string[]>([]);
+
   const isFirstSlide = activeIndex === 0;
+  const isLastSlide = activeIndex === 7;
 
-  // Añade esta nueva variable de estado
-  const [redesSocialesSeleccionadas, setRedesSocialesSeleccionadas] = useState<
-    string[]
-  >([]);
-
-  // Añade esta lista de redes sociales disponibles
-  const redesSocialesDisponibles = [
-    "Instagram",
-    "Twitter",
-    "TikTok",
-    "YouTube",
-    "Facebook",
-    "LinkedIn",
-    "SoundCloud",
-    "Spotify",
-  ];
-  /* Variables */
-
-  /* Funciones */
-
-  //Obtener el estado del teclado
   useEffect(() => {
-    const keyboardDidShowListener = Keyboard.addListener(
-      "keyboardDidShow",
-      () => setKeyboardVisible(true)
-    );
-    const keyboardDidHideListener = Keyboard.addListener(
-      "keyboardDidHide",
-      () => setKeyboardVisible(false)
-    );
+    const keyboardDidShowListener = Keyboard.addListener("keyboardDidShow", () => setKeyboardVisible(true));
+    const keyboardDidHideListener = Keyboard.addListener("keyboardDidHide", () => setKeyboardVisible(false));
 
     return () => {
       keyboardDidShowListener.remove();
@@ -164,17 +71,35 @@ export default function Preguntas() {
     };
   }, []);
 
-  // Añade esta función para manejar la selección de redes sociales
-  const toggleRedSocial = useCallback((red: string) => {
-    setRedesSocialesSeleccionadas((prev) => {
-      if (prev.includes(red)) {
-        return prev.filter((item) => item !== red);
-      }
-      return [...prev, red];
-    });
-  }, []);
 
-  // Estas funciones ya están bien para manejar selecciones múltiples
+  const validateUsername = async (username: string) => {
+    if (username.length < 4 || username.length > 15) {
+      setUsernameError("El nombre de usuario debe tener entre 4 y 15 caracteres");
+      return false;
+    }
+    
+    const { data, error } = await supabase
+      .from("perfil")
+      .select("username")
+      .eq("username", username)
+      .single();
+
+    if (error && error.code !== "PGRST116") {
+      console.error("Error al validar username:", error);
+      setUsernameError("Error al validar el nombre de usuario");
+      return false;
+    }
+
+    if (data) {
+      setUsernameError("Este nombre de usuario ya está en uso");
+      return false;
+    }
+
+    setUsernameError("");
+    return true;
+  };
+
+
   const toggleGeneroMusical = useCallback((genero: string) => {
     setGenerosMusicalesSeleccionados((prev) => {
       if (prev.includes(genero)) {
@@ -187,115 +112,62 @@ export default function Preguntas() {
     });
   }, []);
 
-  const toggleTipoMusico = useCallback((tipo: string) => {
-    setTipoMusico((prev) => {
-      if (prev.includes(tipo)) {
-        return prev.filter((item) => item !== tipo);
+  const toggleHabilidadMusical = useCallback((habilidad: string) => {
+    setHabilidadesMusicalesSeleccionadas((prev) => {
+      if (prev.includes(habilidad)) {
+        return prev.filter((item) => item !== habilidad);
       }
-      return [...prev, tipo];
+      if (prev.length < 5) {
+        return [...prev, habilidad];
+      }
+      return prev;
     });
   }, []);
 
-  //Funcion para renderizar los generos musicales
-  const renderGenerosMusicales = useCallback(
-    (inModal: boolean) => (
-      <View className="flex-row flex-wrap justify-center">
-        {(inModal
-          ? generosMusicales
-          : generosMusicales.slice(0, initialItemsCount)
-        ).map((genero) => (
-          <TouchableOpacity
-            key={genero}
-            onPress={() => toggleGeneroMusical(genero)}
-            className={`m-2 p-3 rounded-full ${
-              generosMusicalesSeleccionados.includes(genero)
-                ? "bg-blue-500"
-                : "bg-gray-200"
-            }`}
-          >
-            <Text
-              className={`text-center ${
-                generosMusicalesSeleccionados.includes(genero)
-                  ? "text-white"
-                  : "text-gray-800"
-              }`}
-            >
-              {genero}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-    ),
-    [generosMusicalesSeleccionados]
-  );
+  const renderHabilidadesMusicales = useCallback(() => (
+    <View className="flex-row flex-wrap justify-center">
+      {habilidadesMusicales.map((habilidad) => (
+        <TouchableOpacity
+          key={habilidad}
+          onPress={() => toggleHabilidadMusical(habilidad)}
+          className={`m-2 p-3 rounded-full ${
+            habilidadesMusicalesSeleccionadas.includes(habilidad)
+              ? "bg-blue-500"
+              : "bg-gray-200"
+          }`}
+        >
+          <Text className={`text-center ${
+            habilidadesMusicalesSeleccionadas.includes(habilidad) ? "text-white" : "text-gray-800"
+          }`}>
+            {habilidad}
+          </Text>
+        </TouchableOpacity>
+      ))}
+    </View>
+  ), [habilidadesMusicalesSeleccionadas, toggleHabilidadMusical]);
 
-  //Funcion para renderizar los tipos de musicos
-  const renderTiposMusico = useCallback(
-    (inModal: boolean) => (
-      <View className="flex-row flex-wrap justify-center">
-        {(inModal ? tiposMusico : tiposMusico.slice(0, initialItemsCount)).map(
-          (tipo) => (
-            <TouchableOpacity
-              key={tipo}
-              onPress={() => toggleTipoMusico(tipo)}
-              className={`m-2 p-3 rounded-full ${
-                tipoMusico.includes(tipo) ? "bg-blue-500" : "bg-gray-200"
-              }`}
-            >
-              <Text
-                className={`text-center ${
-                  tipoMusico.includes(tipo) ? "text-white" : "text-gray-800"
-                }`}
-              >
-                {tipo}
-              </Text>
-            </TouchableOpacity>
-          )
-        )}
-      </View>
-    ),
-    [tipoMusico, toggleTipoMusico]
-  );
+  const renderGenerosMusicales = useCallback(() => (
+    <View className="flex-row flex-wrap justify-center">
+      {generosMusicales.map((genero) => (
+        <TouchableOpacity
+          key={genero}
+          onPress={() => toggleGeneroMusical(genero)}
+          className={`m-2 p-3 rounded-full ${
+            generosMusicalesSeleccionados.includes(genero)
+              ? "bg-blue-500"
+              : "bg-gray-200"
+          }`}
+        >
+          <Text className={`text-center ${
+            generosMusicalesSeleccionados.includes(genero) ? "text-white" : "text-gray-800"
+          }`}>
+            {genero}
+          </Text>
+        </TouchableOpacity>
+      ))}
+    </View>
+  ), [generosMusicalesSeleccionados, toggleGeneroMusical]);
 
-  const renderRedesSociales = useCallback(
-    (inModal: boolean) => (
-      <View className="flex-row flex-wrap justify-center">
-        {(inModal
-          ? redesSocialesDisponibles
-          : redesSocialesDisponibles.slice(0, initialItemsCount)
-        ).map((red) => (
-          <TouchableOpacity
-            key={red}
-            onPress={() => toggleRedSocial(red)}
-            className={`m-2 p-3 rounded-full ${
-              redesSocialesSeleccionadas.includes(red)
-                ? "bg-blue-500"
-                : "bg-gray-200"
-            }`}
-          >
-            <Text
-              className={`text-center ${
-                redesSocialesSeleccionadas.includes(red)
-                  ? "text-white"
-                  : "text-gray-800"
-              }`}
-            >
-              {red}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-    ),
-    [redesSocialesSeleccionadas, toggleRedSocial]
-  );
-
-  //Funcion para abrir el modal
-  const openModal = (content: "generos" | "tipos") => {
-    setModalContent(content);
-    setModalVisible(true);
-  };
-
-  //Funcion para seleccionar la foto de perfil
   const pickImage = async () => {
     let result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -309,186 +181,92 @@ export default function Preguntas() {
     }
   };
 
-  //Funcion para solicitar el permiso de la ubicacion
   const requestLocationPermission = async () => {
     let { status } = await Location.requestForegroundPermissionsAsync();
     if (status !== "granted") {
       Alert.alert("Permiso denegado", "No se puede acceder a la ubicación");
       return;
     }
-
+  
     let location = await Location.getCurrentPositionAsync({});
-    setLocation(location);
-    Alert.alert("Ubicación obtenida", "Gracias por compartir tu ubicación");
+    const { latitude, longitude } = location.coords;
+    
+    try {
+      const [placeDetails] = await Location.reverseGeocodeAsync({ latitude, longitude });
+      if (placeDetails) {
+        const ubicacion = `${placeDetails.city || ''}, ${placeDetails.country || ''}`.trim();
+        setLocation({ ...location, ubicacion });
+        Alert.alert("Ubicación obtenida", `Tu ubicación es: ${ubicacion}`);
+      } else {
+        throw new Error("No se pudo obtener la información de la ubicación");
+      }
+    } catch (error) {
+      console.error("Error al obtener la ubicación:", error);
+      Alert.alert("Error", "No se pudo obtener la información de la ubicación");
+    }
   };
 
-  //Funcion para avanzar a la siguiente pagina
   const handleNext = useCallback(() => {
     if (isLastSlide) {
       SaveProfile();
-      console.log({
-        nombre,
-        genero,
-        fechaNacimiento,
-        generosMusicalesSeleccionados,
-        descripcion,
-        redesSociales,
-        profileImage,
-        location,
-      });
-      router.replace("/");
     } else {
-      switch (activeIndex) {
-        case 0:
-          if (nombre.trim() === "") {
-            Alert.alert("Error", "Por favor, ingresa tu nombre.");
-            return;
-          }
-          break;
-        case 1:
-          if (genero === "") {
-            Alert.alert("Error", "Por favor, selecciona tu género.");
-            return;
-          }
-          break;
-        case 2:
-          // No need to validate date of birth as it always has a default value
-          break;
-        case 3:
-          // Para verificar si el array está vacío
-          if (tipoMusico.length === 0) {
-            Alert.alert(
-              "Error",
-              "Por favor, selecciona al menos un tipo de músico."
-            );
-            return;
-          }
-          break;
-        case 4:
-          if (generosMusicalesSeleccionados.length === 0) {
-            Alert.alert(
-              "Error",
-              "Por favor, selecciona al menos un género musical."
-            );
-            return;
-          }
-          break;
-        case 5:
-          if (!profileImage) {
-            Alert.alert("Error", "Por favor, selecciona una foto de perfil.");
-            return;
-          }
-          break;
-        case 6:
-          if (descripcion.trim() === "") {
-            Alert.alert("Error", "Por favor, ingresa una descripción.");
-            return;
-          }
-          break;
-      }
       swiperRef.current?.scrollBy(1);
     }
-  }, [
-    isLastSlide,
-    activeIndex,
-    nombre,
-    genero,
-    tipoMusico,
-    generosMusicalesSeleccionados,
-    descripcion,
-    profileImage,
-    location,
-    router,
-  ]);
+  }, [isLastSlide, activeIndex, username, telefono, genero, habilidadesMusicalesSeleccionadas, generosMusicalesSeleccionados, descripcion, profileImage, location]);
 
-  //Funcion para regresar a la pagina anterior
   const handleBack = useCallback(() => {
     if (!isFirstSlide) {
       swiperRef.current?.scrollBy(-1);
     }
   }, [isFirstSlide]);
 
-  //Funcion para obtener la fecha de nacimiento
-  const getFechaNacimiento = () => {
-    return new Date(anio, mes - 1, dia);
-  };
-  //Funcion para calcular la edad
+
   const calcularEdad = (dia: number, mes: number, anio: number): number => {
-    const fechaNacimiento = new Date(anio, mes - 1, dia); // Nota: mes - 1 porque en JavaScript los meses van de 0 a 11
+    const fechaNacimiento = new Date(anio, mes - 1, dia);
     const hoy = new Date();
     let edad = hoy.getFullYear() - fechaNacimiento.getFullYear();
     const m = hoy.getMonth() - fechaNacimiento.getMonth();
-
     if (m < 0 || (m === 0 && hoy.getDate() < fechaNacimiento.getDate())) {
       edad--;
     }
-
     return edad;
   };
 
-  // Obtener ubicacion
-  const obtenerUbicacion = async (
-    latitude: number,
-    longitude: number
-  ): Promise<string> => {
-    try {
-      const [{ city, country }] = await Location.reverseGeocodeAsync({
-        latitude,
-        longitude,
-      });
-
-      if (city && country) {
-        return `${city}, ${country}`;
-      } else {
-        throw new Error("No se pudo obtener la ciudad y el país");
-      }
-    } catch (error) {
-      console.error("Error al obtener la ubicación:", error);
-      return ""; // Retorna una cadena vacía si hay un error
-    }
-  };
   const SaveProfile = async () => {
     try {
-     
+      if (!username || !telefono || !dia || !mes || !anio || !genero) {
+        throw new Error("Faltan campos obligatorios");
+      }
+
+      const isUsernameValid = await validateUsername(username);
+      if (!isUsernameValid) {
+        throw new Error("Nombre de usuario inválido");
+      }
+  
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        throw new Error('No se encontró el ID de usuario autenticado');
+        throw new Error("No se encontró el ID de usuario autenticado");
       }
   
       const fechaNacimiento = new Date(anio, mes - 1, dia);
       const edad = calcularEdad(dia, mes, anio);
   
-      // Actualizar solo el nombre completo en los metadatos del usuario
-      const { error: updateUserError } = await supabase.auth.updateUser({
-        data: { full_name: nombre }
-      });
-  
-      if (updateUserError) {
-        console.warn("No se pudo actualizar el nombre completo del usuario:", updateUserError.message);
-      }
-
-      let ubicacion = "";
-      if (location) {
-        ubicacion = await obtenerUbicacion(
-          location.coords.latitude,
-          location.coords.longitude
-        );
-      }
-  
       const perfilData = {
         usuario_id: user.id,
-        nombre_completo: nombre,
-        sexo: genero,
+        username,
         fecha_nacimiento: fechaNacimiento.toISOString(),
-        biografia: descripcion,
-        redes_sociales: redesSociales,
-        foto_perfil: profileImage,
-        ubicacion: ubicacion,
-        edad: calcularEdad(dia, mes, anio),
+        biografia: descripcion || null,
+        foto_perfil: profileImage || null,
+        edad,
+        sexo: genero,
+        ubicacion: location?.ubicacion || null,
+        latitud: location ? location.coords.latitude : null,
+        longitud: location ? location.coords.longitude : null,
+        numtelefono: telefono || null,
       };
   
       const { data, error } = await supabase
-        .from('perfil')
+        .from("perfil")
         .upsert(perfilData)
         .select();
   
@@ -497,71 +275,86 @@ export default function Preguntas() {
       }
   
       // Insertar habilidades
-      for (const habilidad of tipoMusico) {
+      for (const habilidad of habilidadesMusicalesSeleccionadas) {
         await supabase
-          .from('perfil_habilidad')
+          .from("perfil_habilidad")
           .upsert({ perfil_id: user.id, habilidad });
       }
   
       // Insertar géneros
       for (const genero of generosMusicalesSeleccionados) {
         await supabase
-          .from('perfil_genero')
+          .from("perfil_genero")
           .upsert({ perfil_id: user.id, genero });
       }
   
-      Alert.alert('Perfil guardado exitosamente');
-      router.replace('/(root)/(tabs)/home');
+      Alert.alert("Perfil guardado exitosamente");
+      router.replace("/(root)/(tabs)/home");
     } catch (error) {
-      console.error('Error detallado al guardar el perfil:', error);
-      Alert.alert('Error al guardar el perfil', error.message || 'Hubo un problema al guardar la información');
+      console.error("Error detallado al guardar el perfil:", error);
+      Alert.alert("Error al guardar el perfil", error instanceof Error ? error.message : "Hubo un problema al guardar la información");
     }
+  };
+
+  const dias = Array.from({length: 31}, (_, i) => ({label: `${i + 1}`, value: i + 1}));
+  const meses = [
+    {label: "Enero", value: 1}, {label: "Febrero", value: 2}, {label: "Marzo", value: 3},
+    {label: "Abril", value: 4}, {label: "Mayo", value: 5}, {label: "Junio", value: 6},
+    {label: "Julio", value: 7}, {label: "Agosto", value: 8}, {label: "Septiembre", value: 9},
+    {label: "Octubre", value: 10}, {label: "Noviembre", value: 11}, {label: "Diciembre", value: 12}
+  ];
+  const anios = Array.from({length: 100}, (_, i) => ({label: `${2023 - i}`, value: 2023 - i}));
+
+  const openModal = (content: "generos" | "habilidades") => {
+    setModalContent(content);
+    setModalVisible(true);
   };
 
   return (
     <SafeAreaView className="flex-1 bg-white">
-      {/* KeyboardAvoidingView para que el teclado no tape los campos */}
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={{ flex: 1 }}
         keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
       >
-        {/* ScrollView para que el teclado no tape los campos */}
         <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
           <View className="flex-1">
             <View className="relative w-full h-[100px] mt-10 flex items-center justify-center">
-              <Image
-                source={images.FeatLogo}
-                className="z-0 w-[180px] h-[100px]"
-              />
+              <Image source={images.FeatLogo} className="z-0 w-[180px] h-[100px]" />
             </View>
-            {/* Swiper para las paginas */}
             <Swiper
               ref={swiperRef}
               loop={false}
               scrollEnabled={false}
-              dot={
-                <View className="w-[32px] h-[4px] mx-1 bg-[#E2E8F0] rounded-full" />
-              }
-              activeDot={
-                <View className="w-[32px] h-[4px] mx-1 bg-[#6D29D2] rounded-full" />
-              }
+              dot={<View className="w-[32px] h-[4px] mx-1 bg-[#E2E8F0] rounded-full" />}
+              activeDot={<View className="w-[32px] h-[4px] mx-1 bg-[#6D29D2] rounded-full" />}
               index={activeIndex}
               onIndexChanged={setActiveIndex}
               showsPagination={true}
               paginationStyle={{ top: 10, bottom: undefined }}
               style={{ height: height - 250 }}
             >
-              {/* Slide 1 - Nombre */}
+              {/* Slide 1 - Username y Teléfono */}
               <View className="flex-1 justify-center items-center mb-10">
-                <Text className="text-lg text-blue-500 font-bold">
-                  Ingresa tu nombre artistico
-                </Text>
+                <Text className="text-lg text-blue-500 font-bold mb-4">Ingresa tu información</Text>
                 <TextInput
-                  className="border-1 rounded-full bg-blue-200 border-blue-500 p-3 w-3/4 mt-4"
-                  placeholder="Tu nombre artistico"
-                  value={nombre}
-                  onChangeText={setNombre}
+                  className="border-1 rounded-full bg-blue-200 border-blue-500 p-3 w-3/4 mb-4"
+                  placeholder="Tu nombre artístico (username)"
+                  value={username}
+                  onChangeText={(text) => {
+                    setUsername(text);
+                    validateUsername(text);
+                  }}
+                />
+                {usernameError ? (
+                  <Text className="text-red-500 mt-2">{usernameError}</Text>
+                ) : null}
+                <TextInput
+                  className="border-1 rounded-full bg-blue-200 border-blue-500 p-3 w-3/4 mb-4"
+                  placeholder="Número de teléfono"
+                  value={telefono}
+                  onChangeText={setTelefono}
+                  keyboardType="phone-pad"
                 />
                 <Image
                   source={images.IconoMusical}
@@ -619,19 +412,11 @@ export default function Preguntas() {
                     </Text>
                   </TouchableOpacity>
                 </View>
-                <Image
-                  source={images.IconoMusical}
-                  className="w-4/5 h-24 mb-10 mt-10"
-                  resizeMode="contain"
-                />
               </View>
-              {/* Slide 2 - Género */}
 
               {/* Slide 3 - Fecha de Nacimiento */}
               <View className="flex-1 justify-center items-center bg-pink-100 p-4">
-                <Text className="text-lg text-pink-700 font-bold pb-2 ">
-                  Fecha de Nacimiento
-                </Text>
+                <Text className="text-lg text-pink-700 font-bold pb-2 ">Fecha de Nacimiento</Text>
                 <View className="flex-row justify-between">
                   <View className="w-1/4">
                     <DropDownPicker
@@ -640,10 +425,9 @@ export default function Preguntas() {
                       items={dias}
                       setOpen={setDiaOpen}
                       setValue={setDia}
+                      placeholder="Día"
                       zIndex={3000}
                       zIndexInverse={1000}
-                      style={{ backgroundColor: "pink-200" }}
-                      textStyle={{ color: "pink-800" }}
                     />
                   </View>
                   <View className="w-2/5">
@@ -653,10 +437,9 @@ export default function Preguntas() {
                       items={meses}
                       setOpen={setMesOpen}
                       setValue={setMes}
+                      placeholder="Mes"
                       zIndex={2000}
                       zIndexInverse={2000}
-                      style={{ backgroundColor: "pink-200" }}
-                      textStyle={{ color: "pink-800" }}
                     />
                   </View>
                   <View className="w-1/3">
@@ -666,10 +449,9 @@ export default function Preguntas() {
                       items={anios}
                       setOpen={setAnioOpen}
                       setValue={setAnio}
+                      placeholder="Año"
                       zIndex={1000}
                       zIndexInverse={3000}
-                      style={{ backgroundColor: "pink-200" }}
-                      textStyle={{ color: "pink-800" }}
                     />
                   </View>
                 </View>
@@ -679,22 +461,19 @@ export default function Preguntas() {
                   resizeMode="contain"
                 />
               </View>
-              {/* Slide 3 - Fecha de Nacimiento */}
 
-              {/* Slide 4 - Tipo de Músico */}
+              {/* Slide 4 - Habilidades Musicales */}
               <View className="flex-1 justify-start items-center mt-8">
                 <Text className="text-lg text-blue-500 font-bold mb-4">
-                  Selecciona tu tipo de músico
+                  Selecciona tus habilidades musicales
                 </Text>
-                {renderTiposMusico(false)}
-                {tiposMusico.length > initialItemsCount && (
-                  <TouchableOpacity
-                    onPress={() => openModal("tipos")}
-                    className="mt-4 p-2 bg-purple-500 rounded-full"
-                  >
-                    <Text className="text-white text-center">Ver más</Text>
-                  </TouchableOpacity>
-                )}
+                {renderHabilidadesMusicales()}
+                <TouchableOpacity
+                  onPress={() => openModal("habilidades")}
+                  className="mt-4 p-2 bg-purple-500 rounded-full"
+                >
+                  <Text className="text-white text-center">Ver más</Text>
+                </TouchableOpacity>
               </View>
 
               {/* Slide 5 - Géneros musicales */}
@@ -702,16 +481,15 @@ export default function Preguntas() {
                 <Text className="text-lg text-blue-500 font-bold mb-4">
                   Selecciona tus 5 géneros musicales favoritos
                 </Text>
-                {renderGenerosMusicales(false)}
-                {generosMusicales.length > initialItemsCount && (
-                  <TouchableOpacity
-                    onPress={() => openModal("generos")}
-                    className="mt-4 p-2 bg-purple-500 rounded-full"
-                  >
-                    <Text className="text-white text-center">Ver más</Text>
-                  </TouchableOpacity>
-                )}
+                {renderGenerosMusicales()}
+                <TouchableOpacity
+                  onPress={() => openModal("generos")}
+                  className="mt-4 p-2 bg-purple-500 rounded-full"
+                >
+                  <Text className="text-white text-center">Ver más</Text>
+                </TouchableOpacity>
               </View>
+
               {/* Slide 6 - Foto de perfil */}
               <View className="flex-1 justify-center items-center mb-10 pb-10">
                 <Text className="text-lg text-blue-500 font-bold">
@@ -736,10 +514,10 @@ export default function Preguntas() {
                 </TouchableOpacity>
               </View>
 
-              {/* Slide 7 - Descripción y Redes Sociales */}
+              {/* Slide 7 - Descripción */}
               <View className="flex-1 justify-center items-center mb-10 pb-10">
                 <Text className="text-lg text-blue-500 font-bold ">
-                  Agrega una descripcion
+                  Agrega una descripción
                 </Text>
                 <View className="w-3/4">
                   <TextInput
@@ -756,13 +534,6 @@ export default function Preguntas() {
                     {descripcion.length}/300
                   </Text>
                 </View>
-
-                <TextInput
-                  className="border-2 rounded-lg border-blue-500 p-3 w-3/4 mt-4"
-                  placeholder="Redes Sociales (ej: Instagram, Twitter)"
-                  value={redesSociales}
-                  onChangeText={setRedesSociales}
-                />
               </View>
 
               {/* Slide 8 - Acceso a la Ubicación */}
@@ -781,43 +552,10 @@ export default function Preguntas() {
                   <Text className="text-white">Permitir ubicación</Text>
                 </TouchableOpacity>
               </View>
-              <Image
-                source={images.IconoMusical}
-                className="w-4/5 h-24 mb-10 mt-10"
-                resizeMode="contain"
-              />
             </Swiper>
           </View>
         </ScrollView>
 
-        <Modal
-          animationType="slide"
-          transparent={true}
-          visible={modalVisible}
-          onRequestClose={() => setModalVisible(false)}
-        >
-          <View className="flex-1 justify-center items-center bg-black bg-opacity-50">
-            <View className="bg-white p-5 rounded-lg w-5/6 max-h-5/6">
-              <Text className="text-lg text-blue-500 font-bold mb-4">
-                {modalContent === "generos"
-                  ? "Todos los géneros musicales"
-                  : "Todos los tipos de músico"}
-              </Text>
-              <ScrollView>
-                {modalContent === "generos"
-                  ? renderGenerosMusicales(true)
-                  : renderTiposMusico(true)}
-              </ScrollView>
-              <TouchableOpacity
-                onPress={() => setModalVisible(false)}
-                className="mt-4 p-2 bg-purple-500 rounded-full"
-              >
-                <Text className="text-white text-center">Cerrar</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </Modal>
-        {/* Botones para navegar */}
         {!keyboardVisible && (
           <View className="w-full absolute bottom-10 pt-10 flex flex-row justify-between items-center px-4">
             {!isFirstSlide && (
@@ -835,6 +573,34 @@ export default function Preguntas() {
           </View>
         )}
       </KeyboardAvoidingView>
+
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={modalVisible}
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View className="flex-1 justify-center items-center bg-black bg-opacity-50">
+          <View className="bg-white p-5 rounded-lg w-5/6 max-h-5/6">
+            <Text className="text-lg text-blue-500 font-bold mb-4">
+              {modalContent === "generos"
+                ? "Todos los géneros musicales"
+                : "Todas las habilidades musicales"}
+            </Text>
+            <ScrollView>
+              {modalContent === "generos"
+                ? renderGenerosMusicales()
+                : renderHabilidadesMusicales()}
+            </ScrollView>
+            <TouchableOpacity
+              onPress={() => setModalVisible(false)}
+              className="mt-4 p-2 bg-purple-500 rounded-full"
+            >
+              <Text className="text-white text-center">Cerrar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
