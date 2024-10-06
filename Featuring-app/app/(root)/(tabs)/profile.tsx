@@ -4,6 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { supabase } from "@/lib/supabase";
 import { router } from "expo-router";
 import { icons } from "@/constants";
+import UploadSongModal from '@/components/UploadSongModal';
 
 interface Perfil {
   username: string;
@@ -19,9 +20,12 @@ interface Perfil {
 export default function Profile() {
   const [perfil, setPerfil] = useState<Perfil | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isUploadModalVisible, setIsUploadModalVisible] = useState(false);
+  const [userProfile, setUserProfile] = useState(null);
 
   useEffect(() => {
     fetchPerfil();
+    fetchUserProfile();
   }, []);
 
   const fetchPerfil = async () => {
@@ -67,6 +71,22 @@ export default function Profile() {
     }
   };
 
+  const fetchUserProfile = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const { data, error } = await supabase
+        .from('perfil')
+        .select('*')
+        .eq('usuario_id', user.id)
+        .single();
+      if (error) {
+        console.error('Error fetching user profile:', error);
+      } else {
+        setUserProfile(data);
+      }
+    }
+  };
+
   const handleLogout = async () => {
     Alert.alert(
       "Cerrar Sesión",
@@ -88,6 +108,11 @@ export default function Profile() {
         }
       ]
     );
+  };
+
+  const handleUploadSuccess = () => {
+    // Aquí podrías actualizar la lista de canciones del usuario si la muestras en el perfil
+    console.log('Canción subida exitosamente');
   };
 
   if (isLoading) {
@@ -176,6 +201,17 @@ export default function Profile() {
           
         </View>
       </ScrollView>
+      <TouchableOpacity
+        onPress={() => setIsUploadModalVisible(true)}
+        className="bg-blue-500 p-3 rounded-md mt-4"
+      >
+        <Text className="text-white text-center">Subir Nueva Canción</Text>
+      </TouchableOpacity>
+      <UploadSongModal
+        isVisible={isUploadModalVisible}
+        onClose={() => setIsUploadModalVisible(false)}
+        onUploadSuccess={handleUploadSuccess}
+      />
     </View>
   );
 }

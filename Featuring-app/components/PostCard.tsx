@@ -5,6 +5,7 @@ import Slider from '@react-native-community/slider';
 import { supabase } from '@/lib/supabase';
 import { icons } from '@/constants/index';
 import * as Clipboard from 'expo-clipboard';
+import { Ionicons } from '@expo/vector-icons';
 
 interface Cancion {
   id: number;
@@ -49,6 +50,7 @@ interface Comentario {
 interface PostCardProps {
   post: Post;
   currentUserId: string;
+  onDeletePost: (postId: number, cancionId: number | null) => void;
 }
 
 interface ComentarioLike {
@@ -58,7 +60,7 @@ interface ComentarioLike {
   created_at: string;
 }
 
-const PostCard: React.FC<PostCardProps> = ({ post, currentUserId }) => {
+const PostCard: React.FC<PostCardProps> = ({ post, currentUserId, onDeletePost }) => {
   const [sound, setSound] = useState<Audio.Sound | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [duration, setDuration] = useState<number | null>(null);
@@ -75,6 +77,8 @@ const PostCard: React.FC<PostCardProps> = ({ post, currentUserId }) => {
   const [showSortOptions, setShowSortOptions] = useState(false);
   const [selectedCommentId, setSelectedCommentId] = useState<number | null>(null);
   const [commentOptionsVisible, setCommentOptionsVisible] = useState(false);
+  const [showOptions, setShowOptions] = useState(false);
+  const [showOptionsModal, setShowOptionsModal] = useState(false);
 
   useEffect(() => {
     return sound
@@ -344,16 +348,45 @@ const PostCard: React.FC<PostCardProps> = ({ post, currentUserId }) => {
     }
   };
 
+  const handleDelete = () => {
+    Alert.alert(
+      "Eliminar publicación",
+      "¿Estás seguro de que quieres eliminar esta publicación? Esta acción no se puede deshacer.",
+      [
+        { text: "Cancelar", style: "cancel" },
+        { 
+          text: "Eliminar", 
+          style: "destructive",
+          onPress: () => {
+            onDeletePost(post.id, post.cancion?.id || null);
+            setShowOptionsModal(false);
+          }
+        }
+      ]
+    );
+  };
+
+  const handleEdit = () => {
+    // Por ahora, solo cerramos el modal
+    setShowOptionsModal(false);
+    // Aquí iría la lógica para editar el post
+  };
+
   return (
     <View className="bg-white p-4 mb-4 rounded-lg shadow-md">
-      <View className="flex-row items-center mb-3">
-        {post.perfil?.foto_perfil && (
-          <Image 
-            source={{ uri: post.perfil.foto_perfil }} 
-            className="w-10 h-10 rounded-full mr-3"
+      <View className="flex-row justify-between items-center mb-2">
+        <View className="flex-row items-center">
+          <Image
+            source={{ uri: post.perfil?.foto_perfil || 'https://via.placeholder.com/50' }}
+            className="w-10 h-10 rounded-full mr-2"
           />
+          <Text className="font-bold">{post.perfil?.username || 'Usuario desconocido'}</Text>
+        </View>
+        {post.usuario_id === currentUserId && (
+          <TouchableOpacity onPress={() => setShowOptionsModal(true)}>
+            <Ionicons name="ellipsis-vertical" size={24} color="black" />
+          </TouchableOpacity>
         )}
-        <Text className="font-JakartaBold text-lg">{post.perfil?.username || 'Usuario desconocido'}</Text>
       </View>
       {post.cancion && (
         <Text className="font-JakartaSemiBold text-lg mb-2 text-primary-700">{post.cancion.titulo}</Text>
@@ -546,6 +579,33 @@ const PostCard: React.FC<PostCardProps> = ({ post, currentUserId }) => {
                 <Text className="text-red-500 font-JakartaMedium">Eliminar comentario</Text>
               </TouchableOpacity>
             )}
+          </View>
+        </TouchableOpacity>
+      </Modal>
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={showOptionsModal}
+        onRequestClose={() => setShowOptionsModal(false)}
+      >
+        <TouchableOpacity 
+          style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)' }}
+          activeOpacity={1} 
+          onPress={() => setShowOptionsModal(false)}
+        >
+          <View className="bg-white rounded-lg p-4 w-3/4">
+            <TouchableOpacity 
+              className="py-3 border-b border-gray-200" 
+              onPress={handleEdit}
+            >
+              <Text className="text-blue-500 font-semibold">Editar publicación</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              className="py-3" 
+              onPress={handleDelete}
+            >
+              <Text className="text-red-500 font-semibold">Eliminar publicación</Text>
+            </TouchableOpacity>
           </View>
         </TouchableOpacity>
       </Modal>
