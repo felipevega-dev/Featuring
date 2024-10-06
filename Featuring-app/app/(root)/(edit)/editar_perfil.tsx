@@ -202,32 +202,33 @@ const EditarPerfil = () => {
   };
   const actualizarPerfil = async () => {
     try {
-      console.log("Iniciando actualización del perfil");
-  
-      if (!user || !user.id) {
-        console.log("Error: No se pudo obtener la información del usuario de Clerk");
-        Alert.alert("Error", "No se pudo obtener la información del usuario.");
-        return;
-      }
-  
-      console.log("Usuario de Clerk obtenido:", user.id);
-  
-      // Obtener el ID del perfil existente
-      let { data: perfilExistente, error: perfilCheckError } = await supabase
-        .from('perfil')
-        .select('id')
-        .eq('clerk_id', user.id)
-        .single();
-  
-      if (perfilCheckError) {
-        throw perfilCheckError;
-      }
-  
-      if (!perfilExistente) {
-        Alert.alert("Error", "No se encontró un perfil existente para actualizar.");
-        return;
-      }
-  
+      // Primero, obtén el ID del usuario actual de Supabase
+const { data: { user }, error: userError } = await supabase.auth.getUser();
+
+if (userError) {
+  throw userError;
+}
+
+if (!user) {
+  throw new Error('No se encontró un usuario autenticado');
+}
+
+// Ahora, obtén el ID del perfil existente usando el ID del usuario de Supabase
+let { data: perfilExistente, error: perfilCheckError } = await supabase
+  .from('perfil')
+  .select('id')
+  .eq('usuario_id', user.id)
+  .single();
+
+if (perfilCheckError) {
+  throw perfilCheckError;
+}
+
+if (!perfilExistente) {
+  throw new Error('No se encontró un perfil para este usuario');
+}
+
+// Ahora puedes usar perfilExistente.id para las operaciones subsiguientes
       // Construir la fecha de nacimiento
       const fechaNacimiento = dia && mes && anio ? new Date(anio, mes - 1, dia).toISOString() : null;
   

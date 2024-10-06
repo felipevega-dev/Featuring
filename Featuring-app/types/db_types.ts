@@ -6,559 +6,827 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[]
 
-export type Database = {
+export interface Database {
   public: {
     Tables: {
-      cancion: {
+      usuario: {
         Row: {
-          archivo_url: string
-          fecha_subida: string | null
-          id: number
-          titulo: string
-          usuario_id: number
+          id: string
+          username: string | null
+          email: string
+          contrasena: string
+          created_at: string | null
         }
         Insert: {
-          archivo_url: string
-          fecha_subida?: string | null
-          id?: never
-          titulo: string
-          usuario_id: number
+          id?: string
+          username?: string | null
+          email: string
+          contrasena: string
+          created_at?: string | null
         }
         Update: {
-          archivo_url?: string
-          fecha_subida?: string | null
-          id?: never
+          id?: string
+          username?: string | null
+          email?: string
+          contrasena?: string
+          created_at?: string | null
+        }
+        Relationships: []
+      }
+      perfil: {
+        Row: {
+          usuario_id: string;
+          username: string | null;
+          nombre_completo: string | null;
+          fecha_nacimiento: string | null;
+          biografia: string | null;
+          foto_perfil: string | null;
+          edad: number | null;
+          sexo: string | null;
+          ubicacion: string | null;
+          latitud: number | null;
+          longitud: number | null;
+          created_at: string;
+        }
+        Insert: {
+          usuario_id: string;
+          username?: string | null;
+          nombre_completo?: string | null;
+          fecha_nacimiento?: string | null;
+          biografia?: string | null;
+          foto_perfil?: string | null;
+          edad?: number | null;
+          sexo?: string | null;
+          ubicacion?: string | null;
+          latitud?: number | null;
+          longitud?: number | null;
+          created_at?: string;
+        }
+        Update: {
+          usuario_id?: string;
+          username?: string | null;
+          nombre_completo?: string | null;
+          fecha_nacimiento?: string | null;
+          biografia?: string | null;
+          foto_perfil?: string | null;
+          edad?: number | null;
+          sexo?: string | null;
+          ubicacion?: string | null;
+          latitud?: number | null;
+          longitud?: number | null;
+          created_at?: string;
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_usuario_perfil"
+            columns: ["usuario_id"]
+            referencedRelation: "usuario"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      red_social: {
+        Row: {
+          id: number
+          perfil_id: number
+          nombre: string
+          url: string
+          created_at: string | null
+        }
+        Insert: {
+          id?: number
+          perfil_id: number
+          nombre: string
+          url: string
+          created_at?: string | null
+        }
+        Update: {
+          id?: number
+          perfil_id?: number
+          nombre?: string
+          url?: string
+          created_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_perfil_red_social"
+            columns: ["perfil_id"]
+            referencedRelation: "perfil"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      perfil_habilidad: {
+        Row: {
+          id: number;
+          perfil_id: string;
+          habilidad: string;
+          created_at: string;
+        }
+        Insert: {
+          id?: number;
+          perfil_id: string;
+          habilidad: string;
+          created_at?: string;
+        }
+        Update: {
+          id?: number;
+          perfil_id?: string;
+          habilidad?: string;
+          created_at?: string;
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_perfil_habilidad"
+            columns: ["perfil_id"]
+            referencedRelation: "perfil"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      perfil_genero: {
+        Row: {
+          id: number;
+          perfil_id: string;
+          genero: string;
+          created_at: string;
+        }
+        Insert: {
+          id?: number;
+          perfil_id: string;
+          genero: string;
+          created_at?: string;
+        }
+        Update: {
+          id?: number;
+          perfil_id?: string;
+          genero?: string;
+          created_at?: string;
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_perfil_genero"
+            columns: ["perfil_id"]
+            referencedRelation: "perfil"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      cancion: {
+        Row: {
+          id: number
+          usuario_id: string
+          titulo: string
+          archivo_audio: string | null
+          caratula: string | null
+          created_at: string | null
+        }
+        Insert: {
+          id?: number
+          usuario_id: string
+          titulo: string
+          archivo_audio?: string | null
+          caratula?: string | null
+          created_at?: string | null
+        }
+        Update: {
+          id?: number
+          usuario_id?: string
           titulo?: string
-          usuario_id?: number
+          archivo_audio?: string | null
+          caratula?: string | null
+          created_at?: string | null
         }
         Relationships: [
           {
             foreignKeyName: "fk_usuario_cancion"
             columns: ["usuario_id"]
-            isOneToOne: false
             referencedRelation: "usuario"
             referencedColumns: ["id"]
-          },
-        ]
-      }
-      comentario_publicacion: {
-        Row: {
-          contenido: string
-          fecha: string | null
-          publicacion_id: number
-          usuario_id: number
-        }
-        Insert: {
-          contenido: string
-          fecha?: string | null
-          publicacion_id: number
-          usuario_id: number
-        }
-        Update: {
-          contenido?: string
-          fecha?: string | null
-          publicacion_id?: number
-          usuario_id?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "fk_publicacion_comentario"
-            columns: ["publicacion_id"]
-            isOneToOne: false
-            referencedRelation: "publicacion"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_usuario_comentario_publicacion"
-            columns: ["usuario_id"]
-            isOneToOne: false
-            referencedRelation: "usuario"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      comentario_video: {
-        Row: {
-          contenido: string
-          fecha: string | null
-          usuario_id: number
-          video_id: number
-        }
-        Insert: {
-          contenido: string
-          fecha?: string | null
-          usuario_id: number
-          video_id: number
-        }
-        Update: {
-          contenido?: string
-          fecha?: string | null
-          usuario_id?: number
-          video_id?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "fk_usuario_comentario_video"
-            columns: ["usuario_id"]
-            isOneToOne: false
-            referencedRelation: "usuario"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_video_comentario"
-            columns: ["video_id"]
-            isOneToOne: false
-            referencedRelation: "video"
-            referencedColumns: ["id"]
-          },
+          }
         ]
       }
       conexion: {
         Row: {
-          estado: string | null
           id: number
           usuario1_id: number
           usuario2_id: number
+          estado: string | null
+          created_at: string | null
         }
         Insert: {
-          estado?: string | null
-          id?: never
+          id?: number
           usuario1_id: number
           usuario2_id: number
+          estado?: string | null
+          created_at?: string | null
         }
         Update: {
-          estado?: string | null
-          id?: never
+          id?: number
           usuario1_id?: number
           usuario2_id?: number
+          estado?: string | null
+          created_at?: string | null
         }
         Relationships: [
           {
             foreignKeyName: "fk_usuario1_conexion"
             columns: ["usuario1_id"]
-            isOneToOne: false
             referencedRelation: "usuario"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "fk_usuario2_conexion"
             columns: ["usuario2_id"]
-            isOneToOne: false
             referencedRelation: "usuario"
             referencedColumns: ["id"]
-          },
+          }
         ]
-      }
-      genero: {
-        Row: {
-          id: number
-          nombre: string
-        }
-        Insert: {
-          id?: never
-          nombre: string
-        }
-        Update: {
-          id?: never
-          nombre?: string
-        }
-        Relationships: []
-      }
-      habilidad: {
-        Row: {
-          id: number
-          nombre: string
-        }
-        Insert: {
-          id?: never
-          nombre: string
-        }
-        Update: {
-          id?: never
-          nombre?: string
-        }
-        Relationships: []
       }
       mensaje: {
         Row: {
-          contenido: string
-          emisor_id: number
-          fecha_envio: string | null
           id: number
+          emisor_id: number
           receptor_id: number
+          contenido: string
+          fecha_envio: string | null
+          tipo_contenido: string | null
+          url_contenido: string | null
+          created_at: string | null
         }
         Insert: {
-          contenido: string
+          id?: number
           emisor_id: number
-          fecha_envio?: string | null
-          id?: never
           receptor_id: number
+          contenido: string
+          fecha_envio?: string | null
+          tipo_contenido?: string | null
+          url_contenido?: string | null
+          created_at?: string | null
         }
         Update: {
+          id?: number
+          emisor_id?: string
+          receptor_id?: string
           contenido?: string
-          emisor_id?: number
           fecha_envio?: string | null
-          id?: never
-          receptor_id?: number
+          tipo_contenido?: string | null
+          url_contenido?: string | null
+          created_at?: string | null
         }
         Relationships: [
           {
             foreignKeyName: "fk_emisor_mensaje"
             columns: ["emisor_id"]
-            isOneToOne: false
             referencedRelation: "usuario"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "fk_receptor_mensaje"
             columns: ["receptor_id"]
-            isOneToOne: false
             referencedRelation: "usuario"
             referencedColumns: ["id"]
-          },
-        ]
-      }
-      perfil: {
-        Row: {
-          biografia: string | null
-          edad: number | null
-          fecha_nacimiento: string | null
-          foto_perfil: string | null
-          id: number
-          mensaje_perfil: string | null
-          nombre_completo: string | null
-          redes_sociales: Json | null
-          sexo: string | null
-          ubicacion: string | null
-          usuario_id: number
-        }
-        Insert: {
-          biografia?: string | null
-          edad?: number | null
-          fecha_nacimiento?: string | null
-          foto_perfil?: string | null
-          id?: never
-          mensaje_perfil?: string | null
-          nombre_completo?: string | null
-          redes_sociales?: Json | null
-          sexo?: string | null
-          ubicacion?: string | null
-          usuario_id: number
-        }
-        Update: {
-          biografia?: string | null
-          edad?: number | null
-          fecha_nacimiento?: string | null
-          foto_perfil?: string | null
-          id?: never
-          mensaje_perfil?: string | null
-          nombre_completo?: string | null
-          redes_sociales?: Json | null
-          sexo?: string | null
-          ubicacion?: string | null
-          usuario_id?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "fk_usuario_perfil"
-            columns: ["usuario_id"]
-            isOneToOne: true
-            referencedRelation: "usuario"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      perfil_genero: {
-        Row: {
-          genero_id: number
-          perfil_id: number
-        }
-        Insert: {
-          genero_id: number
-          perfil_id: number
-        }
-        Update: {
-          genero_id?: number
-          perfil_id?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "fk_genero_perfil"
-            columns: ["genero_id"]
-            isOneToOne: false
-            referencedRelation: "genero"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_perfil_genero"
-            columns: ["perfil_id"]
-            isOneToOne: false
-            referencedRelation: "perfil"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      perfil_habilidad: {
-        Row: {
-          habilidad_id: number
-          perfil_id: number
-        }
-        Insert: {
-          habilidad_id: number
-          perfil_id: number
-        }
-        Update: {
-          habilidad_id?: number
-          perfil_id?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "fk_habilidad_perfil"
-            columns: ["habilidad_id"]
-            isOneToOne: false
-            referencedRelation: "habilidad"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_perfil_habilidad"
-            columns: ["perfil_id"]
-            isOneToOne: false
-            referencedRelation: "perfil"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      publicacion: {
-        Row: {
-          cancion_id: number | null
-          contenido: string
-          fecha: string | null
-          id: number
-          image: string | null
-          likes: number | null
-          usuario_id: number
-        }
-        Insert: {
-          cancion_id?: number | null
-          contenido: string
-          fecha?: string | null
-          id?: never
-          image?: string | null
-          likes?: number | null
-          usuario_id: number
-        }
-        Update: {
-          cancion_id?: number | null
-          contenido?: string
-          fecha?: string | null
-          id?: never
-          image?: string | null
-          likes?: number | null
-          usuario_id?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "fk_cancion_publicacion"
-            columns: ["cancion_id"]
-            isOneToOne: true
-            referencedRelation: "cancion"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_usuario_publicacion"
-            columns: ["usuario_id"]
-            isOneToOne: false
-            referencedRelation: "usuario"
-            referencedColumns: ["id"]
-          },
+          }
         ]
       }
       seguidor: {
         Row: {
+          id: number
+          usuario_id: string
           seguidor_id: number
-          usuario_id: number
+          created_at: string | null
         }
         Insert: {
+          id?: number
+          usuario_id: string
           seguidor_id: number
-          usuario_id: number
+          created_at?: string | null
         }
         Update: {
+          id?: number
+          usuario_id?: string
           seguidor_id?: number
-          usuario_id?: number
+          created_at?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "fk_seguidor_usuario"
-            columns: ["seguidor_id"]
-            isOneToOne: false
+            foreignKeyName: "fk_usuario_seguidor"
+            columns: ["usuario_id"]
             referencedRelation: "usuario"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_usuario_seguidor"
-            columns: ["usuario_id"]
-            isOneToOne: false
+            foreignKeyName: "fk_seguidor_usuario"
+            columns: ["seguidor_id"]
             referencedRelation: "usuario"
             referencedColumns: ["id"]
-          },
+          }
         ]
-      }
-      usuario: {
-        Row: {
-          contrasena: string
-          correo_electronico: string
-          created_at: string | null
-          id: number
-          username: string
-        }
-        Insert: {
-          contrasena: string
-          correo_electronico: string
-          created_at?: string | null
-          id?: never
-          username: string
-        }
-        Update: {
-          contrasena?: string
-          correo_electronico?: string
-          created_at?: string | null
-          id?: never
-          username?: string
-        }
-        Relationships: []
       }
       video: {
         Row: {
-          descripcion: string | null
-          fecha: string | null
           id: number
-          likes: number | null
+          usuario_id: string
           titulo: string
-          usuario_id: number
-          video_url: string
+          duracion: string | null
+          url: string | null
+          created_at: string | null
         }
         Insert: {
-          descripcion?: string | null
-          fecha?: string | null
-          id?: never
-          likes?: number | null
+          id?: number
+          usuario_id: string
           titulo: string
-          usuario_id: number
-          video_url: string
+          duracion?: string | null
+          url?: string | null
+          created_at?: string | null
         }
         Update: {
-          descripcion?: string | null
-          fecha?: string | null
-          id?: never
-          likes?: number | null
+          id?: number
+          usuario_id?: string
           titulo?: string
-          usuario_id?: number
-          video_url?: string
+          duracion?: string | null
+          url?: string | null
+          created_at?: string | null
         }
         Relationships: [
           {
             foreignKeyName: "fk_usuario_video"
             columns: ["usuario_id"]
-            isOneToOne: false
+            referencedRelation: "usuario"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      publicacion: {
+        Row: {
+          id: number
+          usuario_id: string
+          contenido: string
+          cancion_id: number | null
+          created_at: string | null
+        }
+        Insert: {
+          id?: number
+          usuario_id: string
+          contenido: string
+          cancion_id?: number | null
+          created_at?: string | null
+        }
+        Update: {
+          id?: number
+          usuario_id?: string
+          contenido?: string
+          cancion_id?: number | null
+          created_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_usuario_publicacion"
+            columns: ["usuario_id"]
             referencedRelation: "usuario"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "fk_cancion_publicacion"
+            columns: ["cancion_id"]
+            referencedRelation: "cancion"
+            referencedColumns: ["id"]
+          }
         ]
       }
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      [_ in never]: never
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
+      comentario_video: {
+        Row: {
+          id: number
+          usuario_id: string
+          video_id: number
+          comentario: string
+          created_at: string | null
+        }
+        Insert: {
+          id?: number
+          usuario_id: string
+          video_id: number
+          comentario: string
+          created_at?: string | null
+        }
+        Update: {
+          id?: number
+          usuario_id?: string
+          video_id?: number
+          comentario?: string
+          created_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_usuario_comentario_video"
+            columns: ["usuario_id"]
+            referencedRelation: "usuario"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_video_comentario"
+            columns: ["video_id"]
+            referencedRelation: "video"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      comentario_publicacion: {
+        Row: {
+          id: number
+          usuario_id: string
+          publicacion_id: number
+          comentario: string
+          created_at: string | null
+        }
+        Insert: {
+          id?: number
+          usuario_id: number
+          publicacion_id: number
+          comentario: string
+          created_at?: string | null
+        }
+        Update: {
+          id?: number
+          usuario_id?: number
+          publicacion_id?: number
+          comentario?: string
+          created_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_usuario_comentario_publicacion"
+            columns: ["usuario_id"]
+            referencedRelation: "usuario"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_publicacion_comentario"
+            columns: ["publicacion_id"]
+            referencedRelation: "publicacion"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      likes_publicacion: {
+        Row: {
+          id: number
+          usuario_id: string
+          publicacion_id: number
+          created_at: string | null
+        }
+        Insert: {
+          id?: number
+          usuario_id: number
+          publicacion_id: number
+          created_at?: string | null
+        }
+        Update: {
+          id?: number
+          usuario_id?: string
+          publicacion_id?: number
+          created_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_usuario_likes"
+            columns: ["usuario_id"]
+            referencedRelation: "usuario"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_publicacion_likes"
+            columns: ["publicacion_id"]
+            referencedRelation: "publicacion"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      likes_video: {
+        Row: {
+          id: number
+          usuario_id: string
+          video_id: number
+          created_at: string | null
+        }
+        Insert: {
+          id?: number
+          usuario_id: string
+          video_id: number
+          created_at?: string | null
+        }
+        Update: {
+          id?: number
+          usuario_id?: number
+          video_id?: number
+          created_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_usuario_likes"
+            columns: ["usuario_id"]
+            referencedRelation: "usuario"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_video_likes"
+            columns: ["video_id"]
+            referencedRelation: "video"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      colaboracion: {
+        Row: {
+          id: number
+          cancion_id: number | null
+          video_id: number | null
+          usuario_id: string
+          tipo_colaboracion: string | null
+          created_at: string | null
+        }
+        Insert: {
+          id?: number
+          cancion_id?: number | null
+          video_id?: number | null
+          usuario_id: string
+          tipo_colaboracion?: string | null
+          created_at?: string | null
+        }
+        Update: {
+          id?: number
+          cancion_id?: number | null
+          video_id?: number | null
+          usuario_id?: string
+          tipo_colaboracion?: string | null
+          created_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_usuario_colaboracion"
+            columns: ["usuario_id"]
+            referencedRelation: "usuario"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_cancion_colaboracion"
+            columns: ["cancion_id"]
+            referencedRelation: "cancion"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_video_colaboracion"
+            columns: ["video_id"]
+            referencedRelation: "video"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      reporte: {
+                Row: {
+          id: number
+          usuario_reportante_id: string
+          usuario_reportado_id: string
+          contenido_id: number | null
+          tipo_contenido: string | null
+          razon: string | null
+          estado: string | null
+          created_at: string | null
+        }
+        Insert: {
+          id?: number
+          usuario_reportante_id: string
+          usuario_reportado_id: string
+          contenido_id?: number | null
+          tipo_contenido?: string | null
+          razon?: string | null
+          estado?: string | null
+          created_at?: string | null
+        }
+        Update: {
+          id?: number
+          usuario_reportante_id?: string
+          usuario_reportado_id?: string
+          contenido_id?: number | null
+          tipo_contenido?: string | null
+          razon?: string | null
+          estado?: string | null
+          created_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_usuario_reportante"
+            columns: ["usuario_reportante_id"]
+            referencedRelation: "usuario"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_usuario_reportado"
+            columns: ["usuario_reportado_id"]
+            referencedRelation: "usuario"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      configuracion_privacidad: {
+        Row: {
+          id: number
+          usuario_id: string
+          perfil_visible: boolean | null
+          mensajes_directos: string | null
+          notificaciones: boolean | null
+          datos_compartidos: Json | null
+          created_at: string | null
+        }
+        Insert: {
+          id?: number
+          usuario_id: string
+          perfil_visible?: boolean | null
+          mensajes_directos?: string | null
+          notificaciones?: boolean | null
+          datos_compartidos?: Json | null
+          created_at?: string | null
+        }
+        Update: {
+          id?: number
+          usuario_id?: string
+          perfil_visible?: boolean | null
+          mensajes_directos?: string | null
+          notificaciones?: boolean | null
+          datos_compartidos?: Json | null
+          created_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_usuario_privacidad"
+            columns: ["usuario_id"]
+            referencedRelation: "usuario"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      notificacion: {
+        Row: {
+          id: number
+          usuario_id: string
+          tipo_notificacion: string | null
+          contenido_id: number | null
+          mensaje: string | null
+          leido: boolean | null
+          fecha_evento: string | null
+          created_at: string | null
+        }
+        Insert: {
+          id?: number
+          usuario_id: string
+          tipo_notificacion?: string | null
+          contenido_id?: number | null
+          mensaje?: string | null
+          leido?: boolean | null
+          fecha_evento?: string | null
+          created_at?: string | null
+        }
+        Update: {
+          id?: number
+          usuario_id?: string
+          tipo_notificacion?: string | null
+          contenido_id?: number | null
+          mensaje?: string | null
+          leido?: boolean | null
+          fecha_evento?: string | null
+          created_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_usuario_notificacion"
+            columns: ["usuario_id"]
+            referencedRelation: "usuario"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      etiqueta: {
+        Row: {
+          id: number
+          nombre: string
+        }
+        Insert: {
+          id?: number
+          nombre: string
+        }
+        Update: {
+          id?: number
+          nombre?: string
+        }
+        Relationships: []
+      }
+      publicacion_etiqueta: {
+        Row: {
+          publicacion_id: number
+          etiqueta_id: number
+        }
+        Insert: {
+          publicacion_id: number
+          etiqueta_id: number
+        }
+        Update: {
+          publicacion_id?: number
+          etiqueta_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_publicacion_etiqueta"
+            columns: ["publicacion_id"]
+            referencedRelation: "publicacion"
+            referencedColumns: ["id"]
+            },
+            {
+            foreignKeyName: "fk_etiqueta_publicacion"
+            columns: ["etiqueta_id"]
+            referencedRelation: "etiqueta"
+            referencedColumns: ["id"]
+            }
+            ]
+            }
+            valoracion_cancion: {
+            Row: {
+            id: number
+            usuario_id: string
+            cancion_id: number | null
+            publicacion_id: number | null
+            puntuacion: number
+            created_at: string | null
+            }
+            Insert: {
+            id?: number
+            usuario_id: string
+            cancion_id?: number | null
+            publicacion_id?: number | null
+            puntuacion: number
+            created_at?: string | null
+            }
+            Update: {
+            id?: number
+            usuario_id?: string
+            cancion_id?: number | null
+            publicacion_id?: number | null
+            puntuacion?: number
+            created_at?: string | null
+            }
+          }
+          likes_comentario_publicacion: {
+            Row: {
+              id: number
+              usuario_id: string
+              comentario_id: number
+              created_at: string
+            }
+            Insert: {
+              id?: number
+              usuario_id: string
+              comentario_id: number
+              created_at?: string
+            }
+            Update: {
+              id?: number
+              usuario_id?: string
+              comentario_id?: number
+              created_at?: string
+            }
+            Relationships: [
+              {
+                foreignKeyName: "fk_usuario_likes_comentario_publicacion"
+                columns: ["usuario_id"]
+                referencedRelation: "perfil"
+                referencedColumns: ["usuario_id"]
+              },
+              {
+                foreignKeyName: "fk_comentario_publicacion_likes"
+                columns: ["comentario_id"]
+                referencedRelation: "comentario_publicacion"
+                referencedColumns: ["id"]
+              }
+            ]
+          }
+          Views: {
+            [_ in never]: never
+          }
+          Functions: {
+            [_ in never]: never
+          }
+          Enums: {
+            [_ in never]: never
+          }
+          CompositeTypes: {
+            [_ in never]: never
+      }
     }
   }
 }
 
-type PublicSchema = Database[Extract<keyof Database, "public">]
-
-export type Tables<
-  PublicTableNameOrOptions extends
-    | keyof (PublicSchema["Tables"] & PublicSchema["Views"])
-    | { schema: keyof Database },
-  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
-    ? keyof (Database[PublicTableNameOrOptions["schema"]]["Tables"] &
-        Database[PublicTableNameOrOptions["schema"]]["Views"])
-    : never = never,
-> = PublicTableNameOrOptions extends { schema: keyof Database }
-  ? (Database[PublicTableNameOrOptions["schema"]]["Tables"] &
-      Database[PublicTableNameOrOptions["schema"]]["Views"])[TableName] extends {
-      Row: infer R
-    }
-    ? R
-    : never
-  : PublicTableNameOrOptions extends keyof (PublicSchema["Tables"] &
-        PublicSchema["Views"])
-    ? (PublicSchema["Tables"] &
-        PublicSchema["Views"])[PublicTableNameOrOptions] extends {
-        Row: infer R
-      }
-      ? R
-      : never
-    : never
-
-export type TablesInsert<
-  PublicTableNameOrOptions extends
-    | keyof PublicSchema["Tables"]
-    | { schema: keyof Database },
-  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
-    ? keyof Database[PublicTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
-> = PublicTableNameOrOptions extends { schema: keyof Database }
-  ? Database[PublicTableNameOrOptions["schema"]]["Tables"][TableName] extends {
-      Insert: infer I
-    }
-    ? I
-    : never
-  : PublicTableNameOrOptions extends keyof PublicSchema["Tables"]
-    ? PublicSchema["Tables"][PublicTableNameOrOptions] extends {
-        Insert: infer I
-      }
-      ? I
-      : never
-    : never
-
-export type TablesUpdate<
-  PublicTableNameOrOptions extends
-    | keyof PublicSchema["Tables"]
-    | { schema: keyof Database },
-  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
-    ? keyof Database[PublicTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
-> = PublicTableNameOrOptions extends { schema: keyof Database }
-  ? Database[PublicTableNameOrOptions["schema"]]["Tables"][TableName] extends {
-      Update: infer U
-    }
-    ? U
-    : never
-  : PublicTableNameOrOptions extends keyof PublicSchema["Tables"]
-    ? PublicSchema["Tables"][PublicTableNameOrOptions] extends {
-        Update: infer U
-      }
-      ? U
-      : never
-    : never
-
-export type Enums<
-  PublicEnumNameOrOptions extends
-    | keyof PublicSchema["Enums"]
-    | { schema: keyof Database },
-  EnumName extends PublicEnumNameOrOptions extends { schema: keyof Database }
-    ? keyof Database[PublicEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
-> = PublicEnumNameOrOptions extends { schema: keyof Database }
-  ? Database[PublicEnumNameOrOptions["schema"]]["Enums"][EnumName]
-  : PublicEnumNameOrOptions extends keyof PublicSchema["Enums"]
-    ? PublicSchema["Enums"][PublicEnumNameOrOptions]
-    : never
+export type Perfil = Database['public']['Tables']['perfil']['Row'];
+export type PerfilInsert = Database['public']['Tables']['perfil']['Insert'];
+export type PerfilUpdate = Database['public']['Tables']['perfil']['Update'];
+export type PerfilHabilidad = Database['public']['Tables']['perfil_habilidad']['Row'];
+export type PerfilGenero = Database['public']['Tables']['perfil_genero']['Row'];
+export type Cancion = Database['public']['Tables']['cancion']['Row'];

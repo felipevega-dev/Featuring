@@ -1,10 +1,16 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { Alert, View, Text, Image, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { supabase } from '@/lib/supabase';
-import { useUser } from '@clerk/clerk-expo';
-import { Ionicons } from '@expo/vector-icons';
-import { Link, router } from 'expo-router';
-import { useAuth } from '@clerk/clerk-expo';
+import React, { useEffect, useState, useCallback } from "react";
+import {
+  Alert,
+  View,
+  Text,
+  Image,
+  ScrollView,
+  TouchableOpacity,
+  ActivityIndicator,
+} from "react-native";
+import { supabase } from "@/lib/supabase";
+import { Ionicons } from "@expo/vector-icons";
+import { Link, router } from "expo-router";
 
 type PerfilData = {
   id: number;
@@ -19,8 +25,6 @@ type PerfilData = {
 };
 
 export default function PerfilScreen() {
-  const { user } = useUser();
-  const { signOut } = useAuth();
   const [perfilData, setPerfilData] = useState<PerfilData | null>(null);
   const [generos, setGeneros] = useState<string[]>([]);
   const [habilidades, setHabilidades] = useState<string[]>([]);
@@ -29,60 +33,70 @@ export default function PerfilScreen() {
   const fetchPerfilData = useCallback(async () => {
     setIsLoading(true);
     try {
-      console.log("Fetching profile data for user:", user?.id);
-      
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+
+      if (userError) {
+        console.error("Error obteniendo el usuario:", userError);
+        throw userError;
+      }
+
+      if (!user) {
+        console.error("No se encontró un usuario autenticado");
+        router.replace("/(auth)/sign-in");
+        return;
+      }
+
+      console.log("Fetching profile data for user:", user.id);
+
       const { data: perfilData, error: perfilError } = await supabase
-        .from('perfil')
-        .select('*')
-        .eq('clerk_id', user?.id)
+        .from("perfil")
+        .select("*")
+        .eq("usuario_id", user.id)
         .single();
 
       if (perfilError) {
         console.error("Error fetching profile:", perfilError);
         throw perfilError;
       }
-      
+
       console.log("Profile data:", perfilData);
       setPerfilData(perfilData);
 
       // Obtener géneros
       const { data: generosData, error: generosError } = await supabase
-        .from('perfil_genero')
-        .select('genero')
-        .eq('perfil_id', perfilData.id);
+        .from("perfil_genero")
+        .select("genero")
+        .eq("perfil_id", perfilData.id);
 
       if (generosError) {
         console.error("Error fetching genres:", generosError);
         throw generosError;
       }
-      setGeneros(generosData.map(g => g.genero));
+
+      setGeneros(generosData.map((g) => g.genero));
 
       // Obtener habilidades
       const { data: habilidadesData, error: habilidadesError } = await supabase
-        .from('perfil_habilidad')
-        .select('habilidad')
-        .eq('perfil_id', perfilData.id);
+        .from("perfil_habilidad")
+        .select("habilidad")
+        .eq("perfil_id", perfilData.id);
 
       if (habilidadesError) {
         console.error("Error fetching skills:", habilidadesError);
         throw habilidadesError;
       }
-      setHabilidades(habilidadesData.map(h => h.habilidad));
-
+      setHabilidades(habilidadesData.map((h) => h.habilidad));
     } catch (error) {
-      console.error('Error al obtener datos del perfil:', error);
+      console.error("Error al obtener datos del perfil:", error);
       Alert.alert("Error", "No se pudieron cargar los datos del perfil");
     } finally {
       setIsLoading(false);
     }
-  }, [user]);
+  }, []);
 
   useEffect(() => {
-    console.log("User ID:", user?.id);
-    if (user) {
-      fetchPerfilData();
-    }
-  }, [user, fetchPerfilData]);
+    fetchPerfilData();
+  }, [fetchPerfilData]);
 
   const handleRefresh = useCallback(() => {
     fetchPerfilData();
@@ -95,29 +109,26 @@ export default function PerfilScreen() {
       [
         {
           text: "Cancelar",
-          style: "cancel"
+          style: "cancel",
         },
         {
           text: "Sí, cerrar sesión",
           onPress: async () => {
             try {
-              // Cerrar sesión en Supabase
               const { error: supabaseError } = await supabase.auth.signOut();
               if (supabaseError) {
-                throw new Error('Error al cerrar sesión en Supabase');
+                throw new Error("Error al cerrar sesión en Supabase");
               }
-
-              // Cerrar sesión en Clerk
-              await signOut();
-              
-              // Redirigir al usuario
               router.replace("/(auth)/sign-in");
             } catch (error) {
-              console.error('Error al cerrar sesión:', error);
-              Alert.alert("Error", "No se pudo cerrar sesión completamente. Por favor, inténtalo de nuevo.");
+              console.error("Error al cerrar sesión:", error);
+              Alert.alert(
+                "Error",
+                "No se pudo cerrar sesión completamente. Por favor, inténtalo de nuevo."
+              );
             }
-          }
-        }
+          },
+        },
       ]
     );
   };
@@ -126,7 +137,9 @@ export default function PerfilScreen() {
     <View className="bg-white rounded-lg mb-4 p-4 shadow-md">
       <View className="flex-row items-center mb-2">
         <Ionicons name={icon} size={24} color="purple" />
-        <Text className="text-lg font-semibold ml-2 text-purple-700">{title}</Text>
+        <Text className="text-lg font-semibold ml-2 text-purple-700">
+          {title}
+        </Text>
       </View>
       {content}
     </View>
@@ -144,9 +157,11 @@ export default function PerfilScreen() {
     return (
       <View className="flex-1 justify-center items-center">
         <Text>No se encontró un perfil. Por favor, crea uno.</Text>
-        <TouchableOpacity 
+        <TouchableOpacity
           className="bg-purple-500 px-4 py-2 rounded-lg mt-4"
-          onPress={() => {router.replace("/(auth)/preguntas")}}
+          onPress={() => {
+            router.replace("/(auth)/preguntas");
+          }}
         >
           <Text className="text-white">Crear Perfil</Text>
         </TouchableOpacity>
@@ -157,7 +172,9 @@ export default function PerfilScreen() {
   return (
     <ScrollView className="flex-1 bg-purple-100">
       <View className="bg-purple-700 pt-10 pb-5 flex-row justify-between items-center px-4">
-        <TouchableOpacity onPress={() => router.push('/(root)/(edit)/editar_perfil')}>
+        <TouchableOpacity
+          onPress={() => router.push("/(root)/(edit)/editar_perfil")}
+        >
           <Ionicons name="create-outline" size={24} color="white" />
         </TouchableOpacity>
         <TouchableOpacity onPress={handleRefresh}>
@@ -168,15 +185,22 @@ export default function PerfilScreen() {
         </TouchableOpacity>
       </View>
       <View className="items-center mt-5">
-      <Text className="text-white text-purple-500 text-2xl mb-5 font-bold text-center">Perfil</Text>
-        <Image source={{ uri: perfilData.foto_perfil }} className="w-32 h-32 rounded-full border-4 border-white" />
-        <Text className="text-2xl font-bold mt-2 text-purple-800">{perfilData.nombre_completo}</Text>
+        <Text className="text-white text-purple-500 text-2xl mb-5 font-bold text-center">
+          Perfil
+        </Text>
+        <Image
+          source={{ uri: perfilData.foto_perfil }}
+          className="w-32 h-32 rounded-full border-4 border-white"
+        />
+        <Text className="text-2xl font-bold mt-2 text-purple-800">
+          {perfilData.nombre_completo}
+        </Text>
         <View className="flex-row items-center mt-2">
           <Ionicons name="location-outline" size={16} color="purple" />
           <Text className="text-purple-600 ml-1">{perfilData.ubicacion}</Text>
         </View>
       </View>
-      
+
       <View className="bg-white rounded-xl mx-4 mt-5 p-6 shadow-lg">
         <InfoSection
           icon="person-outline"
@@ -211,7 +235,10 @@ export default function PerfilScreen() {
           content={
             <View className="flex-row flex-wrap">
               {generos.map((genero, index) => (
-                <View key={index} className="bg-purple-100 rounded-full px-3 py-1 m-1">
+                <View
+                  key={index}
+                  className="bg-purple-100 rounded-full px-3 py-1 m-1"
+                >
                   <Text className="text-purple-700">{genero}</Text>
                 </View>
               ))}
@@ -225,7 +252,10 @@ export default function PerfilScreen() {
           content={
             <View className="flex-row flex-wrap">
               {habilidades.map((habilidad, index) => (
-                <View key={index} className="bg-cyan-100 rounded-full px-3 py-1 m-1">
+                <View
+                  key={index}
+                  className="bg-cyan-100 rounded-full px-3 py-1 m-1"
+                >
                   <Text className="text-cyan-700">{habilidad}</Text>
                 </View>
               ))}
@@ -239,7 +269,7 @@ export default function PerfilScreen() {
           content={<Text>{perfilData.redes_sociales}</Text>}
         />
       </View>
-      <TouchableOpacity 
+      <TouchableOpacity
         className="bg-red-500 mx-4 mt-5 mb-20 p-3 rounded-lg"
         onPress={handleSignOut}
       >

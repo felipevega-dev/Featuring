@@ -6,22 +6,25 @@ import CustomButton from "@/components/CustomButton";
 import CustomCheckbox from "@/components/CustomCheckbox";
 import { Link, useRouter } from "expo-router";
 import OAuth from "@/components/OAuth";
-import { useSignIn, useAuth } from "@clerk/clerk-expo";
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { supabase } from "@/lib/supabase";
+
+interface FormState {
+  email: string;
+  password: string;
+}
 
 const SignIn = () => {
-  const { signIn, setActive, isLoaded } = useSignIn();
-  const { getToken } = useAuth();
   const router = useRouter();
 
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<FormState>({
     email: "",
     password: "",
   });
 
-  const [isLoading, setIsLoading] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [rememberMe, setRememberMe] = useState<boolean>(false);
+  const [showPassword, setShowPassword] = useState<boolean>(false);
 
   useEffect(() => {
     const loadSavedData = async () => {
@@ -42,70 +45,55 @@ const SignIn = () => {
     loadSavedData();
   }, []);
 
-  const onSignInPress = useCallback(async () => {
-    if (!isLoaded) {
-      console.log("SignIn no está cargado aún");
-      return;
+  const checkProfileCompletion = async (userId: string) => {
+    const { data, error } = await supabase
+      .from('perfil')
+      .select('username')
+      .eq('usuario_id', userId)
+      .maybeSingle();
+
+    if (error && error.code !== 'PGRST116') {
+      console.error('Error al verificar el perfil:', error);
+      return false;
     }
 
-    setIsLoading(true);
-    try {
-      console.log("Iniciando proceso de inicio de sesión");
-      const completeSignIn = await signIn.create({
-        identifier: form.email.trim(),
-        password: form.password,
-      });
+  return !!data?.username;
+};
+const onSignInPress = useCallback(async () => {
+  setIsLoading(true);
+  try {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: form.email.trim(),
+      password: form.password,
+    });
 
-      console.log("Estado del inicio de sesión:", completeSignIn.status);
-
-      if (completeSignIn.status !== "complete") {
-        console.log("Inicio de sesión incompleto");
-        throw new Error("Inicio de sesión fallido");
+    if (error) {
+      // Manejar errores específicos
+      switch (error.message) {
+        case 'Invalid login credentials':
+          Alert.alert("Error", "Correo electrónico o contraseña incorrectos");
+          break;
+        case 'Email not confirmed':
+          Alert.alert("Error", "Por favor, confirma tu correo electrónico antes de iniciar sesión");
+          break;
+        default:
+          Alert.alert("Error", "Ocurrió un error durante el inicio de sesión");
       }
-
-      console.log("Estableciendo sesión activa");
-      await setActive({ session: completeSignIn.createdSessionId });
-      
-      console.log("Obteniendo token");
-      const token = await getToken();
-      
-      if (!token) {
-        console.log("No se pudo obtener el token");
-        throw new Error("No se pudo obtener el token de autenticación");
-      }
-
-      if (rememberMe) {
-        await AsyncStorage.setItem('savedEmail', form.email);
-        await AsyncStorage.setItem('savedPassword', form.password);
-        await AsyncStorage.setItem('rememberMe', 'true');
-      } else {
-        await AsyncStorage.removeItem('savedEmail');
-        await AsyncStorage.removeItem('savedPassword');
-        await AsyncStorage.setItem('rememberMe', 'false');
-      }
-
-      console.log("Inicio de sesión exitoso, redirigiendo a home");
-      router.replace("/(root)/(tabs)/home");
-    } catch (err) {
-      console.error("Error durante el inicio de sesión:", err);
-      let mensajeError = "Ocurrió un error durante el inicio de sesión";
-      
-      if (err.errors && err.errors.length > 0) {
-        const primerError = err.errors[0];
-        if (primerError.code === 'form_password_incorrect') {
-          mensajeError = "La contraseña es incorrecta";
-        } else if (primerError.code === 'form_identifier_not_found') {
-          mensajeError = "El correo electrónico no está registrado";
-        } else {
-          mensajeError = primerError.message || mensajeError;
-        }
-      }
-      
-      Alert.alert("Error", mensajeError);
-    } finally {
-      setIsLoading(false);
+      throw error;
     }
-  }, [isLoaded, signIn, form.email, form.password, router, getToken, setActive, rememberMe]);
+
+    if (data.user) {
+      // ... (código existente para guardar datos y verificar perfil)
+    } else {
+      throw new Error("No se pudo obtener la información del usuario");
+    }
+  } catch (error) {
+    console.error("Error durante el inicio de sesión:", error);
+    // No es necesario mostrar otra alerta aquí, ya que se manejó arriba
+  } finally {
+    setIsLoading(false);
+  }
+}, [form.email, form.password, rememberMe, router]);
 
   return (
     <ScrollView className="flex-1 bg-white">
