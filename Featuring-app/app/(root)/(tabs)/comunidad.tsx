@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { View, Text, FlatList, TouchableOpacity, Alert } from "react-native";
+import { Ionicons } from '@expo/vector-icons';
 import PostCard from "@/components/PostCard";
 import { getPosts } from "@/app/(api)/comunidad";
 import { supabase } from "@/lib/supabase";
@@ -135,13 +136,13 @@ const Comunidad = () => {
 
   return (
     <AudioPlayerProvider>
-      <View className="flex-1 bg-gray-100">
+      <View className="flex-1  bg-gray-100">
         <Text className="text-xl font-bold text-center py-4">Comunidad</Text>
         <TouchableOpacity
           onPress={() => setIsUploadModalVisible(true)}
-          className="bg-secondary-700 p-3 rounded-md mx-4 mb-4"
+          className="bg-white p-3 rounded-md mx-4 mb-4"
         >
-          <Text className="text-white text-center">Publicar una Canción</Text>
+          <Ionicons name="add" size={24} color="black" />
         </TouchableOpacity>
         {posts.length > 0 ? (
           <FlatList
