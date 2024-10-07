@@ -57,63 +57,69 @@ const SignIn = () => {
       return false;
     }
 
-  return !!data?.username;
-};
-const onSignInPress = useCallback(async () => {
-  setIsLoading(true);
-  try {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: form.email.trim(),
-      password: form.password,
-    });
+    return !!data?.username;
+  };
 
-    if (error) {
-      console.error("Error de inicio de sesión:", error.message);
-      switch (error.message) {
-        case 'Invalid login credentials':
-          Alert.alert("Error", "Correo electrónico o contraseña incorrectos");
-          break;
-        case 'Email not confirmed':
-          Alert.alert("Error", "Por favor, confirma tu correo electrónico antes de iniciar sesión");
-          break;
-        default:
-          Alert.alert("Error", `Ocurrió un error durante el inicio de sesión: ${error.message}`);
+  const onSignInPress = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: form.email.trim(),
+        password: form.password,
+      });
+
+      if (error) {
+        console.error("Error de inicio de sesión:", error.message);
+        switch (error.message) {
+          case 'Invalid login credentials':
+            Alert.alert("Error", "Correo electrónico o contraseña incorrectos");
+            break;
+          case 'Email not confirmed':
+            Alert.alert("Error", "Por favor, confirma tu correo electrónico antes de iniciar sesión");
+            break;
+          case 'Too many requests':
+            Alert.alert("Error", "Demasiados intentos fallidos. Por favor, intenta más tarde");
+            break;
+          case 'User not found':
+            Alert.alert("Error", "No se encontró ninguna cuenta con este correo electrónico");
+            break;
+          default:
+            Alert.alert("Error", `Ocurrió un error durante el inicio de sesión: ${error.message}`);
+        }
+        return;
       }
-      return;
-    }
 
-    if (data.user) {
+      if (data.user) {
+        // Guardar el user.id en AsyncStorage para uso futuro
+        await AsyncStorage.setItem('usuario_id', data.user.id);
 
-      // Guardar el user.id en AsyncStorage para uso futuro
-      await AsyncStorage.setItem('usuario_id', data.user.id);
+        if (rememberMe) {
+          await AsyncStorage.setItem('savedEmail', form.email);
+          await AsyncStorage.setItem('savedPassword', form.password);
+          await AsyncStorage.setItem('rememberMe', 'true');
+        } else {
+          await AsyncStorage.removeItem('savedEmail');
+          await AsyncStorage.removeItem('savedPassword');
+          await AsyncStorage.setItem('rememberMe', 'false');
+        }
 
-      if (rememberMe) {
-        await AsyncStorage.setItem('savedEmail', form.email);
-        await AsyncStorage.setItem('savedPassword', form.password);
-        await AsyncStorage.setItem('rememberMe', 'true');
+        const isProfileComplete = await checkProfileCompletion(data.user.id);
+
+        if (isProfileComplete) {
+          router.replace("/(root)/(tabs)/home");
+        } else {
+          router.replace("/(auth)/preguntas");
+        }
       } else {
-        await AsyncStorage.removeItem('savedEmail');
-        await AsyncStorage.removeItem('savedPassword');
-        await AsyncStorage.setItem('rememberMe', 'false');
+        throw new Error("No se pudo obtener la información del usuario");
       }
-
-      const isProfileComplete = await checkProfileCompletion(data.user.id);
-
-      if (isProfileComplete) {
-        router.replace("/(root)/(tabs)/home");
-      } else {
-        router.replace("/(auth)/preguntas");
-      }
-    } else {
-      throw new Error("No se pudo obtener la información del usuario");
+    } catch (error) {
+      console.error("Error durante el inicio de sesión:", error);
+      Alert.alert("Error", "Ocurrió un error inesperado durante el inicio de sesión");
+    } finally {
+      setIsLoading(false);
     }
-  } catch (error) {
-    console.error("Error durante el inicio de sesión:", error);
-    Alert.alert("Error", "Ocurrió un error inesperado durante el inicio de sesión");
-  } finally {
-    setIsLoading(false);
-  }
-}, [form.email, form.password, rememberMe, router]);
+  }, [form.email, form.password, rememberMe, router]);
 
   return (
     <ScrollView className="flex-1 bg-white">
