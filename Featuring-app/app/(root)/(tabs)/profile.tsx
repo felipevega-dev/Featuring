@@ -4,14 +4,14 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { supabase } from "@/lib/supabase";
 import { router } from "expo-router";
 import { icons } from "@/constants";
-import UploadSongModal from '@/components/UploadSongModal';
 
 interface Perfil {
   username: string;
-  full_name: string; // Añadimos esta línea
-  foto_perfil: string;
+  full_name: string;
+  foto_perfil: string | null;
   sexo: string;
   edad: number;
+  ubicacion: string;
   biografia: string;
   generos: string[];
   habilidades: string[];
@@ -40,6 +40,7 @@ export default function Profile() {
         .select(`
           username,
           foto_perfil,
+          ubicacion,
           sexo,
           edad,
           biografia,
@@ -136,12 +137,14 @@ export default function Profile() {
           <View className="mb-2 mt-2">
             <Text className="text-xl text-center font-semibold text-white">
             Perfil de usuario
-          </Text>
+            </Text>
           </View>
         <ScrollView className="flex-1">
-          
         <View className="px-4 pb-8">
           <View className="bg-white rounded-xl shadow-lg shadow-black/30 p-6 mb-10">
+          <TouchableOpacity onPress={() => router.push('/editar_perfil')}>
+            <Image source={icons.editar} className="w-8 h-8 absolute top-0 right-0" style={{ tintColor: '#00CED1' }} />
+          </TouchableOpacity>
           <View className="items-center pb-4">
           <View className="w-36 h-36 rounded-full shadow-lg shadow-black/50 mb-4">
             {perfil.foto_perfil ? (
@@ -160,9 +163,10 @@ export default function Profile() {
             </Text>
             </View>
             <ProfileSection icon={icons.usuarioperfil} title="Información Personal">
-            <ProfileItem label="Nombre" value={perfil.full_name} />
-              <ProfileItem label="Género" value={perfil.sexo} />
-              <ProfileItem label="Edad" value={perfil.edad.toString()} />
+                <ProfileItem label="Nombre" value={perfil.full_name} />
+                <ProfileItem label="Ubicación" value={perfil.ubicacion} />
+                <ProfileItem label="Género" value={perfil.sexo} />
+                <ProfileItem label="Edad" value={perfil.edad.toString()} />
             </ProfileSection>
 
             <ProfileSection icon={icons.biografia} title="Biografía">
@@ -207,11 +211,6 @@ export default function Profile() {
       >
         <Text className="text-white text-center">Subir Nueva Canción</Text>
       </TouchableOpacity>
-      <UploadSongModal
-        isVisible={isUploadModalVisible}
-        onClose={() => setIsUploadModalVisible(false)}
-        onUploadSuccess={handleUploadSuccess}
-      />
     </View>
   );
 }
@@ -231,7 +230,7 @@ function ProfileSection({ icon, title, children }) {
 function ProfileItem({ label, value }) {
   return (
     <View className="flex-row justify-between items-center py-1">
-      <Text className="text-gray-600 font-medium">{label}</Text>
+      <Text className="text-primary-700 font-medium">{label}</Text>
       <Text className="text-gray-800">{value || "No especificado"}</Text>
     </View>
   );

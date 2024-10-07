@@ -55,6 +55,7 @@ import FeatLogo from "@/assets/images/FeatLogo.png";
 import FeatSplash from "@/assets/images/FeatSplash.png";
 import FeatHeader from "@/assets/images/FeatHeader.png";
 import IconoMusical from "@/assets/images/IconoMusical.png";
+import editar from "@/assets/icons/editar.png";
 
 
 export const images = {
@@ -75,6 +76,7 @@ export const images = {
 };
 
 export const icons = {
+  editar,
   shuffle,
   email,
   comentario,
