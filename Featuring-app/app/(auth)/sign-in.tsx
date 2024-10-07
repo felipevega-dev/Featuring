@@ -83,7 +83,6 @@ const onSignInPress = useCallback(async () => {
     }
 
     if (data.user) {
-      console.log("Usuario autenticado:", data.user);
 
       // Guardar el user.id en AsyncStorage para uso futuro
       await AsyncStorage.setItem('usuario_id', data.user.id);
@@ -99,7 +98,6 @@ const onSignInPress = useCallback(async () => {
       }
 
       const isProfileComplete = await checkProfileCompletion(data.user.id);
-      console.log("Perfil completo:", isProfileComplete);
 
       if (isProfileComplete) {
         router.replace("/(root)/(tabs)/home");
