@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { View, Text, Image, Animated, PanResponder, TouchableOpacity } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { FontAwesome } from '@expo/vector-icons';
 
 const SWIPE_THRESHOLD = 120;
 
@@ -23,17 +24,14 @@ const Card: React.FC<CardProps> = ({ card, isFirst, ...rest }) => {
     <Animated.View
       className={`absolute w-[85%] justify-start items-center h-[85%] bg-white rounded-xl shadow-lg ${
         isFirst ? 'z-10' : ''
-      } top-10`}
+      } top-5 border-2 border-blue-500 shadow-blue-500`}
       {...rest}
     >
       <Image
         source={{ uri: card.image }}
-        className="w-[75%] mt-5 h-2/4 rounded-t-xl" // Ajustamos el tamaño de la imagen
+        className="w-[75%] mt-5 h-2/4 rounded-t-xl"
       />
-      <View className="p-4 w-full justify-center items-center ">
-      <TouchableOpacity className="bg-blue-500 rounded-full absolute m-20 top-10 transform p-2 w-1/2">
-          <Text className="text-white font-bold text-center">Ver Perfil</Text>
-      </TouchableOpacity>
+      <View className="p-4 w-full justify-center items-center">
         <Text className="text-xl text-center font-bold">{card.name}</Text>
         <View className="flex-row justify-center items-center mt-1">
           <Text className="text-gray-500 font-bold">{card.ubication}</Text>
@@ -41,13 +39,28 @@ const Card: React.FC<CardProps> = ({ card, isFirst, ...rest }) => {
           <Text className="font-bold">{card.distancia}</Text>
         </View>
         <View className="flex-row flex-wrap justify-center mt-2">
-          {card.habilidades.map((habilidad, index) => (
+          {card.habilidades.slice(0, 3).map((habilidad, index) => (
             <Text key={index} className="text-sm font-semibold bg-gray-200 rounded-full px-2 py-1 m-1">
               {habilidad}
             </Text>
           ))}
+          {card.habilidades.length > 4 && (
+            <Text className="text-sm font-semibold bg-gray-200 rounded-full px-2 py-1 m-1">
+              y {card.habilidades.length - 3} más
+            </Text>
+          )}
         </View>
-        
+        <TouchableOpacity className="bg-blue-500 rounded-full mt-4 p-2 w-1/2">
+          <Text className="text-white font-bold text-center">Ver Perfil</Text>
+        </TouchableOpacity>
+        <View className="flex-row justify-between w-full mt-4">
+          <TouchableOpacity className="p-2">
+            <FontAwesome name="times" size={24} color="red" />
+          </TouchableOpacity>
+          <TouchableOpacity className="p-2">
+            <FontAwesome name="music" size={24} color="blue" />
+          </TouchableOpacity>
+        </View>
       </View>
     </Animated.View>
   );
@@ -56,8 +69,11 @@ const Card: React.FC<CardProps> = ({ card, isFirst, ...rest }) => {
 const Match = () => {
   const initialCards = [
     { id: 1, name: 'Usuario 1', bio: 'Bio 1', image: 'https://picsum.photos/200/300', ubication: 'Ubicación 1', distancia: '10km', habilidades: ['Cantante', 'Guitarrista', 'Productor']},
-    { id: 2, name: 'Usuario 2', bio: 'Bio 2', image: 'https://picsum.photos/200/301', ubication: 'Ubicación 2', distancia: '20km', habilidades: ['Habilidad 4', 'Habilidad 5', 'Habilidad 6']},
+    { id: 2, name: 'Usuario 2', bio: 'Bio 2', image: 'https://picsum.photos/200/301', ubication: 'Ubicación 2', distancia: '20km', habilidades: ['Habilidad 4', 'Habilidad 5', 'Habilidad 6','Habilidad 17', 'Habilidad 18','Habilidad 17', 'Habilidad 18']},
     { id: 3, name: 'Usuario 3', bio: 'Bio 3', image: 'https://picsum.photos/200/302', ubication: 'Ubicación 3', distancia: '30km', habilidades: ['Habilidad 7', 'Habilidad 8', 'Habilidad 9']},
+    { id: 4, name: 'Usuario 4', bio: 'Bio 4', image: 'https://picsum.photos/200/303', ubicación: 'Ubicación 4', distancia: '40km', habilidades: ['Habilidad 10', 'Habilidad 11', 'Habilidad 12']},
+    { id: 5, name: 'Usuario 5', bio: 'Bio 5', image: 'https://picsum.photos/200/304', ubicación: 'Ubicación 5', distancia: '50km', habilidades: ['Habilidad 13', 'Habilidad 14', 'Habilidad 15']},
+    { id: 6, name: 'Usuario 6', bio: 'Bio 6', image: 'https://picsum.photos/200/305', ubicación: 'Ubicación 6', distancia: '60km', habilidades: ['Habilidad 16', 'Habilidad 17', 'Habilidad 18']},
   ];
 
   const [cards, setCards] = useState(initialCards);
