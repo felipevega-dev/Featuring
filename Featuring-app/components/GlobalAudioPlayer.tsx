@@ -5,7 +5,7 @@ import { useAudioPlayer } from '@/contexts/AudioPlayerContext';
 import { Ionicons } from '@expo/vector-icons';
 
 const GlobalAudioPlayer: React.FC = () => {
-  const { currentSong, isPlaying, duration, position, playSound, pauseSound, seekSound } = useAudioPlayer();
+  const { currentSong, isPlaying, duration, position, playSound, pauseSound, resumeSound, seekSound } = useAudioPlayer();
 
   if (!currentSong) return null;
 
@@ -14,6 +14,14 @@ const GlobalAudioPlayer: React.FC = () => {
     const minutes = Math.floor(millis / 60000);
     const seconds = ((millis % 60000) / 1000).toFixed(0);
     return `${minutes}:${(Number(seconds) < 10 ? '0' : '')}${seconds}`;
+  };
+
+  const handlePlayPause = () => {
+    if (isPlaying) {
+      pauseSound();
+    } else {
+      resumeSound();
+    }
   };
 
   return (
@@ -39,7 +47,7 @@ const GlobalAudioPlayer: React.FC = () => {
           <Text className="text-xs text-gray-500">{formatTime(duration)}</Text>
         </View>
       </View>
-      <TouchableOpacity onPress={isPlaying ? pauseSound : () => currentSong && playSound(currentSong)}>
+      <TouchableOpacity onPress={handlePlayPause}>
         <Ionicons name={isPlaying ? "pause" : "play"} size={32} color="#6D29D2" />
       </TouchableOpacity>
     </View>
