@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, Image, TouchableOpacity, TextInput, Alert, Modal, ScrollView } from 'react-native';
 import { Audio } from 'expo-av';
-import Slider from '@react-native-community/slider';
 import { supabase } from '@/lib/supabase';
 import { icons } from '@/constants/index';
 import * as Clipboard from 'expo-clipboard';
 import { Ionicons } from '@expo/vector-icons';
+import { useAudioPlayer } from '@/contexts/AudioPlayerContext';
 
 interface Cancion {
   id: number;
@@ -79,6 +79,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, currentUserId, onDeletePost }
   const [commentOptionsVisible, setCommentOptionsVisible] = useState(false);
   const [showOptions, setShowOptions] = useState(false);
   const [showOptionsModal, setShowOptionsModal] = useState(false);
+  const { playSound, currentSong, isPlaying: globalIsPlaying, pauseSound } = useAudioPlayer();
 
   useEffect(() => {
     return sound
@@ -129,11 +130,6 @@ const PostCard: React.FC<PostCardProps> = ({ post, currentUserId, onDeletePost }
     }
   };
 
-  const onSliderValueChange = async (value: number) => {
-    if (sound) {
-      await sound.setPositionAsync(value);
-    }
-  };
 
   const formatTime = (millis: number | null) => {
     if (millis === null) return '0:00';
@@ -372,8 +368,23 @@ const PostCard: React.FC<PostCardProps> = ({ post, currentUserId, onDeletePost }
     // Aquí iría la lógica para editar el post
   };
 
+  const handlePlayPause = () => {
+    if (post.cancion) {
+      if (currentSong?.id === post.cancion.id && globalIsPlaying) {
+        pauseSound();
+      } else {
+        playSound({
+          id: post.cancion.id,
+          title: post.cancion.titulo,
+          audioUrl: post.cancion.archivo_audio || '',
+          coverUrl: post.cancion.caratula || '',
+        });
+      }
+    }
+  };
+
   return (
-    <View className="bg-white p-4 mb-4 rounded-lg shadow-md">
+    <View className="bg-white p-4 mb-6 rounded-lg shadow-md">
       <View className="flex-row justify-between items-center mb-2">
         <View className="flex-row items-center">
           <Image
@@ -399,29 +410,6 @@ const PostCard: React.FC<PostCardProps> = ({ post, currentUserId, onDeletePost }
             className="w-full h-48 rounded-lg mb-3"
           />
         </TouchableOpacity>
-      )}
-      {post.cancion?.archivo_audio && (
-        <View className="flex-row items-center mb-3">
-          <TouchableOpacity onPress={playPauseAudio} className="mr-3">
-            <Image
-              source={isPlaying ? require('@/assets/icons/pause.png') : require('@/assets/icons/play.png')}
-              className="w-8 h-8"
-            />
-          </TouchableOpacity>
-          <Slider
-            style={{ flex: 1, marginHorizontal: 10 }}
-            minimumValue={0}
-            maximumValue={duration || 0}
-            value={position || 0}
-            onSlidingComplete={onSliderValueChange}
-            minimumTrackTintColor="#6D29D2"
-            maximumTrackTintColor="#E6E1F1"
-            thumbTintColor="#6D29D2"
-          />
-          <Text className="text-xs text-general-200">
-            {formatTime(position)} / {formatTime(duration)}
-          </Text>
-        </View>
       )}
       <View className="flex-row items-center mt-2">
         <TouchableOpacity onPress={handleLike} className="flex-row items-center mr-4">
@@ -609,6 +597,18 @@ const PostCard: React.FC<PostCardProps> = ({ post, currentUserId, onDeletePost }
           </View>
         </TouchableOpacity>
       </Modal>
+      {post.cancion && (
+        <TouchableOpacity 
+          onPress={handlePlayPause}
+          className="absolute bottom-4 right-4 bg-primary-500 rounded-full p-2"
+        >
+          <Ionicons 
+            name={currentSong?.id === post.cancion.id && globalIsPlaying ? "pause" : "play"} 
+            size={24} 
+            color="white" 
+          />
+        </TouchableOpacity>
+      )}
     </View>
   );
 };

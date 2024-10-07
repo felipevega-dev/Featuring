@@ -5,6 +5,8 @@ import { getPosts } from "@/app/(api)/comunidad";
 import { supabase } from "@/lib/supabase";
 import { Database } from "@/types/db_types";
 import UploadSongModal from "@/components/UploadSongModal";
+import GlobalAudioPlayer from "@/components/GlobalAudioPlayer";
+import { AudioPlayerProvider } from "@/contexts/AudioPlayerContext";
 
 type Publicacion = Database['public']['Tables']['publicacion']['Row'];
 type Cancion = Database['public']['Tables']['cancion']['Row'];
@@ -132,34 +134,37 @@ const Comunidad = () => {
   }
 
   return (
-    <View className="flex-1 bg-gray-100">
-      <Text className="text-xl font-bold text-center py-4">Comunidad</Text>
-      <TouchableOpacity
-        onPress={() => setIsUploadModalVisible(true)}
-        className="bg-secondary-700 p-3 rounded-md mx-4 mb-4"
-      >
-        <Text className="text-white text-center">Publicar una Canción</Text>
-      </TouchableOpacity>
-      {posts.length > 0 ? (
-        <FlatList
-          data={posts}
-          renderItem={renderItem}
-          keyExtractor={(item) => item.id.toString()}
-          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 20 }}
+    <AudioPlayerProvider>
+      <View className="flex-1 bg-gray-100">
+        <Text className="text-xl font-bold text-center py-4">Comunidad</Text>
+        <TouchableOpacity
+          onPress={() => setIsUploadModalVisible(true)}
+          className="bg-secondary-700 p-3 rounded-md mx-4 mb-4"
+        >
+          <Text className="text-white text-center">Publicar una Canción</Text>
+        </TouchableOpacity>
+        {posts.length > 0 ? (
+          <FlatList
+            data={posts}
+            renderItem={renderItem}
+            keyExtractor={(item) => item.id.toString()}
+            contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 100 }}
+          />
+        ) : (
+          <View className="flex-1 items-center justify-center">
+            <Text className="text-gray-500">
+              No hay publicaciones para mostrar.
+            </Text>
+          </View>
+        )}
+        <UploadSongModal
+          isVisible={isUploadModalVisible}
+          onClose={() => setIsUploadModalVisible(false)}
+          onUploadSuccess={handleUploadSuccess}
         />
-      ) : (
-        <View className="flex-1 items-center justify-center">
-          <Text className="text-gray-500">
-            No hay publicaciones para mostrar.
-          </Text>
-        </View>
-      )}
-      <UploadSongModal
-        isVisible={isUploadModalVisible}
-        onClose={() => setIsUploadModalVisible(false)}
-        onUploadSuccess={handleUploadSuccess}
-      />
-    </View>
+        <GlobalAudioPlayer />
+      </View>
+    </AudioPlayerProvider>
   );
 };
 
