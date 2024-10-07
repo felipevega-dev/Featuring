@@ -205,12 +205,6 @@ export default function Profile() {
           
         </View>
       </ScrollView>
-      <TouchableOpacity
-        onPress={() => setIsUploadModalVisible(true)}
-        className="bg-blue-500 p-3 rounded-md mt-4"
-      >
-        <Text className="text-white text-center">Subir Nueva Canción</Text>
-      </TouchableOpacity>
     </View>
   );
 }
