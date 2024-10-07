@@ -64,6 +64,16 @@ const Comunidad = () => {
 
       // Si hay una canción asociada, eliminarla
       if (cancionId) {
+        // Obtener datos de la canción antes de eliminarla
+        const { data: cancionData, error: fetchCancionError } = await supabase
+          .from('cancion')
+          .select('archivo_audio, caratula, usuario_id')
+          .eq('id', cancionId)
+          .single();
+
+        if (fetchCancionError) throw fetchCancionError;
+
+        // Eliminar la canción de la base de datos
         const { error: deleteCancionError } = await supabase
           .from('cancion')
           .delete()
@@ -72,24 +82,24 @@ const Comunidad = () => {
         if (deleteCancionError) throw deleteCancionError;
 
         // Eliminar archivos del storage
-        const { data: cancionData } = await supabase
-          .from('cancion')
-          .select('archivo_audio, caratula')
-          .eq('id', cancionId)
-          .single();
-
         if (cancionData) {
           if (cancionData.archivo_audio) {
-            await supabase.storage.from('canciones').remove([cancionData.archivo_audio]);
+            const audioFileName = cancionData.archivo_audio.split('/').pop();
+            await supabase.storage
+              .from('canciones')
+              .remove([`${cancionData.usuario_id}/${audioFileName}`]);
           }
           if (cancionData.caratula) {
-            await supabase.storage.from('caratulas').remove([cancionData.caratula]);
+            const caratulaFileName = cancionData.caratula.split('/').pop();
+            await supabase.storage
+              .from('caratulas')
+              .remove([`${cancionData.usuario_id}/${caratulaFileName}`]);
           }
         }
       }
 
       // Actualizar la lista de posts
-      setPosts(posts.filter(post => post.id !== postId));
+      setPosts(prevPosts => prevPosts.filter(post => post.id !== postId));
       Alert.alert("Éxito", "La publicación ha sido eliminada");
     } catch (error) {
       console.error('Error al eliminar la publicación:', error);
