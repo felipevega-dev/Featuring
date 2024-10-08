@@ -1,25 +1,47 @@
-import React, { useRef, useState } from 'react';
-import { View, Text, Image, Animated, PanResponder, TouchableOpacity } from 'react-native';
+import React, { useRef, useState, useEffect } from 'react';
+import { View, Text, Image, Animated, TouchableOpacity, PanResponder, GestureResponderEvent, PanResponderGestureState, ActivityIndicator, Alert } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { FontAwesome } from '@expo/vector-icons';
+import { supabase } from "@/lib/supabase";
+import { icons } from "@/constants";
+import { useRouter } from 'expo-router';
 
 const SWIPE_THRESHOLD = 120;
 
 interface CardProps {
   card: {
-    id: number;
-    name: string;
-    bio: string;
-    image: string;
-    ubication: string;
-    distancia: string;
-    habilidades: string[];
+    usuario_id: string;
+    username: string;
+    biografia: string;
+    foto_perfil: string | null;
+    ubicacion: string;
+    edad: number;
+    sexo: string;
+    perfil_habilidad: { habilidad: string }[]; // Cambiamos esto
   };
   isFirst?: boolean;
+  onSwipe?: (direction: 'left' | 'right') => void;
+  onLike?: (userId: string) => void;
   [key: string]: any;
 }
 
-const Card: React.FC<CardProps> = ({ card, isFirst, ...rest }) => {
+const Card: React.FC<CardProps> = ({ card, isFirst, onSwipe, onLike, ...rest }) => {
+  const [imageError, setImageError] = useState(false);
+
+  const renderHabilidades = (habilidades: { habilidad: string }[] | null | undefined) => {
+    if (!habilidades || habilidades.length === 0) {
+      return "Sin habilidades especificadas";
+    }
+    const habilidadesArray = habilidades.map(h => h.habilidad);
+    if (habilidadesArray.length <= 3) {
+      return habilidadesArray.join(', ');
+    } else {
+      const visibleHabilidades = habilidadesArray.slice(0, 3);
+      const extraHabilidades = habilidadesArray.length - 3;
+      return `${visibleHabilidades.join(', ')} y ${extraHabilidades} más`;
+    }
+  };
+
   return (
     <Animated.View
       className={`absolute w-[85%] justify-start items-center h-[85%] bg-white rounded-xl shadow-lg ${
@@ -27,38 +49,42 @@ const Card: React.FC<CardProps> = ({ card, isFirst, ...rest }) => {
       } top-5 border-2 border-blue-500 shadow-blue-500`}
       {...rest}
     >
-      <Image
-        source={{ uri: card.image }}
-        className="w-[75%] mt-5 h-2/4 rounded-t-xl"
-      />
+      <View className="w-[75%] mt-5 h-2/4 rounded-t-xl overflow-hidden">
+        {card.foto_perfil && !imageError ? (
+          <Image
+            source={{ uri: card.foto_perfil }}
+            className="w-full h-full rounded-full border-4 border-secondary-500"
+            onError={() => setImageError(true)}
+          />
+        ) : (
+          <View className="w-full h-full rounded-full bg-gray-300 justify-center items-center border-4 border-secondary-500">
+            <Image source={icons.person} className="w-20 h-20" />
+            <Text className="mt-2 text-gray-500">
+              {imageError ? 'Error al cargar la imagen' : 'No hay imagen de perfil'}
+            </Text>
+          </View>
+        )}
+      </View>
       <View className="p-4 w-full justify-center items-center">
-        <Text className="text-xl text-center font-bold">{card.name}</Text>
+        <Text className="text-xl text-center font-bold">{card.username}</Text>
         <View className="flex-row justify-center items-center mt-1">
-          <Text className="text-gray-500 font-bold">{card.ubication}</Text>
+          <Text className="text-gray-500 font-bold">{card.ubicacion}</Text>
           <Text className="text-gray-500 font-bold mx-2">•</Text>
-          <Text className="font-bold">{card.distancia}</Text>
+          <Text className="font-bold">{card.edad} años</Text>
         </View>
-        <View className="flex-row flex-wrap justify-center mt-2">
-          {card.habilidades.slice(0, 3).map((habilidad, index) => (
-            <Text key={index} className="text-sm font-semibold bg-gray-200 rounded-full px-2 py-1 m-1">
-              {habilidad}
-            </Text>
-          ))}
-          {card.habilidades.length > 4 && (
-            <Text className="text-sm font-semibold bg-gray-200 rounded-full px-2 py-1 m-1">
-              y {card.habilidades.length - 3} más
-            </Text>
-          )}
-        </View>
+        <Text className="text-center mt-2">{card.biografia}</Text>
+        <Text className="text-center mt-2 text-blue-500 font-semibold">
+          {renderHabilidades(card.perfil_habilidad)}
+        </Text>
         <TouchableOpacity className="bg-blue-500 rounded-full mt-4 p-2 w-1/2">
           <Text className="text-white font-bold text-center">Ver Perfil</Text>
         </TouchableOpacity>
-        <View className="flex-row justify-between w-full mt-4">
-          <TouchableOpacity className="p-2">
-            <FontAwesome name="times" size={24} color="red" />
+        <View className="flex-row justify-between w-full mb-10" >
+          <TouchableOpacity className="pb-10" onPress={() => onSwipe && onSwipe('left')}>
+            <FontAwesome name="times" size={34} color="red" />
           </TouchableOpacity>
-          <TouchableOpacity className="p-2">
-            <FontAwesome name="music" size={24} color="blue" />
+          <TouchableOpacity className="pb-10" onPress={() => onLike && onLike(card.usuario_id)}>
+            <FontAwesome name="music" size={34} color="blue" />
           </TouchableOpacity>
         </View>
       </View>
@@ -67,56 +93,270 @@ const Card: React.FC<CardProps> = ({ card, isFirst, ...rest }) => {
 };
 
 const Match = () => {
-  const initialCards = [
-    { id: 1, name: 'Usuario 1', bio: 'Bio 1', image: 'https://picsum.photos/200/300', ubication: 'Ubicación 1', distancia: '10km', habilidades: ['Cantante', 'Guitarrista', 'Productor']},
-    { id: 2, name: 'Usuario 2', bio: 'Bio 2', image: 'https://picsum.photos/200/301', ubication: 'Ubicación 2', distancia: '20km', habilidades: ['Habilidad 4', 'Habilidad 5', 'Habilidad 6','Habilidad 17', 'Habilidad 18','Habilidad 17', 'Habilidad 18']},
-    { id: 3, name: 'Usuario 3', bio: 'Bio 3', image: 'https://picsum.photos/200/302', ubication: 'Ubicación 3', distancia: '30km', habilidades: ['Habilidad 7', 'Habilidad 8', 'Habilidad 9']},
-    { id: 4, name: 'Usuario 4', bio: 'Bio 4', image: 'https://picsum.photos/200/303', ubicación: 'Ubicación 4', distancia: '40km', habilidades: ['Habilidad 10', 'Habilidad 11', 'Habilidad 12']},
-    { id: 5, name: 'Usuario 5', bio: 'Bio 5', image: 'https://picsum.photos/200/304', ubicación: 'Ubicación 5', distancia: '50km', habilidades: ['Habilidad 13', 'Habilidad 14', 'Habilidad 15']},
-    { id: 6, name: 'Usuario 6', bio: 'Bio 6', image: 'https://picsum.photos/200/305', ubicación: 'Ubicación 6', distancia: '60km', habilidades: ['Habilidad 16', 'Habilidad 17', 'Habilidad 18']},
-  ];
-
-  const [cards, setCards] = useState(initialCards);
-
+  const [cards, setCards] = useState<CardProps['card'][]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const position = useRef(new Animated.ValueXY()).current;
   const rotate = position.x.interpolate({
     inputRange: [-SWIPE_THRESHOLD, 0, SWIPE_THRESHOLD],
     outputRange: ['-10deg', '0deg', '10deg'],
     extrapolate: 'clamp',
   });
+  const router = useRouter();
 
-  const panResponder = PanResponder.create({
-    onStartShouldSetPanResponder: () => true,
-    onPanResponderMove: (_, gesture) => {
-      position.setValue({ x: gesture.dx, y: gesture.dy });
-    },
-    onPanResponderRelease: (_, gesture) => {
-      if (Math.abs(gesture.dx) > SWIPE_THRESHOLD) {
-        Animated.spring(position, {
-          toValue: { x: gesture.dx * 5, y: gesture.dy },
-          useNativeDriver: false,
-        }).start(() => {
-          setCards((prevCards) => prevCards.slice(1));
-          position.setValue({ x: 0, y: 0 });
-        });
+  useEffect(() => {
+    getCurrentUser();
+  }, []);
+
+  useEffect(() => {
+    if (currentUserId) {
+      fetchUsers();
+    }
+  }, [currentUserId]);
+
+  const getCurrentUser = async () => {
+    try {
+      const { data: { user }, error } = await supabase.auth.getUser();
+      if (error) throw error;
+      if (user) {
+        setCurrentUserId(user.id);
       } else {
-        Animated.spring(position, {
-          toValue: { x: 0, y: 0 },
-          friction: 4,
-          useNativeDriver: false,
-        }).start();
+        console.error('No hay usuario autenticado');
       }
-    },
-  });
+    } catch (error) {
+      console.error('Error al obtener el usuario actual:', error);
+    }
+  };
+
+  const fetchUsers = async () => {
+    if (!currentUserId) return;
+
+    try {
+      setIsLoading(true);
+
+      // Obtenemos las conexiones donde el usuario actual es usuario1_id o usuario2_id
+      const { data: connections, error: connectionsError } = await supabase
+        .from('conexion')
+        .select('usuario1_id, usuario2_id, estado')
+        .or(`usuario1_id.eq.${currentUserId},usuario2_id.eq.${currentUserId}`);
+
+      if (connectionsError) throw connectionsError;
+
+      // Creamos un conjunto de IDs de usuarios que el usuario actual ya ha likeado o hecho match
+      const excludedUserIds = new Set(
+        connections.flatMap(conn => {
+          if (conn.usuario1_id === currentUserId) return [conn.usuario2_id];
+          if (conn.usuario2_id === currentUserId && conn.estado) return [conn.usuario1_id];
+          return [];
+        })
+      );
+
+      // Obtenemos los perfiles excluyendo al usuario actual y a los usuarios excluidos
+      const { data: profiles, error: profilesError } = await supabase
+        .from('perfil')
+        .select(`
+          usuario_id,
+          username,
+          biografia,
+          foto_perfil,
+          edad,
+          sexo,
+          ubicacion,
+          perfil_habilidad (habilidad)
+        `)
+        .not('usuario_id', 'in', `(${Array.from(excludedUserIds).join(',')})`)
+        .neq('usuario_id', currentUserId);
+
+      if (profilesError) throw profilesError;
+
+      // Procesamos los perfiles
+      const processedProfiles = await Promise.all(profiles.map(async (profile) => {
+        let imageUrl = profile.foto_perfil;
+        if (profile.foto_perfil && !profile.foto_perfil.startsWith('http') && !profile.foto_perfil.startsWith('file:')) {
+          try {
+            const { data, error } = await supabase
+              .storage
+              .from('avatars')
+              .createSignedUrl(profile.foto_perfil, 60 * 60);
+
+            if (data && !error) {
+              imageUrl = data.signedUrl;
+            } else {
+              console.log(`No se pudo obtener URL firmada para ${profile.username}, usando URL original`);
+            }
+          } catch (error) {
+            console.log(`Error al procesar la foto de perfil de ${profile.username}, usando URL original`);
+          }
+        }
+        return { ...profile, foto_perfil: imageUrl };
+      }));
+
+      setCards(processedProfiles);
+    } catch (error) {
+      console.error('Error al obtener usuarios:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const saveConnection = async (userId1: string, userId2: string): Promise<boolean> => {
+    try {
+      // Verificamos si ya existe una conexión en cualquier dirección
+      const { data: existingConnections, error: selectError } = await supabase
+        .from('conexion')
+        .select()
+        .or(`and(usuario1_id.eq.${userId1},usuario2_id.eq.${userId2}),and(usuario1_id.eq.${userId2},usuario2_id.eq.${userId1})`);
+
+      if (selectError) throw selectError;
+
+      if (existingConnections && existingConnections.length > 0) {
+        // Si ya existe una conexión, verificamos si es un match
+        const existingConnection = existingConnections[0];
+        if (existingConnection.usuario1_id === userId2 && existingConnection.usuario2_id === userId1) {
+          // Es un match, actualizamos la conexión existente
+          await updateConnectionStatus(existingConnection.id, true);
+          console.log('¡Es un match!');
+          showMatchAlert(userId2);
+          return true; // Indicamos que es un match
+        } else {
+          console.log('La conexión ya existe');
+        }
+        return false; // No es un match
+      }
+
+      // Si no existe, insertamos la nueva conexión
+      const { data: newConnection, error: insertError } = await supabase
+        .from('conexion')
+        .insert({ 
+          usuario1_id: userId1, 
+          usuario2_id: userId2,
+          estado: false
+        })
+        .select()
+        .single();
+
+      if (insertError) throw insertError;
+
+      console.log('Conexión guardada, esperando match');
+
+      // Verificamos si hay un match
+      const { data: matchCheck, error: matchError } = await supabase
+        .from('conexion')
+        .select()
+        .eq('usuario1_id', userId2)
+        .eq('usuario2_id', userId1)
+        .single();
+
+      if (matchError && matchError.code !== 'PGRST116') throw matchError;
+
+      if (matchCheck) {
+        // Es un match, actualizamos ambas conexiones
+        await updateConnectionStatus(matchCheck.id, true);
+        if (newConnection) {
+          await updateConnectionStatus(newConnection.id, true);
+        }
+        console.log('¡Es un match!');
+        showMatchAlert(userId2);
+        return true; // Indicamos que es un match
+      }
+
+      return false; // No es un match
+    } catch (error) {
+      console.error('Error al guardar la conexión:', error);
+      return false;
+    }
+  };
+
+  const updateConnectionStatus = async (connectionId: string, status: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('conexion')
+        .update({ estado: status })
+        .eq('id', connectionId);
+
+      if (error) throw error;
+      console.log(`Conexión ${connectionId} actualizada a estado: ${status}`);
+    } catch (error) {
+      console.error('Error al actualizar el estado de la conexión:', error);
+    }
+  };
+
+  const showMatchAlert = (matchedUserId: string) => {
+    Alert.alert(
+      "¡Felicidades!",
+      "Es una conexión",
+      [
+        {
+          text: "Enviar mensaje",
+          onPress: () => router.push(`/chat/${matchedUserId}`),
+        },
+        {
+          text: "Continuar",
+          onPress: () => console.log("Usuario continuó sin enviar mensaje"),
+          style: "cancel"
+        },
+      ],
+      { cancelable: false }
+    );
+  };
+
+  const handleSwipe = (direction: 'left' | 'right') => {
+    Animated.timing(position, {
+      toValue: { x: direction === 'right' ? SWIPE_THRESHOLD : -SWIPE_THRESHOLD, y: 0 },
+      duration: 250,
+      useNativeDriver: false,
+    }).start(() => {
+      console.log('no');
+      setCards((prevCards) => prevCards.slice(1));
+      position.setValue({ x: 0, y: 0 });
+    });
+  };
+
+  const handleLike = async (likedUserId: string) => {
+    if (currentUserId) {
+      const isMatch = await saveConnection(currentUserId, likedUserId);
+      
+      if (isMatch) {
+        // Si es un match, eliminamos la tarjeta inmediatamente
+        setCards((prevCards) => prevCards.filter(card => card.usuario_id !== likedUserId));
+      } else {
+        // Si no es un match, simplemente pasamos a la siguiente tarjeta
+        handleSwipe('right');
+      }
+    }
+  };
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onPanResponderMove: (_: GestureResponderEvent, gesture: PanResponderGestureState) => {
+        position.setValue({ x: gesture.dx, y: gesture.dy });
+      },
+      onPanResponderRelease: (_: GestureResponderEvent, gesture: PanResponderGestureState) => {
+        if (Math.abs(gesture.dx) > SWIPE_THRESHOLD) {
+          const direction = gesture.dx > 0 ? 'right' : 'left';
+          handleSwipe(direction);
+        } else {
+          Animated.spring(position, {
+            toValue: { x: 0, y: 0 },
+            friction: 4,
+            useNativeDriver: false,
+          }).start();
+        }
+      },
+    })
+  ).current;
 
   const renderCards = () => {
     return cards.map((card, index) => {
       if (index === 0) {
         return (
           <Card
-            key={card.id}
+            key={card.usuario_id}
             card={card}
             isFirst={true}
+            onSwipe={handleSwipe}
+            onLike={handleLike}
             {...panResponder.panHandlers}
             style={{
               transform: [
@@ -128,17 +368,25 @@ const Match = () => {
           />
         );
       }
-      return <Card key={card.id} card={card} isFirst={false} />;
+      return <Card key={card.usuario_id} card={card} isFirst={false} onSwipe={handleSwipe} onLike={handleLike} />;
     }).reverse();
   };
 
   const refreshCards = () => {
-    setCards(initialCards);
+    fetchUsers();
     position.setValue({ x: 0, y: 0 });
   };
 
+  if (isLoading) {
+    return (
+      <View className="flex-1 justify-center items-center bg-primary-600">
+        <ActivityIndicator size="large" color="#ffffff" />
+      </View>
+    );
+  }
+
   return (
-    <GestureHandlerRootView className="flex-1 ">
+    <GestureHandlerRootView className="flex-1">
       <View className="flex-1 items-center justify-center bg-gray-100">
         {renderCards()}
         <TouchableOpacity
