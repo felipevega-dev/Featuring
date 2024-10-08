@@ -142,16 +142,21 @@ const Match = () => {
 
       if (connectionsError) throw connectionsError;
 
-      // Creamos un conjunto de IDs de usuarios que el usuario actual ya ha likeado o hecho match
-      const excludedUserIds = new Set(
-        connections.flatMap(conn => {
-          if (conn.usuario1_id === currentUserId) return [conn.usuario2_id];
-          if (conn.usuario2_id === currentUserId && conn.estado) return [conn.usuario1_id];
-          return [];
-        })
+      // Creamos un conjunto de IDs de usuarios que el usuario actual ya ha likeado
+      const likedUserIds = new Set(
+        connections
+          .filter(conn => conn.usuario1_id === currentUserId)
+          .map(conn => conn.usuario2_id)
       );
 
-      // Obtenemos los perfiles excluyendo al usuario actual y a los usuarios excluidos
+      // Obtenemos los IDs de usuarios que han dado like al usuario actual pero aún no hay match
+      const likedByUserIds = new Set(
+        connections
+          .filter(conn => conn.usuario2_id === currentUserId && !conn.estado)
+          .map(conn => conn.usuario1_id)
+      );
+
+      // Obtenemos todos los perfiles excepto el del usuario actual
       const { data: profiles, error: profilesError } = await supabase
         .from('perfil')
         .select(`
@@ -164,34 +169,46 @@ const Match = () => {
           ubicacion,
           perfil_habilidad (habilidad)
         `)
-        .not('usuario_id', 'in', `(${Array.from(excludedUserIds).join(',')})`)
         .neq('usuario_id', currentUserId);
 
       if (profilesError) throw profilesError;
 
-      // Procesamos los perfiles
-      const processedProfiles = await Promise.all(profiles.map(async (profile) => {
-        let imageUrl = profile.foto_perfil;
-        if (profile.foto_perfil && !profile.foto_perfil.startsWith('http') && !profile.foto_perfil.startsWith('file:')) {
-          try {
-            const { data, error } = await supabase
-              .storage
-              .from('avatars')
-              .createSignedUrl(profile.foto_perfil, 60 * 60);
+      // Filtramos y procesamos los perfiles
+      const processedProfiles = await Promise.all(profiles
+        .filter(profile => !likedUserIds.has(profile.usuario_id) || likedByUserIds.has(profile.usuario_id))
+        .map(async (profile) => {
+          let imageUrl = profile.foto_perfil;
+          if (profile.foto_perfil && !profile.foto_perfil.startsWith('http') && !profile.foto_perfil.startsWith('file:')) {
+            try {
+              const { data, error } = await supabase
+                .storage
+                .from('avatars')
+                .createSignedUrl(profile.foto_perfil, 60 * 60);
 
-            if (data && !error) {
-              imageUrl = data.signedUrl;
-            } else {
-              console.log(`No se pudo obtener URL firmada para ${profile.username}, usando URL original`);
+              if (data && !error) {
+                imageUrl = data.signedUrl;
+              } else {
+                console.log(`No se pudo obtener URL firmada para ${profile.username}, usando URL original`);
+              }
+            } catch (error) {
+              console.log(`Error al procesar la foto de perfil de ${profile.username}, usando URL original`);
             }
-          } catch (error) {
-            console.log(`Error al procesar la foto de perfil de ${profile.username}, usando URL original`);
           }
-        }
-        return { ...profile, foto_perfil: imageUrl };
-      }));
+          return { 
+            ...profile, 
+            foto_perfil: imageUrl, 
+            hasLikedMe: likedByUserIds.has(profile.usuario_id) 
+          };
+        }));
 
-      setCards(processedProfiles);
+      // Ordenamos los perfiles para que los usuarios que han dado like al usuario actual aparezcan primero
+      const sortedProfiles = processedProfiles.sort((a, b) => {
+        if (a.hasLikedMe && !b.hasLikedMe) return -1;
+        if (!a.hasLikedMe && b.hasLikedMe) return 1;
+        return 0;
+      });
+
+      setCards(sortedProfiles);
     } catch (error) {
       console.error('Error al obtener usuarios:', error);
     } finally {
