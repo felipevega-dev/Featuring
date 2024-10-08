@@ -32,6 +32,7 @@ const EditarPerfil = () => {
   const [perfil, setPerfil] = useState<Perfil | null>(null);
   const [fotoPerfil, setFotoPerfil] = useState<string | null>(null);
   const [generoOpen, setGeneroOpen] = useState(false);
+  const [generoValue, setGeneroValue] = useState('');
   const [generoItems, setGeneroItems] = useState([
     { label: 'Masculino', value: 'masculino' },
     { label: 'Femenino', value: 'femenino' },
@@ -86,6 +87,7 @@ const EditarPerfil = () => {
           habilidades: data.perfil_habilidad.map(h => h.habilidad)
         });
         setFotoPerfil(data.foto_perfil);
+        setGeneroValue(data.sexo); // Establecer el valor inicial del género
       }
     } catch (error) {
       console.error("Error al obtener el perfil:", error);
@@ -165,9 +167,16 @@ const EditarPerfil = () => {
       if (!prevPerfil) return null;
 
       const currentItems = prevPerfil[type];
-      const updatedItems = currentItems.includes(item)
-        ? currentItems.filter(i => i !== item)
-        : [...currentItems, item];
+      let updatedItems;
+
+      if (currentItems.includes(item)) {
+        updatedItems = currentItems.filter(i => i !== item);
+      } else if (currentItems.length < 5) {
+        updatedItems = [...currentItems, item];
+      } else {
+        Alert.alert("Límite alcanzado", `Solo puedes seleccionar un máximo de 5 ${type}.`);
+        return prevPerfil;
+      }
 
       return {
         ...prevPerfil,
@@ -181,24 +190,29 @@ const EditarPerfil = () => {
     const selectedItems = modalContent === 'generos' ? perfil?.generos : perfil?.habilidades;
 
     return (
-      <View className="flex-row flex-wrap justify-start">
-        {items.map((item) => (
-          <TouchableOpacity
-            key={item}
-            onPress={() => toggleItem(item, modalContent)}
-            className={`m-1 p-2 rounded-full ${
-              selectedItems?.includes(item) 
-                ? "bg-primary-500" 
-                : "bg-general-300"
-            }`}
-          >
-            <Text className={`text-sm ${
-              selectedItems?.includes(item) ? "text-white" : "text-primary-700"
-            }`}>
-              {item}
-            </Text>
-          </TouchableOpacity>
-        ))}
+      <View className="flex-1">
+        <Text className="text-lg font-bold mb-2 text-primary-700">
+          {selectedItems?.length || 0}/5 seleccionados
+        </Text>
+        <View className="flex-row flex-wrap justify-start">
+          {items.map((item) => (
+            <TouchableOpacity
+              key={item}
+              onPress={() => toggleItem(item, modalContent)}
+              className={`m-1 p-2 rounded-full ${
+                selectedItems?.includes(item) 
+                  ? "bg-primary-500" 
+                  : "bg-general-300"
+              }`}
+            >
+              <Text className={`text-sm ${
+                selectedItems?.includes(item) ? "text-white" : "text-primary-700"
+              }`}>
+                {item}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
       </View>
     );
   };
@@ -248,15 +262,22 @@ const EditarPerfil = () => {
           />
         </StyledView>
 
-        <StyledView className="mb-2">
+        <StyledView className="mb-2 z-50">
           <StyledText className="text-lg font-bold mb-2">Género:</StyledText>
           <DropDownPicker
             open={generoOpen}
-            value={perfil.sexo}
+            value={generoValue}
             items={generoItems}
             setOpen={setGeneroOpen}
-            setValue={(value) => setPerfil(prev => ({...prev, sexo: value as string}))}
+            setValue={setGeneroValue}
             setItems={setGeneroItems}
+            onChangeValue={(value) => {
+              if (perfil && value) {
+                setPerfil({...perfil, sexo: value});
+              }
+            }}
+            zIndex={3000}
+            zIndexInverse={1000}
           />
         </StyledView>
 

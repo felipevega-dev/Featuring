@@ -4,6 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { supabase } from "@/lib/supabase";
 import { router } from "expo-router";
 import { icons } from "@/constants";
+import { Ionicons } from '@expo/vector-icons';
 
 interface Perfil {
   username: string;
@@ -134,39 +135,48 @@ export default function Profile() {
 
   return (
     <View className="flex-1 bg-primary-600 p-1">
-          <View className="mb-2 mt-2">
-            <Text className="text-xl text-center font-semibold text-white">
-            Perfil de usuario
-            </Text>
-          </View>
-        <ScrollView className="flex-1">
+      <View className="mb-2 mt-2">
+        <Text className="text-xl text-center font-semibold text-white">
+          Perfil de usuario
+        </Text>
+      </View>
+      <ScrollView className="flex-1">
         <View className="px-4 pb-8">
           <View className="bg-white rounded-xl shadow-lg shadow-black/30 p-6 mb-10">
-          <TouchableOpacity onPress={() => router.push('/editar_perfil')}>
-            <Image source={icons.editar} className="w-8 h-8 absolute top-0 right-0" style={{ tintColor: '#00CED1' }} />
-          </TouchableOpacity>
-          <View className="items-center pb-4">
-          <View className="w-36 h-36 rounded-full shadow-lg shadow-black/50 mb-4">
-            {perfil.foto_perfil ? (
-              <Image
-                source={{ uri: perfil.foto_perfil }}
-                className="w-full h-full rounded-full border-10 border-secondary-500"
-              />
-            ) : (
-              <View className="w-full h-full rounded-full bg-gray-300 justify-center items-center border-4 border-secondary-500">
-                <Image source={icons.person} className="w-20 h-20" />
+            <TouchableOpacity 
+              onPress={() => router.push('/editar_perfil')}
+              className="absolute top-0 right-0 p-2"
+            >
+              <Image source={icons.editar} className="w-8 h-8" style={{ tintColor: '#00CED1' }} />
+            </TouchableOpacity>
+            <TouchableOpacity 
+              onPress={fetchPerfil} 
+              className="absolute top-0 left-0 p-2"
+            >
+              <Ionicons name="refresh" size={24} color="#00CED1" />
+            </TouchableOpacity>
+            <View className="items-center pb-4">
+              <View className="w-36 h-36 rounded-full shadow-lg shadow-black/50 mb-4">
+                {perfil.foto_perfil ? (
+                  <Image
+                    source={{ uri: perfil.foto_perfil }}
+                    className="w-full h-full rounded-full border-10 border-secondary-500"
+                  />
+                ) : (
+                  <View className="w-full h-full rounded-full bg-gray-300 justify-center items-center border-4 border-secondary-500">
+                    <Image source={icons.person} className="w-20 h-20" />
+                  </View>
+                )}
               </View>
-            )}
-            </View>
-            <Text className="text-xl font-semibold text-primary-500 text-center">
-            {perfil.username}
-            </Text>
+              <Text className="text-xl font-semibold text-primary-500 text-center">
+                {perfil.username}
+              </Text>
             </View>
             <ProfileSection icon={icons.usuarioperfil} title="Información Personal">
-                <ProfileItem label="Nombre" value={perfil.full_name} />
-                <ProfileItem label="Ubicación" value={perfil.ubicacion} />
-                <ProfileItem label="Género" value={perfil.sexo} />
-                <ProfileItem label="Edad" value={perfil.edad.toString()} />
+              <ProfileItem label="Nombre" value={perfil.full_name} />
+              <ProfileItem label="Ubicación" value={perfil.ubicacion} />
+              <ProfileItem label="Género" value={perfil.sexo} />
+              <ProfileItem label="Edad" value={perfil.edad.toString()} />
             </ProfileSection>
 
             <ProfileSection icon={icons.biografia} title="Biografía">
@@ -174,7 +184,7 @@ export default function Profile() {
             </ProfileSection>
 
             <ProfileSection icon={icons.generos} title="Géneros Musicales">
-              <View className="flex-row flex-wrap">
+              <View className="flex-row flex-wrap mb-10">
                 {perfil.generos.map((genero, index) => (
                   <View key={index} className="bg-primary-100 rounded-full px-3 py-1 m-1">
                     <Text className="text-primary-600">{genero}</Text>
@@ -194,15 +204,14 @@ export default function Profile() {
             </ProfileSection>
 
             <TouchableOpacity
-            onPress={handleLogout}
-            className="bg-red-500 rounded-full py-2 px-6 flex-row justify-center items-center shadow-lg shadow-black/30"
-          >
-            <Image source={icons.cerrarSesion} className="w-5 h-5 mr-2" style={{ tintColor: 'white' }} />
-            <Text className="text-white font-bold text-lg">Cerrar Sesión</Text>
-          </TouchableOpacity>
+              onPress={handleLogout}
+              className="bg-red-500 rounded-full py-2 px-6 flex-row justify-center items-center shadow-lg shadow-black/30"
+            >
+              <Image source={icons.cerrarSesion} className="w-5 h-5 mr-2" style={{ tintColor: 'white' }} />
+              <Text className="text-white font-bold text-lg">Cerrar Sesión</Text>
+            </TouchableOpacity>
           </View>
 
-          
         </View>
       </ScrollView>
     </View>
