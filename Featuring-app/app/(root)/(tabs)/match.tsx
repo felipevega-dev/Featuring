@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { View, Text, Image, Animated, TouchableOpacity, PanResponder, GestureResponderEvent, PanResponderGestureState, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, Image, Animated, TouchableOpacity, PanResponder, GestureResponderEvent, PanResponderGestureState, ActivityIndicator, Alert, Modal, ScrollView } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { FontAwesome } from '@expo/vector-icons';
 import { supabase } from "@/lib/supabase";
@@ -22,10 +22,62 @@ interface CardProps {
   isFirst?: boolean;
   onSwipe?: (direction: 'left' | 'right') => void;
   onLike?: (userId: string) => void;
+  onViewProfile?: (user: CardProps['card']) => void;
   [key: string]: any;
 }
 
-const Card: React.FC<CardProps> = ({ card, isFirst, onSwipe, onLike, ...rest }) => {
+interface UserProfileModalProps {
+  isVisible: boolean;
+  onClose: () => void;
+  user: CardProps['card'];
+}
+
+const UserProfileModal: React.FC<UserProfileModalProps> = ({ isVisible, onClose, user }) => {
+  return (
+    <Modal
+      animationType="slide"
+      transparent={true}
+      visible={isVisible}
+      onRequestClose={onClose}
+    >
+      <View className="flex-1 justify-center items-center bg-black bg-opacity-50">
+        <View className="bg-white rounded-xl p-5 w-[90%] max-h-[80%]">
+          <ScrollView>
+            <TouchableOpacity className="absolute top-2 right-2 z-10" onPress={onClose}>
+              <FontAwesome name="close" size={24} color="black" />
+            </TouchableOpacity>
+            <View className="items-center mb-4">
+              {user.foto_perfil ? (
+                <Image
+                  source={{ uri: user.foto_perfil }}
+                  className="w-32 h-32 rounded-full"
+                />
+              ) : (
+                <View className="w-32 h-32 rounded-full bg-gray-300 justify-center items-center">
+                  <FontAwesome name="user" size={50} color="white" />
+                </View>
+              )}
+              <Text className="text-xl font-bold mt-2">{user.username}</Text>
+              <Text className="text-gray-600">{user.edad} años • {user.ubicacion}</Text>
+            </View>
+            <Text className="font-bold mb-2">Biografía:</Text>
+            <Text className="mb-4">{user.biografia}</Text>
+            <Text className="font-bold mb-2">Habilidades:</Text>
+            <View className="flex-row flex-wrap mb-4">
+              {user.perfil_habilidad.map((habilidad, index) => (
+                <View key={index} className="bg-blue-100 rounded-full px-3 py-1 m-1">
+                  <Text className="text-blue-800">{habilidad.habilidad}</Text>
+                </View>
+              ))}
+            </View>
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
+const Card: React.FC<CardProps> = ({ card, isFirst, onSwipe, onLike, onViewProfile, ...rest }) => {
   const [imageError, setImageError] = useState(false);
 
   const renderHabilidades = (habilidades: { habilidad: string }[] | null | undefined) => {
@@ -76,7 +128,10 @@ const Card: React.FC<CardProps> = ({ card, isFirst, onSwipe, onLike, ...rest }) 
         <Text className="text-center mt-2 text-blue-500 font-semibold">
           {renderHabilidades(card.perfil_habilidad)}
         </Text>
-        <TouchableOpacity className="bg-blue-500 rounded-full mt-4 p-2 w-1/2">
+        <TouchableOpacity 
+          className="bg-blue-500 rounded-full mt-4 p-2 w-1/2"
+          onPress={() => onViewProfile && onViewProfile(card)}
+        >
           <Text className="text-white font-bold text-center">Ver Perfil</Text>
         </TouchableOpacity>
         <View className="flex-row justify-between w-full mb-10" >
@@ -103,6 +158,8 @@ const Match = () => {
     extrapolate: 'clamp',
   });
   const router = useRouter();
+  const [selectedUser, setSelectedUser] = useState<CardProps['card'] | null>(null);
+  const [isProfileModalVisible, setIsProfileModalVisible] = useState(false);
 
   useEffect(() => {
     getCurrentUser();
@@ -364,6 +421,11 @@ const Match = () => {
     })
   ).current;
 
+  const handleViewProfile = (user: CardProps['card']) => {
+    setSelectedUser(user);
+    setIsProfileModalVisible(true);
+  };
+
   const renderCards = () => {
     return cards.map((card, index) => {
       if (index === 0) {
@@ -374,6 +436,7 @@ const Match = () => {
             isFirst={true}
             onSwipe={handleSwipe}
             onLike={handleLike}
+            onViewProfile={handleViewProfile}
             {...panResponder.panHandlers}
             style={{
               transform: [
@@ -385,7 +448,7 @@ const Match = () => {
           />
         );
       }
-      return <Card key={card.usuario_id} card={card} isFirst={false} onSwipe={handleSwipe} onLike={handleLike} />;
+      return <Card key={card.usuario_id} card={card} isFirst={false} onSwipe={handleSwipe} onLike={handleLike} onViewProfile={handleViewProfile} />;
     }).reverse();
   };
 
@@ -413,6 +476,13 @@ const Match = () => {
           <Text className="text-white font-bold">Refrescar</Text>
         </TouchableOpacity>
       </View>
+      {selectedUser && (
+        <UserProfileModal
+          isVisible={isProfileModalVisible}
+          onClose={() => setIsProfileModalVisible(false)}
+          user={selectedUser}
+        />
+      )}
     </GestureHandlerRootView>
   );
 };
