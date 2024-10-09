@@ -129,11 +129,17 @@ const Comunidad = () => {
     }
   };
 
+  const handleUpdateSong = async (cancionId: number) => {
+    // Recargar la lista de canciones
+    await fetchSongs();
+  };
+
   const renderItem = ({ item }: { item: Cancion }) => (
     <SongCard 
       cancion={item}
       currentUserId={currentUserId || ''}
       onDeleteSong={handleDeleteSong}
+      onUpdateSong={handleUpdateSong}
     />
   );
 

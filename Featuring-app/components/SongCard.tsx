@@ -6,6 +6,7 @@ import { icons } from '@/constants/index';
 import * as Clipboard from 'expo-clipboard';
 import { Ionicons } from '@expo/vector-icons';
 import { useAudioPlayer } from '@/contexts/AudioPlayerContext';
+import EditSongModal from './EditSongModal';
 
 interface Perfil {
   usuario_id: string;
@@ -47,6 +48,7 @@ interface SongCardProps {
   cancion: Cancion;
   currentUserId: string;
   onDeleteSong: (cancionId: number) => void;
+  onUpdateSong: (cancionId: number) => void;
 }
 
 interface ComentarioLike {
@@ -56,7 +58,7 @@ interface ComentarioLike {
   created_at: string;
 }
 
-const SongCard: React.FC<SongCardProps> = ({ cancion, currentUserId, onDeleteSong }) => {
+const SongCard: React.FC<SongCardProps> = ({ cancion, currentUserId, onDeleteSong, onUpdateSong }) => {
   const [sound, setSound] = useState<Audio.Sound | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [duration, setDuration] = useState<number | null>(null);
@@ -76,6 +78,7 @@ const SongCard: React.FC<SongCardProps> = ({ cancion, currentUserId, onDeleteSon
   const [showOptions, setShowOptions] = useState(false);
   const [showOptionsModal, setShowOptionsModal] = useState(false);
   const { playSound, currentSong, isPlaying: globalIsPlaying, pauseSound } = useAudioPlayer();
+  const [isEditModalVisible, setIsEditModalVisible] = useState(false);
 
   useEffect(() => {
     return sound
@@ -358,8 +361,13 @@ const SongCard: React.FC<SongCardProps> = ({ cancion, currentUserId, onDeleteSon
   };
 
   const handleEdit = () => {
-    // Implementar lógica para editar la canción
+    setIsEditModalVisible(true);
     setShowOptionsModal(false);
+  };
+
+  const handleEditSuccess = () => {
+    // Aquí puedes actualizar el estado local si es necesario
+    onUpdateSong(cancion.id);
   };
 
   const handlePlayPause = () => {
@@ -595,6 +603,14 @@ const SongCard: React.FC<SongCardProps> = ({ cancion, currentUserId, onDeleteSon
           </View>
         </TouchableOpacity>
       </Modal>
+
+      {/* Modal para editar canción */}
+      <EditSongModal
+        isVisible={isEditModalVisible}
+        onClose={() => setIsEditModalVisible(false)}
+        onEditSuccess={handleEditSuccess}
+        cancion={cancion}
+      />
 
       {cancion.archivo_audio && (
         <TouchableOpacity 
