@@ -103,7 +103,7 @@ const Chat = () => {
   const renderChatItem = ({ item }: { item: ChatListItem }) => (
     <TouchableOpacity
       className="flex-row items-center p-4 border-b border-gray-200"
-      onPress={() => navigation.navigate('ChatDetail', { chatName: item.otherUserId })}
+      onPress={() => navigation.navigate('chatDetail', { chatName: item.otherUserId })}
     >
       {item.otherUserAvatar ? (
         <Image

@@ -26,22 +26,29 @@ interface Cancion {
   perfil: Perfil | null;
 }
 
+interface Comentario {
+    id: number;
+    usuario_id: string;
+    cancion_id: number;
+    contenido: string;
+    created_at: string;
+    likes_count: number;
+    perfil: Perfil;
+    isLiked?: boolean;
+  }
+
+  interface ComentarioLike {
+    id: number;
+    usuario_id: string;
+    comentario_id: number;
+    created_at: string;
+  }
+
 interface Like {
   id: number;
   usuario_id: string;
   cancion_id: number;
   created_at: string;
-}
-
-interface Comentario {
-  id: number;
-  usuario_id: string;
-  cancion_id: number;
-  contenido: string;
-  created_at: string;
-  likes_count: number;
-  perfil: Perfil;
-  isLiked?: boolean;
 }
 
 interface SongCardProps {
@@ -51,18 +58,9 @@ interface SongCardProps {
   onUpdateSong: (cancionId: number) => void;
 }
 
-interface ComentarioLike {
-  id: number;
-  usuario_id: string;
-  comentario_id: number;
-  created_at: string;
-}
-
 const SongCard: React.FC<SongCardProps> = ({ cancion, currentUserId, onDeleteSong, onUpdateSong }) => {
   const [sound, setSound] = useState<Audio.Sound | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [duration, setDuration] = useState<number | null>(null);
-  const [position, setPosition] = useState<number | null>(null);
   const [likes, setLikes] = useState<Like[]>([]);
   const [comentarios, setComentarios] = useState<Comentario[]>([]);
   const [nuevoComentario, setNuevoComentario] = useState('');
