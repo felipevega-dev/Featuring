@@ -1,13 +1,11 @@
 import { supabase } from "@/lib/supabase";
 import { Database } from "@/types/db_types";
 
-type Publicacion = Database['public']['Tables']['publicacion']['Row'];
 type Cancion = Database['public']['Tables']['cancion']['Row'];
 type Perfil = Database['public']['Tables']['perfil']['Row'];
-type LikeComentario = Database['public']['Tables']['likes_comentario_publicacion']['Row'];
+type LikeComentario = Database['public']['Tables']['likes_comentario_cancion']['Row'];
 
-interface PublicacionConRelaciones extends Publicacion {
-  cancion: Cancion | null;
+interface CancionConRelaciones extends Cancion {
   perfil: Perfil;
   likes_count: number;
   comentarios: {
@@ -21,40 +19,39 @@ interface PublicacionConRelaciones extends Publicacion {
   }[];
 }
 
-export async function getPosts(): Promise<PublicacionConRelaciones[]> {
+export async function getSongs(): Promise<CancionConRelaciones[]> {
   const { data, error } = await supabase
-    .from('publicacion')
+    .from('cancion')
     .select(`
       *,
-      cancion (*),
-      perfil (*),
-      likes: likes_publicacion (count),
-      comentarios: comentario_publicacion (
+      perfil!usuario_id (*),
+      likes: likes_cancion (count),
+      comentarios: comentario_cancion (
         *,
-        perfil (*),
-        likes: likes_comentario_publicacion (*)
+        perfil!usuario_id (*),
+        likes: likes_comentario_cancion (*)
       )
     `)
     .order('created_at', { ascending: false });
 
   if (error) {
-    console.error("Error fetching posts:", error);
+    console.error("Error fetching songs:", error);
     throw error;
   }
 
-  return data.map(post => ({
-    ...post,
-    likes_count: post.likes[0]?.count || 0,
-    comentarios: post.comentarios.map(comentario => ({
+  return data.map(cancion => ({
+    ...cancion,
+    likes_count: cancion.likes[0]?.count || 0,
+    comentarios: cancion.comentarios.map(comentario => ({
       ...comentario,
       likes_count: comentario.likes?.length || 0
     }))
-  })) as PublicacionConRelaciones[];
+  })) as CancionConRelaciones[];
 }
 
 export async function deleteComment(commentId: number, userId: string): Promise<void> {
   const { error } = await supabase
-    .from('comentario_publicacion')
+    .from('comentario_cancion')
     .delete()
     .eq('id', commentId)
     .eq('usuario_id', userId);
@@ -67,7 +64,7 @@ export async function deleteComment(commentId: number, userId: string): Promise<
 
 export async function likeComment(commentId: number, userId: string): Promise<void> {
   const { error } = await supabase
-    .from('likes_comentario_publicacion')
+    .from('likes_comentario_cancion')
     .insert({ comentario_id: commentId, usuario_id: userId });
 
   if (error) {
@@ -78,7 +75,7 @@ export async function likeComment(commentId: number, userId: string): Promise<vo
 
 export async function unlikeComment(commentId: number, userId: string): Promise<void> {
   const { error } = await supabase
-    .from('likes_comentario_publicacion')
+    .from('likes_comentario_cancion')
     .delete()
     .eq('comentario_id', commentId)
     .eq('usuario_id', userId);

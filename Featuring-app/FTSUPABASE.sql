@@ -1,28 +1,38 @@
--- Drops de las tablas para recrear y borrar sin problemas
-DROP TABLE IF EXISTS configuracion_privacidad CASCADE;
-DROP TABLE IF EXISTS estadistica CASCADE;
+-- Drops de las tablas para recrear y borrar sin problemasDROP TABLE IF EXISTS estadistica CASCADE;
+
 DROP TABLE IF EXISTS reporte CASCADE;
+
 DROP TABLE IF EXISTS colaboracion CASCADE;
+
 DROP TABLE IF EXISTS notificacion CASCADE;
-DROP TABLE IF EXISTS comentario_publicacion CASCADE;
+
 DROP TABLE IF EXISTS comentario_video CASCADE;
-DROP TABLE IF EXISTS publicacion CASCADE;
+
 DROP TABLE IF EXISTS video CASCADE;
+
 DROP TABLE IF EXISTS seguidor CASCADE;
+
 DROP TABLE IF EXISTS mensaje CASCADE;
+
 DROP TABLE IF EXISTS conexion CASCADE;
-DROP TABLE IF EXISTS cancion CASCADE
+
+DROP TABLE IF EXISTS cancion CASCADE;
+
 DROP TABLE IF EXISTS perfil CASCADE;
-DROP TABLE IF EXISTS likes_publicacion CASCADE;
+
 DROP TABLE IF EXISTS likes_video CASCADE;
+
 DROP TABLE IF EXISTS etiqueta CASCADE;
-DROP TABLE IF EXISTS publicacion_etiqueta CASCADE;
+
 DROP TABLE IF EXISTS valoracion_cancion CASCADE;
+
 DROP TABLE IF EXISTS valoracion_colaboracion CASCADE;
+
 DROP TABLE IF EXISTS red_social CASCADE;
+
 DROP TABLE IF EXISTS perfil_genero CASCADE;
+
 DROP TABLE IF EXISTS perfil_habilidad CASCADE;
-DROP TABLE IF EXISTS likes_comentario_publicacion CASCADE:
 -- Tabla perfil
 CREATE TABLE
   perfil (
@@ -72,16 +82,59 @@ CREATE TABLE
   );
 
 -- Tabla cancion (modificada)
-CREATE TABLE
-  cancion (
+CREATE TABLE cancion (
     id BIGSERIAL PRIMARY KEY,
     usuario_id UUID NOT NULL,
     titulo TEXT NOT NULL,
     archivo_audio TEXT,
     caratula TEXT,
+    contenido TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW(),
-    CONSTRAINT fk_usuario_cancion FOREIGN KEY (usuario_id) REFERENCES auth.users (id) ON DELETE CASCADE
+    CONSTRAINT fk_usuario_cancion FOREIGN KEY (usuario_id) REFERENCES perfil (usuario_id) ON DELETE CASCADE
   );
+
+  
+-- Renombrar likes_publicacion a likes_cancion
+CREATE TABLE likes_cancion (
+    id BIGSERIAL PRIMARY KEY,
+    usuario_id UUID NOT NULL,
+    cancion_id BIGINT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    CONSTRAINT fk_usuario_likes_cancion FOREIGN KEY (usuario_id) REFERENCES perfil (usuario_id) ON DELETE CASCADE,
+    CONSTRAINT fk_cancion_likes FOREIGN KEY (cancion_id) REFERENCES cancion (id) ON DELETE CASCADE,
+    UNIQUE (usuario_id, cancion_id)
+);
+
+-- Renombrar comentario_publicacion a comentario_cancion
+CREATE TABLE comentario_cancion (
+    id BIGSERIAL PRIMARY KEY,
+    usuario_id UUID NOT NULL,
+    cancion_id BIGINT NOT NULL,
+    contenido TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    CONSTRAINT fk_usuario_comentario_cancion FOREIGN KEY (usuario_id) REFERENCES perfil (usuario_id) ON DELETE CASCADE,
+    CONSTRAINT fk_cancion_comentario FOREIGN KEY (cancion_id) REFERENCES cancion (id) ON DELETE CASCADE
+);
+
+-- Renombrar publicacion_etiqueta a cancion_etiqueta
+CREATE TABLE cancion_etiqueta (
+    cancion_id BIGINT NOT NULL,
+    etiqueta_id BIGINT NOT NULL,
+    PRIMARY KEY (cancion_id, etiqueta_id),
+    CONSTRAINT fk_cancion_etiqueta FOREIGN KEY (cancion_id) REFERENCES cancion (id) ON DELETE CASCADE,
+    CONSTRAINT fk_etiqueta_cancion FOREIGN KEY (etiqueta_id) REFERENCES etiqueta (id) ON DELETE CASCADE
+);
+
+-- Actualizar la tabla likes_comentario_cancion
+CREATE TABLE likes_comentario_cancion (
+    id BIGSERIAL PRIMARY KEY,
+    usuario_id UUID NOT NULL,
+    comentario_id BIGINT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    CONSTRAINT fk_usuario_likes_comentario_cancion FOREIGN KEY (usuario_id) REFERENCES perfil (usuario_id) ON DELETE CASCADE,
+    CONSTRAINT fk_comentario_cancion_likes FOREIGN KEY (comentario_id) REFERENCES comentario_cancion (id) ON DELETE CASCADE,
+    UNIQUE (usuario_id, comentario_id)
+);
 
 -- Tabla conexion
 CREATE TABLE
@@ -133,17 +186,7 @@ CREATE TABLE
     CONSTRAINT fk_usuario_video FOREIGN KEY (usuario_id) REFERENCES auth.users (id) ON DELETE CASCADE
   );
 
--- Tabla publicacion
-CREATE TABLE
-  publicacion (
-    id BIGSERIAL PRIMARY KEY,
-    usuario_id UUID NOT NULL,
-    cancion_id BIGINT,
-    contenido TEXT NOT NULL,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    CONSTRAINT fk_perfil_publicacion FOREIGN KEY (usuario_id) REFERENCES perfil (usuario_id) ON DELETE CASCADE,
-    CONSTRAINT fk_cancion_publicacion FOREIGN KEY (cancion_id) REFERENCES cancion (id) ON DELETE SET NULL
-  );
+
 
 -- Tabla comentario_video
 CREATE TABLE
@@ -157,41 +200,7 @@ CREATE TABLE
     CONSTRAINT fk_video_comentario FOREIGN KEY (video_id) REFERENCES video (id) ON DELETE CASCADE
   );
 
--- Tabla comentario_publicacion
-CREATE TABLE
-  comentario_publicacion (
-    id BIGSERIAL PRIMARY KEY,
-    usuario_id UUID NOT NULL,
-    publicacion_id BIGINT NOT NULL,
-    contenido TEXT NOT NULL,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    CONSTRAINT fk_usuario_comentario_publicacion FOREIGN KEY (usuario_id) REFERENCES perfil (usuario_id) ON DELETE CASCADE,
-    CONSTRAINT fk_publicacion_comentario FOREIGN KEY (publicacion_id) REFERENCES publicacion (id) ON DELETE CASCADE
-  );
 
--- Tabla likes_publicacion
-CREATE TABLE
-  likes_publicacion (
-    id BIGSERIAL PRIMARY KEY,
-    usuario_id UUID NOT NULL,
-    publicacion_id BIGINT NOT NULL,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    CONSTRAINT fk_usuario_likes_publicacion FOREIGN KEY (usuario_id) REFERENCES auth.users (id) ON DELETE CASCADE,
-    CONSTRAINT fk_publicacion_likes FOREIGN KEY (publicacion_id) REFERENCES publicacion (id) ON DELETE CASCADE,
-    UNIQUE (usuario_id, publicacion_id)
-  );
-
--- Nueva tabla para likes de comentarios
-CREATE TABLE
-  likes_comentario_publicacion (
-    id BIGSERIAL PRIMARY KEY,
-    usuario_id UUID NOT NULL,
-    comentario_id BIGINT NOT NULL,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    CONSTRAINT fk_usuario_likes_comentario_publicacion FOREIGN KEY (usuario_id) REFERENCES perfil (usuario_id) ON DELETE CASCADE,
-    CONSTRAINT fk_comentario_publicacion_likes FOREIGN KEY (comentario_id) REFERENCES comentario_publicacion (id) ON DELETE CASCADE,
-    UNIQUE (usuario_id, comentario_id)
-  );
 
 -- Tabla likes_video
 CREATE TABLE
@@ -233,19 +242,6 @@ CREATE TABLE
     CONSTRAINT fk_usuario_reportado FOREIGN KEY (usuario_reportado_id) REFERENCES auth.users (id) ON DELETE CASCADE
   );
 
--- Tabla configuracion_privacidad
-CREATE TABLE
-  configuracion_privacidad (
-    id BIGSERIAL PRIMARY KEY,
-    usuario_id UUID NOT NULL,
-    perfil_visible BOOLEAN,
-    mensajes_directos TEXT,
-    notificaciones BOOLEAN,
-    datos_compartidos JSONB,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    CONSTRAINT fk_usuario_privacidad FOREIGN KEY (usuario_id) REFERENCES auth.users (id) ON DELETE CASCADE
-  );
-
 -- Tabla notificacion
 CREATE TABLE
   notificacion (
@@ -267,15 +263,7 @@ CREATE TABLE
     nombre TEXT NOT NULL UNIQUE
   );
 
--- Tabla publicacion_etiqueta
-CREATE TABLE
-  publicacion_etiqueta (
-    publicacion_id BIGINT NOT NULL,
-    etiqueta_id BIGINT NOT NULL,
-    PRIMARY KEY (publicacion_id, etiqueta_id),
-    CONSTRAINT fk_publicacion_etiqueta FOREIGN KEY (publicacion_id) REFERENCES publicacion (id) ON DELETE CASCADE,
-    CONSTRAINT fk_etiqueta_publicacion FOREIGN KEY (etiqueta_id) REFERENCES etiqueta (id) ON DELETE CASCADE
-  );
+
 
 -- Tabla valoracion_cancion
 CREATE TABLE
@@ -303,12 +291,22 @@ CREATE TABLE
 
 -- Índices para mejora de rendimiento
 CREATE INDEX idx_video_titulo ON video (titulo);
+CREATE INDEX idx_video_created_at ON video (created_at);
 
 CREATE INDEX idx_cancion_titulo ON cancion (titulo);
+CREATE INDEX idx_cancion_usuario ON cancion (usuario_id);
 
--- Índices adicionales
-CREATE INDEX idx_publicacion_created_at ON publicacion (created_at);
+CREATE INDEX idx_notificacion_usuario_leido ON notificacion (usuario_id, leido);
+CREATE INDEX idx_mensaje_emisor_receptor ON mensaje (emisor_id, receptor_id);
+CREATE INDEX idx_seguidor_usuario_seguidor ON seguidor (usuario_id, seguidor_id);
 
-CREATE INDEX idx_comentario_publicacion_created_at ON comentario_publicacion (created_at);
 
-CREATE INDEX idx_video_created_at ON video (created_at);
+CREATE INDEX idx_perfil_username ON perfil (username);
+CREATE INDEX idx_perfil_habilidad_perfil ON perfil_habilidad (perfil_id, habilidad);
+CREATE INDEX idx_perfil_genero_perfil ON perfil_genero (perfil_id, genero);
+
+CREATE INDEX idx_cancion_created_at ON cancion (created_at);
+CREATE INDEX idx_cancion_usuario ON cancion (usuario_id);
+CREATE INDEX idx_likes_cancion_usuario ON likes_cancion (usuario_id, cancion_id);
+CREATE INDEX idx_comentario_cancion_usuario ON comentario_cancion (usuario_id, cancion_id);
+CREATE INDEX idx_comentario_cancion_created_at ON comentario_cancion (created_at);

@@ -3,7 +3,6 @@ import { View, Text, TextInput, TouchableOpacity, Image, Modal, Alert } from 're
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import { supabase } from '@/lib/supabase';
-import * as FileSystem from 'expo-file-system';
 
 interface UploadSongModalProps {
   isVisible: boolean;
@@ -19,22 +18,28 @@ export default function UploadSongModal({ isVisible, onClose, onUploadSuccess }:
   const [coverImage, setCoverImage] = useState<string | null>(null);
   const [coverImageName, setCoverImageName] = useState<string | null>(null);
 
+  const sanitizeFileName = (fileName: string): string => {
+    return fileName.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+  };
+
+  const getFileNameWithoutExtension = (fileName: string): string => {
+    return fileName.replace(/\.[^/.]+$/, "");
+  };
+
   const pickAudio = async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({ 
         type: 'audio/*',
         copyToCacheDirectory: true,
       });
-      console.log('Audio pick result:', result);
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const fileUri = result.assets[0].uri;
         const fileName = result.assets[0].name;
-        console.log('File URI:', fileUri);
-        console.log('File Name:', fileName);
-        
         if (fileUri && fileName) {
           setAudioFile(fileUri);
-          setAudioFileName(fileName);
+          setAudioFileName(sanitizeFileName(fileName));
+          // Set the title to the original file name without extension
+          setTitle(getFileNameWithoutExtension(fileName));
         }
       }
     } catch (error) {
@@ -51,13 +56,12 @@ export default function UploadSongModal({ isVisible, onClose, onUploadSuccess }:
         aspect: [1, 1],
         quality: 1,
       });
-      console.log('Image pick result:', result);
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const fileUri = result.assets[0].uri;
         const fileName = fileUri.split('/').pop() || 'cover.jpg';
         if (fileUri) {
           setCoverImage(fileUri);
-          setCoverImageName(fileName);
+          setCoverImageName(sanitizeFileName(fileName));
         }
       }
     } catch (error) {
@@ -70,28 +74,21 @@ export default function UploadSongModal({ isVisible, onClose, onUploadSuccess }:
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('No se encontró el usuario');
-      console.log('User ID:', user.id);
 
-      console.log('Uploading song...');
-      console.log('Title:', title);
-      console.log('Contenido:', contenido);
-      console.log('Audio file:', audioFile);
-      console.log('Audio file name:', audioFileName);
-      console.log('Cover image:', coverImage);
-      console.log('Cover image name:', coverImageName);
-
-      if (!title || !audioFile || !coverImage || !audioFileName || !coverImageName) {
-        console.log('Missing fields');
+      if (!title || !audioFile || !coverImage || !audioFileName || !coverImageName || !contenido) {
         Alert.alert('Error', 'Por favor, completa todos los campos');
         return;
       }
 
+      const sanitizedAudioFileName = sanitizeFileName(audioFileName);
+      const sanitizedCoverImageName = sanitizeFileName(coverImageName);
+
       // Subir archivo de audio
       const { data: audioData, error: audioUploadError } = await supabase.storage
         .from('canciones')
-        .upload(`${user.id}/${audioFileName}`, {
+        .upload(`${user.id}/${sanitizedAudioFileName}`, {
           uri: audioFile,
-          name: audioFileName,
+          name: sanitizedAudioFileName,
           type: 'audio/*'
         });
       if (audioUploadError) throw audioUploadError;
@@ -99,14 +96,14 @@ export default function UploadSongModal({ isVisible, onClose, onUploadSuccess }:
       // Obtener URL pública del archivo de audio
       const { data: { publicUrl: audioPublicUrl } } = supabase.storage
         .from('canciones')
-        .getPublicUrl(`${user.id}/${audioFileName}`);
+        .getPublicUrl(`${user.id}/${sanitizedAudioFileName}`);
 
       // Subir imagen de portada
       const { data: imageData, error: imageUploadError } = await supabase.storage
         .from('caratulas')
-        .upload(`${user.id}/${coverImageName}`, {
+        .upload(`${user.id}/${sanitizedCoverImageName}`, {
           uri: coverImage,
-          name: coverImageName,
+          name: sanitizedCoverImageName,
           type: 'image/*'
         });
       if (imageUploadError) throw imageUploadError;
@@ -114,10 +111,9 @@ export default function UploadSongModal({ isVisible, onClose, onUploadSuccess }:
       // Obtener URL pública de la imagen de portada
       const { data: { publicUrl: imagePublicUrl } } = supabase.storage
         .from('caratulas')
-        .getPublicUrl(`${user.id}/${coverImageName}`);
+        .getPublicUrl(`${user.id}/${sanitizedCoverImageName}`);
 
       // Crear entrada en la tabla cancion
-      console.log('Inserting song with user_id:', user.id);
       const { data: songData, error: songError } = await supabase
         .from('cancion')
         .insert({
@@ -125,24 +121,13 @@ export default function UploadSongModal({ isVisible, onClose, onUploadSuccess }:
           titulo: title,
           archivo_audio: audioPublicUrl,
           caratula: imagePublicUrl,
+          contenido: contenido,
         })
         .select()
         .single();
       if (songError) throw songError;
 
-      // Crear publicación asociada
-      console.log('Inserting post with user_id:', user.id);
-      const { error: postError } = await supabase
-        .from('publicacion')
-        .insert({
-          usuario_id: user.id,
-          contenido: contenido,
-          cancion_id: songData.id,
-        });
-      if (postError) throw postError;
-
-      console.log('Song uploaded successfully');
-      Alert.alert('Éxito', 'Tu canción ha sido subida y publicada');
+      Alert.alert('Éxito', 'Tu canción ha sido subida');
       onUploadSuccess();
       onClose();
     } catch (error) {
@@ -166,7 +151,7 @@ export default function UploadSongModal({ isVisible, onClose, onUploadSuccess }:
           
           <TextInput
             className="border border-gray-300 rounded-md p-2 mb-2"
-            placeholder="Descripción de la publicación"
+            placeholder="Descripción de la canción"
             value={contenido}
             onChangeText={setContenido}
             multiline
