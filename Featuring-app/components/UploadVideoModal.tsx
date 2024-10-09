@@ -16,21 +16,27 @@ export default function UploadVideoModal({ isVisible, onClose, onUploadSuccess }
   const [videoFileName, setVideoFileName] = useState<string | null>(null);
 
   const pickVideo = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Videos,
-      allowsEditing: true,
-      aspect: [9, 16],
-      quality: 1,
-    });
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+        allowsEditing: true,
+        aspect: [9, 16],
+        quality: 1,
+      });
 
-    if (!result.canceled && result.assets && result.assets.length > 0) {
-      setVideoFile(result.assets[0].uri);
-      setVideoFileName(result.assets[0].uri.split('/').pop());
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        setVideoFile(asset.uri);
+        setVideoFileName(asset.uri.split('/').pop());
+      }
+    } catch (error) {
+      console.error('Error picking video:', error);
+      Alert.alert('Error', 'No se pudo seleccionar el video');
     }
   };
 
   const uploadVideo = async () => {
-    if (!title || !videoFile || !videoFileName) {
+    if (!title || !videoFile || !videoFileName || !descripcion) {
       Alert.alert('Error', 'Por favor, completa todos los campos');
       return;
     }
@@ -47,7 +53,6 @@ export default function UploadVideoModal({ isVisible, onClose, onUploadSuccess }
         .upload(filePath, {
           uri: videoFile,
           type: 'video/mp4',
-          descripcion: descripcion,
         });
 
       if (uploadError) throw uploadError;
@@ -78,34 +83,37 @@ export default function UploadVideoModal({ isVisible, onClose, onUploadSuccess }
 
   return (
     <Modal visible={isVisible} animationType="slide" transparent={true}>
-      <View className="flex-1 justify-center items-center bg-black bg-opacity-50">
-        <View className="bg-white p-5 rounded-lg w-5/6">
-          <Text className="text-xl font-bold mb-4">Subir Video</Text>
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)' }}>
+        <View style={{ backgroundColor: 'white', padding: 20, borderRadius: 10, width: '80%' }}>
+          <Text style={{ fontSize: 18, fontWeight: 'bold', marginBottom: 10 }}>Subir Video</Text>
           
           <TextInput
-            className="border border-gray-300 rounded-md p-2 mb-2"
+            style={{ borderWidth: 1, borderColor: 'gray', borderRadius: 5, padding: 10, marginBottom: 10 }}
             placeholder="Título del video"
             value={title}
             onChangeText={setTitle}
           />
+          
           <TextInput
-            className="border border-gray-300 rounded-md p-2 mb-2"
+            style={{ borderWidth: 1, borderColor: 'gray', borderRadius: 5, padding: 10, marginBottom: 10 }}
             placeholder="Descripción del video"
             value={descripcion}
             onChangeText={setDescripcion}
+            multiline
           />
           
-          <TouchableOpacity onPress={pickVideo} className="bg-blue-500 p-2 rounded-md mb-2">
-            <Text className="text-white text-center">Seleccionar Video</Text>
-          </TouchableOpacity>
-          {videoFileName && <Text className="mb-2">Video seleccionado: {videoFileName}</Text>}
-          
-          <TouchableOpacity onPress={uploadVideo} className="bg-purple-500 p-2 rounded-md mb-2">
-            <Text className="text-white text-center">Subir Video</Text>
+          <TouchableOpacity onPress={pickVideo} style={{ backgroundColor: 'blue', padding: 10, borderRadius: 5, marginBottom: 10 }}>
+            <Text style={{ color: 'white', textAlign: 'center' }}>Seleccionar Video</Text>
           </TouchableOpacity>
           
-          <TouchableOpacity onPress={onClose} className="bg-red-500 p-2 rounded-md">
-            <Text className="text-white text-center">Cancelar</Text>
+          {videoFileName && <Text style={{ marginBottom: 10 }}>Video seleccionado: {videoFileName}</Text>}
+          
+          <TouchableOpacity onPress={uploadVideo} style={{ backgroundColor: 'green', padding: 10, borderRadius: 5, marginBottom: 10 }}>
+            <Text style={{ color: 'white', textAlign: 'center' }}>Subir Video</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity onPress={onClose} style={{ backgroundColor: 'red', padding: 10, borderRadius: 5 }}>
+            <Text style={{ color: 'white', textAlign: 'center' }}>Cancelar</Text>
           </TouchableOpacity>
         </View>
       </View>

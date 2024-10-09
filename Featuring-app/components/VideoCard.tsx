@@ -54,12 +54,14 @@ interface Like {
 interface VideoCardProps {
   video: Video;
   currentUserId: string;
+  isActive: boolean;
+  height: number;
   onDeleteVideo: (videoId: number) => void;
-  onUpdateVideo: (videoId: number) => void;
+  onUpdateVideo: (videoId: number, updatedData: { titulo: string; descripcion: string }) => void;
+  setVideos: React.Dispatch<React.SetStateAction<Video[]>>;
 }
-  
 
-const VideoCard: React.FC<VideoCardProps> = ({ video, currentUserId }) => {
+const VideoCard: React.FC<VideoCardProps> = ({ video, currentUserId, isActive, height, onDeleteVideo, onUpdateVideo, setVideos }) => {
   const { currentPlayingId, setCurrentPlayingId } = useVideo();
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLiked, setIsLiked] = useState(false);
@@ -71,21 +73,26 @@ const VideoCard: React.FC<VideoCardProps> = ({ video, currentUserId }) => {
   const videoRef = useRef<Video>(null);
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const [showPlayPauseIcon, setShowPlayPauseIcon] = useState(false);
+  const [showOptionsModal, setShowOptionsModal] = useState(false);
+  const [isEditModalVisible, setIsEditModalVisible] = useState(false);
+  const [editTitle, setEditTitle] = useState(video.titulo);
+  const [editDescripcion, setEditDescripcion] = useState(video.descripcion);
 
   useEffect(() => {
-    if (currentPlayingId === video.id) {
+    if (isActive) {
       videoRef.current?.playAsync();
       setIsPlaying(true);
     } else {
       videoRef.current?.pauseAsync();
       setIsPlaying(false);
     }
-  }, [currentPlayingId]);
+  }, [isActive]);
 
   useEffect(() => {
     checkIfLiked();
     fetchLikesCount();
-  }, []);
+    fetchComentarios();
+  }, [video.id]);
 
   const togglePlayPause = () => {
     if (isPlaying) {
@@ -158,12 +165,20 @@ const VideoCard: React.FC<VideoCardProps> = ({ video, currentUserId }) => {
           perfil:usuario_id (
             username,
             foto_perfil
-          )
+          ),
+          likes:likes_comentario_video (*)
         `)
         .eq('video_id', video.id)
         .order('created_at', { ascending: false });
       if (error) throw error;
-      setComentarios(data || []);
+      
+      const comentariosConLikes = data.map(comentario => ({
+        ...comentario,
+        isLiked: comentario.likes.some((like: any) => like.usuario_id === currentUserId),
+        likes_count: comentario.likes.length
+      }));
+      
+      setComentarios(comentariosConLikes);
     } catch (error) {
       console.error('Error al obtener comentarios:', error);
     }
@@ -210,57 +225,145 @@ const VideoCard: React.FC<VideoCardProps> = ({ video, currentUserId }) => {
   };
 
   const handleCommentLike = async (comentarioId: number) => {
-    const likes = comentarioLikes[comentarioId] || [];
-    const isLiked = likes.some(like => like.usuario_id === currentUserId);
+    const comentario = comentarios.find(c => c.id === comentarioId);
+    if (!comentario) return;
 
-    if (isLiked) {
-      await supabase
-        .from('likes_comentario_cancion')
+    const newIsLiked = !comentario.isLiked;
+    const likeDelta = newIsLiked ? 1 : -1;
+
+    try {
+      if (newIsLiked) {
+        await supabase
+          .from('likes_comentario_video')
+          .insert({ comentario_id: comentarioId, usuario_id: currentUserId });
+      } else {
+        await supabase
+          .from('likes_comentario_video')
+          .delete()
+          .eq('comentario_id', comentarioId)
+          .eq('usuario_id', currentUserId);
+      }
+
+      setComentarios(prev => prev.map(c => 
+        c.id === comentarioId 
+          ? {...c, isLiked: newIsLiked, likes_count: (c.likes_count || 0) + likeDelta}
+          : c
+      ));
+    } catch (error) {
+      console.error('Error al dar/quitar like al comentario:', error);
+    }
+  };
+
+  const handleDeleteVideo = async () => {
+    Alert.alert(
+      "Eliminar video",
+      "¿Estás seguro de que quieres eliminar este video? Esta acción no se puede deshacer.",
+      [
+        { text: "Cancelar", style: "cancel" },
+        { 
+          text: "Eliminar", 
+          style: "destructive",
+          onPress: async () => {
+            try {
+              // Primero, eliminar los likes asociados al video
+              const { error: likesDeleteError } = await supabase
+                .from('likes_video')
+                .delete()
+                .eq('video_id', video.id);
+              
+              if (likesDeleteError) throw likesDeleteError;
+
+              // Luego, eliminar los comentarios asociados al video
+              const { error: commentsDeleteError } = await supabase
+                .from('comentario_video')
+                .delete()
+                .eq('video_id', video.id);
+              
+              if (commentsDeleteError) throw commentsDeleteError;
+
+              // Ahora, eliminar el archivo de video del storage
+              if (video.url) {
+                const videoFileName = video.url.split('/').pop();
+                if (videoFileName) {
+                  const { error: deleteStorageError } = await supabase.storage
+                    .from('videos')
+                    .remove([`${video.usuario_id}/${videoFileName}`]);
+                  
+                  if (deleteStorageError) throw deleteStorageError;
+                }
+              }
+
+              // Finalmente, eliminar el video de la base de datos
+              const { error: deleteDbError } = await supabase
+                .from('video')
+                .delete()
+                .eq('id', video.id);
+              
+              if (deleteDbError) throw deleteDbError;
+
+              onDeleteVideo(video.id);
+              setVideos(prevVideos => prevVideos.filter(v => v.id !== video.id));
+              Alert.alert("Éxito", "El video ha sido eliminado");
+            } catch (error) {
+              console.error('Error al eliminar el video:', error);
+              Alert.alert("Error", "No se pudo eliminar el video");
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const handleEditVideo = async () => {
+    try {
+      const { error } = await supabase
+        .from('video')
+        .update({ titulo: editTitle, descripcion: editDescripcion })
+        .eq('id', video.id);
+      
+      if (error) throw error;
+
+      onUpdateVideo(video.id, { titulo: editTitle, descripcion: editDescripcion });
+      setIsEditModalVisible(false);
+      Alert.alert("Éxito", "El video ha sido actualizado");
+    } catch (error) {
+      console.error('Error al actualizar el video:', error);
+      Alert.alert("Error", "No se pudo actualizar el video");
+    }
+  };
+
+  const handleDeleteComment = async (commentId: number) => {
+    try {
+      const { error } = await supabase
+        .from('comentario_video')
         .delete()
-        .eq('comentario_id', comentarioId)
+        .eq('id', commentId)
         .eq('usuario_id', currentUserId);
       
-      setComentarioLikes(prev => ({
-        ...prev,
-        [comentarioId]: prev[comentarioId].filter(like => like.usuario_id !== currentUserId)
-      }));
-    } else {
-      const { data } = await supabase
-        .from('likes_comentario_cancion')
-        .insert({ comentario_id: comentarioId, usuario_id: currentUserId })
-        .select()
-        .single();
-      
-      if (data) {
-        setComentarioLikes(prev => ({
-          ...prev,
-          [comentarioId]: [...(prev[comentarioId] || []), data]
-        }));
-      }
-    }
+      if (error) throw error;
 
-    setComentarios(prev => prev.map(comentario => 
-      comentario.id === comentarioId 
-        ? {...comentario, likes_count: isLiked ? comentario.likes_count - 1 : comentario.likes_count + 1}
-        : comentario
-    ));
+      setComentarios(prevComentarios => prevComentarios.filter(c => c.id !== commentId));
+    } catch (error) {
+      console.error('Error al eliminar el comentario:', error);
+      Alert.alert("Error", "No se pudo eliminar el comentario");
+    }
   };
 
   return (
-    <View style={{ width, height: height - 100 }}>
+    <View style={{ width, height }}>
       <TouchableOpacity onPress={togglePlayPause} style={{ flex: 1 }}>
         <Video
           ref={videoRef}
           source={{ uri: video.url }}
           resizeMode={ResizeMode.COVER}
-          shouldPlay={isPlaying}
+          shouldPlay={isActive}
           isLooping
           style={{ flex: 1 }}
         />
         {showPlayPauseIcon && (
           <Animated.View style={{
             position: 'absolute',
-            top: '50%',
+            top: '45%',
             left: '50%',
             transform: [{ translateX: -25 }, { translateY: -25 }],
             opacity: fadeAnim,
@@ -269,7 +372,7 @@ const VideoCard: React.FC<VideoCardProps> = ({ video, currentUserId }) => {
           </Animated.View>
         )}
       </TouchableOpacity>
-      <View className="absolute bottom-20 left-4 right-4">
+      <View className="absolute left-4 bottom-20">
         <Text className="text-white font-bold text-lg">{video.titulo}</Text>
         <Text className="text-white">{video.descripcion}</Text>
       </View>
@@ -323,6 +426,11 @@ const VideoCard: React.FC<VideoCardProps> = ({ video, currentUserId }) => {
                       </TouchableOpacity>
                       <Text className="text-xs text-general-200">{item.likes_count} likes</Text>
                       <Text className="text-xs text-general-200 ml-4">{formatCommentDate(item.created_at)}</Text>
+                      {item.usuario_id === currentUserId && (
+                        <TouchableOpacity onPress={() => handleDeleteComment(item.id)} className="ml-4">
+                          <Ionicons name="trash-outline" size={18} color="red" />
+                        </TouchableOpacity>
+                      )}
                     </View>
                   </View>
                 </View>
@@ -339,6 +447,84 @@ const VideoCard: React.FC<VideoCardProps> = ({ video, currentUserId }) => {
                 <Text className="text-white font-JakartaBold">Enviar</Text>
               </TouchableOpacity>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      {video.usuario_id === currentUserId && (
+        <TouchableOpacity 
+          onPress={() => setShowOptionsModal(true)}
+          style={{ position: 'absolute', top: 10, right: 10, zIndex: 10 }}
+        >
+          <Ionicons name="ellipsis-vertical" size={24} color="white" />
+        </TouchableOpacity>
+      )}
+
+      {/* Modal de opciones del video */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={showOptionsModal}
+        onRequestClose={() => setShowOptionsModal(false)}
+      >
+        <TouchableOpacity 
+          style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)' }}
+          activeOpacity={1} 
+          onPress={() => setShowOptionsModal(false)}
+        >
+          <View className="bg-white rounded-lg p-4 w-3/4">
+            <TouchableOpacity 
+              className="py-3 border-b border-gray-200" 
+              onPress={() => {
+                setShowOptionsModal(false);
+                setIsEditModalVisible(true);
+              }}
+            >
+              <Text className="text-blue-500 font-semibold">Editar video</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              className="py-3" 
+              onPress={handleDeleteVideo}
+            >
+              <Text className="text-red-500 font-semibold">Eliminar video</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Modal de edición del video */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={isEditModalVisible}
+        onRequestClose={() => setIsEditModalVisible(false)}
+      >
+        <View className="flex-1 justify-center items-center bg-black bg-opacity-50">
+          <View className="bg-white p-5 rounded-lg w-5/6">
+            <Text className="text-xl font-bold mb-4">Editar Video</Text>
+            
+            <TextInput
+              className="border border-gray-300 rounded-md p-2 mb-2"
+              placeholder="Título del video"
+              value={editTitle}
+              onChangeText={setEditTitle}
+            />
+            
+            <TextInput
+              className="border border-gray-300 rounded-md p-2 mb-2"
+              placeholder="Descripción del video"
+              value={editDescripcion}
+              onChangeText={setEditDescripcion}
+              multiline
+            />
+            
+            <TouchableOpacity onPress={handleEditVideo} className="bg-blue-500 p-2 rounded-md mb-2">
+              <Text className="text-white text-center">Actualizar Video</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity onPress={() => setIsEditModalVisible(false)} className="bg-red-500 p-2 rounded-md">
+              <Text className="text-white text-center">Cancelar</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
