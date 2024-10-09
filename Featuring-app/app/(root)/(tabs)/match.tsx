@@ -5,8 +5,23 @@ import { FontAwesome } from '@expo/vector-icons';
 import { supabase } from "@/lib/supabase";
 import { icons } from "@/constants";
 import { useRouter } from 'expo-router';
+import * as Location from 'expo-location';
 
 const SWIPE_THRESHOLD = 120;
+
+// Añade esta función al principio del archivo, fuera del componente Match
+function calcularDistancia(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371; // Radio de la Tierra en km
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = 
+    Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+    Math.sin(dLon/2) * Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  const d = R * c; // Distancia en km
+  return Math.round(d);
+}
 
 interface CardProps {
   card: {
@@ -18,6 +33,9 @@ interface CardProps {
     edad: number;
     sexo: string;
     perfil_habilidad: { habilidad: string }[]; // Cambiamos esto
+    latitud: number | null;
+    longitud: number | null;
+    distancia: number | null;
   };
   isFirst?: boolean;
   onSwipe?: (direction: 'left' | 'right') => void;
@@ -124,6 +142,9 @@ const Card: React.FC<CardProps> = ({ card, isFirst, onSwipe, onLike, onViewProfi
           <Text className="text-gray-500 font-bold mx-2">•</Text>
           <Text className="font-bold">{card.edad} años</Text>
         </View>
+        {card.distancia !== null && (
+          <Text className="text-gray-500 mt-1">A {card.distancia} km de distancia</Text>
+        )}
         <Text className="text-center mt-2">{card.biografia}</Text>
         <Text className="text-center mt-2 text-blue-500 font-semibold">
           {renderHabilidades(card.perfil_habilidad)}
@@ -160,9 +181,11 @@ const Match = () => {
   const router = useRouter();
   const [selectedUser, setSelectedUser] = useState<CardProps['card'] | null>(null);
   const [isProfileModalVisible, setIsProfileModalVisible] = useState(false);
+  const [userLocation, setUserLocation] = useState<{latitud: number, longitud: number} | null>(null);
 
   useEffect(() => {
     getCurrentUser();
+    getUserLocation();
   }, []);
 
   useEffect(() => {
@@ -182,6 +205,34 @@ const Match = () => {
       }
     } catch (error) {
       console.error('Error al obtener el usuario actual:', error);
+    }
+  };
+
+  const getUserLocation = async () => {
+    try {
+      let { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        console.log('Permiso de ubicación denegado');
+        // Usar una ubicación por defecto o manejar la falta de permiso
+        setUserLocation({
+          latitud: 0,
+          longitud: 0
+        });
+        return;
+      }
+
+      let location = await Location.getCurrentPositionAsync({});
+      setUserLocation({
+        latitud: location.coords.latitude,
+        longitud: location.coords.longitude
+      });
+    } catch (error) {
+      console.log('Error obteniendo ubicación:', error);
+      // Usar una ubicación por defecto o manejar el error
+      setUserLocation({
+        latitud: 0,
+        longitud: 0
+      });
     }
   };
 
@@ -224,7 +275,9 @@ const Match = () => {
           edad,
           sexo,
           ubicacion,
-          perfil_habilidad (habilidad)
+          perfil_habilidad (habilidad),
+          latitud,
+          longitud
         `)
         .neq('usuario_id', currentUserId);
 
@@ -251,10 +304,22 @@ const Match = () => {
               console.log(`Error al procesar la foto de perfil de ${profile.username}, usando URL original`);
             }
           }
+
+          let distancia = null;
+          if (userLocation && profile.latitud && profile.longitud) {
+            distancia = calcularDistancia(
+              userLocation.latitud,
+              userLocation.longitud,
+              profile.latitud,
+              profile.longitud
+            );
+          }
+
           return { 
             ...profile, 
             foto_perfil: imageUrl, 
-            hasLikedMe: likedByUserIds.has(profile.usuario_id) 
+            hasLikedMe: likedByUserIds.has(profile.usuario_id),
+            distancia
           };
         }));
 
@@ -362,7 +427,10 @@ const Match = () => {
       [
         {
           text: "Enviar mensaje",
-          onPress: () => router.push(`/chat/${matchedUserId}`),
+          onPress: () => router.push({
+            pathname: "/chat/[id]",
+            params: { id: matchedUserId }
+          }),
         },
         {
           text: "Continuar",
