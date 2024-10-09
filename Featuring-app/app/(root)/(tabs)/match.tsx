@@ -1,12 +1,27 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { View, Text, Image, Animated, TouchableOpacity, PanResponder, GestureResponderEvent, PanResponderGestureState, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, Image, Animated, TouchableOpacity, PanResponder, GestureResponderEvent, PanResponderGestureState, ActivityIndicator, Alert, Modal, ScrollView } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { FontAwesome } from '@expo/vector-icons';
 import { supabase } from "@/lib/supabase";
 import { icons } from "@/constants";
 import { useRouter } from 'expo-router';
+import * as Location from 'expo-location';
 
 const SWIPE_THRESHOLD = 120;
+
+// Añade esta función al principio del archivo, fuera del componente Match
+function calcularDistancia(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371; // Radio de la Tierra en km
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = 
+    Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+    Math.sin(dLon/2) * Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  const d = R * c; // Distancia en km
+  return Math.round(d);
+}
 
 interface CardProps {
   card: {
@@ -18,14 +33,69 @@ interface CardProps {
     edad: number;
     sexo: string;
     perfil_habilidad: { habilidad: string }[]; // Cambiamos esto
+    latitud: number | null;
+    longitud: number | null;
+    distancia: number | null;
   };
   isFirst?: boolean;
   onSwipe?: (direction: 'left' | 'right') => void;
   onLike?: (userId: string) => void;
+  onViewProfile?: (user: CardProps['card']) => void;
   [key: string]: any;
 }
 
-const Card: React.FC<CardProps> = ({ card, isFirst, onSwipe, onLike, ...rest }) => {
+interface UserProfileModalProps {
+  isVisible: boolean;
+  onClose: () => void;
+  user: CardProps['card'];
+}
+
+const UserProfileModal: React.FC<UserProfileModalProps> = ({ isVisible, onClose, user }) => {
+  return (
+    <Modal
+      animationType="slide"
+      transparent={true}
+      visible={isVisible}
+      onRequestClose={onClose}
+    >
+      <View className="flex-1 justify-center items-center bg-black bg-opacity-50">
+        <View className="bg-white rounded-xl p-5 w-[90%] max-h-[80%]">
+          <ScrollView>
+            <TouchableOpacity className="absolute top-2 right-2 z-10" onPress={onClose}>
+              <FontAwesome name="close" size={24} color="black" />
+            </TouchableOpacity>
+            <View className="items-center mb-4">
+              {user.foto_perfil ? (
+                <Image
+                  source={{ uri: user.foto_perfil }}
+                  className="w-32 h-32 rounded-full"
+                />
+              ) : (
+                <View className="w-32 h-32 rounded-full bg-gray-300 justify-center items-center">
+                  <FontAwesome name="user" size={50} color="white" />
+                </View>
+              )}
+              <Text className="text-xl font-bold mt-2">{user.username}</Text>
+              <Text className="text-gray-600">{user.edad} años • {user.ubicacion}</Text>
+            </View>
+            <Text className="font-bold mb-2">Biografía:</Text>
+            <Text className="mb-4">{user.biografia}</Text>
+            <Text className="font-bold mb-2">Habilidades:</Text>
+            <View className="flex-row flex-wrap mb-4">
+              {user.perfil_habilidad.map((habilidad, index) => (
+                <View key={index} className="bg-blue-100 rounded-full px-3 py-1 m-1">
+                  <Text className="text-blue-800">{habilidad.habilidad}</Text>
+                </View>
+              ))}
+            </View>
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
+const Card: React.FC<CardProps> = ({ card, isFirst, onSwipe, onLike, onViewProfile, ...rest }) => {
   const [imageError, setImageError] = useState(false);
 
   const renderHabilidades = (habilidades: { habilidad: string }[] | null | undefined) => {
@@ -72,11 +142,17 @@ const Card: React.FC<CardProps> = ({ card, isFirst, onSwipe, onLike, ...rest }) 
           <Text className="text-gray-500 font-bold mx-2">•</Text>
           <Text className="font-bold">{card.edad} años</Text>
         </View>
+        {card.distancia !== null && (
+          <Text className="text-gray-500 mt-1">A {card.distancia} km de distancia</Text>
+        )}
         <Text className="text-center mt-2">{card.biografia}</Text>
         <Text className="text-center mt-2 text-blue-500 font-semibold">
           {renderHabilidades(card.perfil_habilidad)}
         </Text>
-        <TouchableOpacity className="bg-blue-500 rounded-full mt-4 p-2 w-1/2">
+        <TouchableOpacity 
+          className="bg-blue-500 rounded-full mt-4 p-2 w-1/2"
+          onPress={() => onViewProfile && onViewProfile(card)}
+        >
           <Text className="text-white font-bold text-center">Ver Perfil</Text>
         </TouchableOpacity>
         <View className="flex-row justify-between w-full mb-10" >
@@ -103,9 +179,13 @@ const Match = () => {
     extrapolate: 'clamp',
   });
   const router = useRouter();
+  const [selectedUser, setSelectedUser] = useState<CardProps['card'] | null>(null);
+  const [isProfileModalVisible, setIsProfileModalVisible] = useState(false);
+  const [userLocation, setUserLocation] = useState<{latitud: number, longitud: number} | null>(null);
 
   useEffect(() => {
     getCurrentUser();
+    getUserLocation();
   }, []);
 
   useEffect(() => {
@@ -125,6 +205,34 @@ const Match = () => {
       }
     } catch (error) {
       console.error('Error al obtener el usuario actual:', error);
+    }
+  };
+
+  const getUserLocation = async () => {
+    try {
+      let { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        console.log('Permiso de ubicación denegado');
+        // Usar una ubicación por defecto o manejar la falta de permiso
+        setUserLocation({
+          latitud: 0,
+          longitud: 0
+        });
+        return;
+      }
+
+      let location = await Location.getCurrentPositionAsync({});
+      setUserLocation({
+        latitud: location.coords.latitude,
+        longitud: location.coords.longitude
+      });
+    } catch (error) {
+      console.log('Error obteniendo ubicación:', error);
+      // Usar una ubicación por defecto o manejar el error
+      setUserLocation({
+        latitud: 0,
+        longitud: 0
+      });
     }
   };
 
@@ -167,7 +275,9 @@ const Match = () => {
           edad,
           sexo,
           ubicacion,
-          perfil_habilidad (habilidad)
+          perfil_habilidad (habilidad),
+          latitud,
+          longitud
         `)
         .neq('usuario_id', currentUserId);
 
@@ -194,10 +304,22 @@ const Match = () => {
               console.log(`Error al procesar la foto de perfil de ${profile.username}, usando URL original`);
             }
           }
+
+          let distancia = null;
+          if (userLocation && profile.latitud && profile.longitud) {
+            distancia = calcularDistancia(
+              userLocation.latitud,
+              userLocation.longitud,
+              profile.latitud,
+              profile.longitud
+            );
+          }
+
           return { 
             ...profile, 
             foto_perfil: imageUrl, 
-            hasLikedMe: likedByUserIds.has(profile.usuario_id) 
+            hasLikedMe: likedByUserIds.has(profile.usuario_id),
+            distancia
           };
         }));
 
@@ -305,7 +427,10 @@ const Match = () => {
       [
         {
           text: "Enviar mensaje",
-          onPress: () => router.push(`/chat/${matchedUserId}`),
+          onPress: () => router.push({
+            pathname: "/chat/[id]",
+            params: { id: matchedUserId }
+          }),
         },
         {
           text: "Continuar",
@@ -364,6 +489,11 @@ const Match = () => {
     })
   ).current;
 
+  const handleViewProfile = (user: CardProps['card']) => {
+    setSelectedUser(user);
+    setIsProfileModalVisible(true);
+  };
+
   const renderCards = () => {
     return cards.map((card, index) => {
       if (index === 0) {
@@ -374,6 +504,7 @@ const Match = () => {
             isFirst={true}
             onSwipe={handleSwipe}
             onLike={handleLike}
+            onViewProfile={handleViewProfile}
             {...panResponder.panHandlers}
             style={{
               transform: [
@@ -385,7 +516,7 @@ const Match = () => {
           />
         );
       }
-      return <Card key={card.usuario_id} card={card} isFirst={false} onSwipe={handleSwipe} onLike={handleLike} />;
+      return <Card key={card.usuario_id} card={card} isFirst={false} onSwipe={handleSwipe} onLike={handleLike} onViewProfile={handleViewProfile} />;
     }).reverse();
   };
 
@@ -413,6 +544,13 @@ const Match = () => {
           <Text className="text-white font-bold">Refrescar</Text>
         </TouchableOpacity>
       </View>
+      {selectedUser && (
+        <UserProfileModal
+          isVisible={isProfileModalVisible}
+          onClose={() => setIsProfileModalVisible(false)}
+          user={selectedUser}
+        />
+      )}
     </GestureHandlerRootView>
   );
 };
