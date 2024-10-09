@@ -1,64 +1,172 @@
-// Chat.tsx
-import React from 'react';
-import { Image, ScrollView, Text, View, FlatList, TouchableOpacity } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, FlatList, TouchableOpacity, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { supabase } from '@/lib/supabase';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { RootStackParamList } from '../../../types'; // Asegúrate de que la ruta sea correcta
-import user1 from '../../../assets/images/user1.jpg';
-import user2 from '../../../assets/images/user2.jpg';
-import user3 from '../../../assets/images/user3.jpg';
+import { RootStackParamList } from '../../../types';
+import { FontAwesome } from '@expo/vector-icons'; // Asegúrate de tener esta dependencia instalada
 
-// Define tus tipos de navegación
 type ChatScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Chat'>;
 
-const matches = [
-  { id: 1, name: 'Martin', image: user1 },
-  { id: 2, name: 'Bolt', image: user2 },
-  { id: 3, name: 'Camilo', image: user3 },
-];
-
-const chats = [
-  { id: 1, name: 'Martin', lastMessage: 'Hola, me gustaría colaborar contigo', image: user1 },
-  { id: 2, name: 'Bolt', lastMessage: 'Me gusta tu estilo', image: user2 },
-];
+interface ChatListItem {
+  id: string;
+  otherUserId: string;
+  otherUserName: string;
+  otherUserAvatar: string | null;
+  lastMessage: string | null;
+  lastMessageTime: string | null;
+}
 
 const Chat = () => {
-  const navigation = useNavigation<ChatScreenNavigationProp>(); // Usamos el tipo definido
+  const [chatList, setChatList] = useState<ChatListItem[]>([]);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const navigation = useNavigation<ChatScreenNavigationProp>();
+
+  useEffect(() => {
+    getCurrentUser();
+  }, []);
+
+  useEffect(() => {
+    if (currentUserId) {
+      fetchChatList();
+    }
+  }, [currentUserId]);
+
+  const getCurrentUser = async () => {
+    const { data: { user }, error } = await supabase.auth.getUser();
+    if (error) {
+      console.error('Error al obtener el usuario actual:', error);
+    } else if (user) {
+      setCurrentUserId(user.id);
+    }
+  };
+
+  const fetchChatList = async () => {
+    if (!currentUserId) return;
+
+    try {
+      setIsLoading(true);
+      // Obtener las conexiones (matches) del usuario actual
+      const { data: connections, error: connectionsError } = await supabase
+        .from('conexion')
+        .select('*')
+        .or(`usuario1_id.eq.${currentUserId},usuario2_id.eq.${currentUserId}`)
+        .eq('estado', true);
+
+      if (connectionsError) throw connectionsError;
+
+      // Obtener los detalles de los usuarios y los últimos mensajes
+      const chatListPromises = connections.map(async (connection) => {
+        const otherUserId = connection.usuario1_id === currentUserId ? connection.usuario2_id : connection.usuario1_id;
+
+        // Obtener detalles del otro usuario
+        const { data: userData, error: userError } = await supabase
+          .from('perfil')
+          .select('username, foto_perfil')
+          .eq('usuario_id', otherUserId)
+          .single();
+
+        if (userError) throw userError;
+
+        // Obtener el último mensaje
+        const { data: lastMessageData, error: messageError } = await supabase
+          .from('mensaje')
+          .select('contenido, fecha_envio')
+          .or(`and(emisor_id.eq.${currentUserId},receptor_id.eq.${otherUserId}),and(emisor_id.eq.${otherUserId},receptor_id.eq.${currentUserId})`)
+          .order('fecha_envio', { ascending: false })
+          .limit(1)
+          .single();
+
+        if (messageError && messageError.code !== 'PGRST116') throw messageError;
+
+        return {
+          id: connection.id,
+          otherUserId,
+          otherUserName: userData.username,
+          otherUserAvatar: userData.foto_perfil,
+          lastMessage: lastMessageData?.contenido || null,
+          lastMessageTime: lastMessageData?.fecha_envio || null,
+        };
+      });
+
+      const chatListData = await Promise.all(chatListPromises);
+      setChatList(chatListData);
+    } catch (error) {
+      console.error('Error al obtener la lista de chats:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const renderChatItem = ({ item }: { item: ChatListItem }) => (
+    <TouchableOpacity
+      className="flex-row items-center p-4 border-b border-gray-200"
+      onPress={() => navigation.navigate('ChatDetail', { chatName: item.otherUserId })}
+    >
+      {item.otherUserAvatar ? (
+        <Image
+          source={{ uri: item.otherUserAvatar }}
+          className="w-12 h-12 rounded-full mr-4"
+        />
+      ) : (
+        <View className="w-12 h-12 rounded-full bg-gray-300 mr-4 justify-center items-center">
+          <Text className="text-xl font-bold text-gray-500">
+            {item.otherUserName.charAt(0).toUpperCase()}
+          </Text>
+        </View>
+      )}
+      <View className="flex-1">
+        <Text className="font-bold text-lg">{item.otherUserName}</Text>
+        <Text className="text-gray-600" numberOfLines={1}>
+          {item.lastMessage || 'No hay mensajes aún'}
+        </Text>
+      </View>
+      {item.lastMessageTime && (
+        <Text className="text-gray-400 text-xs">
+          {new Date(item.lastMessageTime).toLocaleDateString()}
+        </Text>
+      )}
+    </TouchableOpacity>
+  );
+
+  const renderEmptyList = () => (
+    <View className="flex-1 justify-center items-center">
+      <FontAwesome name="comments-o" size={80} color="#CCCCCC" />
+      <Text className="text-xl font-bold text-gray-400 mt-4">No hay matches disponibles</Text>
+      <Text className="text-gray-400 mt-2 text-center px-4">
+        ¡Sigue explorando y conectando con otros músicos para comenzar a chatear!
+      </Text>
+      <TouchableOpacity 
+        className="mt-6 bg-blue-500 py-3 px-6 rounded-full"
+        onPress={() => navigation.navigate('match')}
+      >
+        <Text className="text-white font-bold">Ir a Matches</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
+  if (isLoading) {
+    return (
+      <View className="flex-1 justify-center items-center">
+        <Text>Cargando chats...</Text>
+      </View>
+    );
+  }
 
   return (
-    <SafeAreaView className="flex-1 bg-white p-5">
-      <View className="mb-5">
-        <Text className="text-xl font-JakartaBold mb-3">Matches</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          {matches.map((match) => (
-            <TouchableOpacity key={match.id} className="mr-4 items-center">
-              <Image source={match.image} alt={match.name} className="w-20 h-20 rounded-full" resizeMode="cover" />
-              <Text className="text-sm mt-2">{match.name}</Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      </View>
-
-      <View className="flex-1">
-        <Text className="text-xl font-JakartaBold mb-3">Chats</Text>
+    <SafeAreaView className="flex-1 bg-white">
+      <Text className="text-2xl font-bold p-4">Chats</Text>
+      {chatList.length > 0 ? (
         <FlatList
-          data={chats}
-          keyExtractor={(item) => item.id.toString()}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              className="flex-row items-center mb-4 p-3 bg-gray-100 rounded-lg"
-              onPress={() => navigation.navigate('ChatDetail', { chatName: item.name })} // Navegamos con parámetros
-            >
-              <Image source={item.image} alt={item.name} className="w-12 h-12 rounded-full" resizeMode="cover" />
-              <View className="ml-4 flex-1">
-                <Text className="text-lg font-JakartaBold">{item.name}</Text>
-                <Text className="text-sm text-gray-600">{item.lastMessage}</Text>
-              </View>
-            </TouchableOpacity>
-          )}
+          data={chatList}
+          renderItem={renderChatItem}
+          keyExtractor={(item) => item.id}
         />
-      </View>
+      ) : (
+        renderEmptyList()
+      )}
     </SafeAreaView>
   );
 };
