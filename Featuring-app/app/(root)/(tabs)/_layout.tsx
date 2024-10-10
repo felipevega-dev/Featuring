@@ -164,7 +164,7 @@ const Layout = () => {
             headerShown: false,
           }}
         />
-        <Tabs.Screen name="chat/[id]" options={{ href: null }} />
+        
         <Tabs.Screen name="chat[id]" options={{ href: null }} />
        
         <Tabs.Screen
