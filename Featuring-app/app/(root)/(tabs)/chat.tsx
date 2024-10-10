@@ -155,7 +155,7 @@ const Chat = () => {
       <FontAwesome name="comments-o" size={80} color="#CCCCCC" />
       <Text className="text-xl font-bold text-gray-400 mt-4">No hay matches disponibles</Text>
       <Text className="text-gray-400 mt-2 text-center px-4">
-        ¡Sigue explorando y conectando con otros músicos para comenzar a chatear!
+        ¡Sigue explorando y conectando con otros músicos para comenzar a chatear
       </Text>
       <TouchableOpacity 
         className="mt-6 bg-blue-500 py-3 px-6 rounded-full"
