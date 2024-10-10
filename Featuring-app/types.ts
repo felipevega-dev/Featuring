@@ -5,7 +5,10 @@ import { StackNavigationProp } from '@react-navigation/stack';
 export type RootStackParamList = {
   Chat: undefined; // No hay parámetros para la pantalla de Chat
   ChatDetail: { chatName: string }; // Parámetro que se pasa a ChatDetail
+  '/chat/[id]': { id: string };
 };
+
+
 
 
 

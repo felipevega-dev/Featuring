@@ -6,6 +6,7 @@ import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '../../../types';
 import { FontAwesome } from '@expo/vector-icons'; // Asegúrate de tener esta dependencia instalada
+import { Link } from 'expo-router';
 
 type ChatScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Chat'>;
 
@@ -101,34 +102,33 @@ const Chat = () => {
   };
 
   const renderChatItem = ({ item }: { item: ChatListItem }) => (
-    <TouchableOpacity
-      className="flex-row items-center p-4 border-b border-gray-200"
-      onPress={() => navigation.navigate('ChatDetail', { chatName: item.otherUserId })}
-    >
-      {item.otherUserAvatar ? (
-        <Image
-          source={{ uri: item.otherUserAvatar }}
-          className="w-12 h-12 rounded-full mr-4"
-        />
-      ) : (
-        <View className="w-12 h-12 rounded-full bg-gray-300 mr-4 justify-center items-center">
-          <Text className="text-xl font-bold text-gray-500">
-            {item.otherUserName.charAt(0).toUpperCase()}
+    <Link href={`/chat/${item.otherUserId}`} asChild>
+      <TouchableOpacity className="flex-row items-center p-4 border-b border-gray-200">
+        {item.otherUserAvatar ? (
+          <Image
+            source={{ uri: item.otherUserAvatar }}
+            className="w-12 h-12 rounded-full mr-4"
+          />
+        ) : (
+          <View className="w-12 h-12 rounded-full bg-gray-300 mr-4 justify-center items-center">
+            <Text className="text-xl font-bold text-gray-500">
+              {item.otherUserName.charAt(0).toUpperCase()}
+            </Text>
+          </View>
+        )}
+        <View className="flex-1">
+          <Text className="font-bold text-lg">{item.otherUserName}</Text>
+          <Text className="text-gray-600" numberOfLines={1}>
+            {item.lastMessage || 'No hay mensajes aún'}
           </Text>
         </View>
-      )}
-      <View className="flex-1">
-        <Text className="font-bold text-lg">{item.otherUserName}</Text>
-        <Text className="text-gray-600" numberOfLines={1}>
-          {item.lastMessage || 'No hay mensajes aún'}
-        </Text>
-      </View>
-      {item.lastMessageTime && (
-        <Text className="text-gray-400 text-xs">
-          {new Date(item.lastMessageTime).toLocaleDateString()}
-        </Text>
-      )}
-    </TouchableOpacity>
+        {item.lastMessageTime && (
+          <Text className="text-gray-400 text-xs">
+            {new Date(item.lastMessageTime).toLocaleDateString()}
+          </Text>
+        )}
+      </TouchableOpacity>
+    </Link>
   );
 
   const renderEmptyList = () => (
