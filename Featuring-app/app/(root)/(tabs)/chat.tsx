@@ -169,7 +169,7 @@ const Chat = () => {
   if (isLoading) {
     return (
       <View className="flex-1 justify-center items-center">
-        <Text>Cargando chats...</Text>
+        <Text>Cargando chats..</Text>
       </View>
     );
   }
