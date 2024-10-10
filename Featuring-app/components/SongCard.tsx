@@ -6,65 +6,61 @@ import { icons } from '@/constants/index';
 import * as Clipboard from 'expo-clipboard';
 import { Ionicons } from '@expo/vector-icons';
 import { useAudioPlayer } from '@/contexts/AudioPlayerContext';
+import EditSongModal from './EditSongModal';
+
+interface Perfil {
+  usuario_id: string;
+  username: string;
+  foto_perfil: string | null;
+  // Añade otras propiedades del perfil si son necesarias
+}
 
 interface Cancion {
   id: number;
+  usuario_id: string;
   titulo: string;
   archivo_audio: string | null;
   caratula: string | null;
-}
-
-interface Perfil {
-  username: string;
-  foto_perfil: string | null;
-}
-
-interface Post {
-  id: number;
-  usuario_id: string;
-  cancion_id: number;
   contenido: string;
   created_at: string;
-  cancion: Cancion | null;
   perfil: Perfil | null;
 }
+
+interface Comentario {
+    id: number;
+    usuario_id: string;
+    cancion_id: number;
+    contenido: string;
+    created_at: string;
+    likes_count: number;
+    perfil: Perfil;
+    isLiked?: boolean;
+  }
+
+  interface ComentarioLike {
+    id: number;
+    usuario_id: string;
+    comentario_id: number;
+    created_at: string;
+  }
 
 interface Like {
   id: number;
   usuario_id: string;
-  publicacion_id: number;
+  cancion_id: number;
   created_at: string;
 }
 
-interface Comentario {
-  id: number;
-  usuario_id: string;
-  publicacion_id: number;
-  contenido: string;
-  created_at: string;
-  likes_count: number;
-  perfil: Perfil;
-  isLiked?: boolean;
-}
-
-interface PostCardProps {
-  post: Post;
+interface SongCardProps {
+  cancion: Cancion;
   currentUserId: string;
-  onDeletePost: (postId: number, cancionId: number | null) => void;
+  onDeleteSong: (cancionId: number) => void;
+  onUpdateSong: (cancionId: number) => void;
 }
 
-interface ComentarioLike {
-  id: number;
-  usuario_id: string;
-  comentario_id: number;
-  created_at: string;
-}
-
-const PostCard: React.FC<PostCardProps> = ({ post, currentUserId, onDeletePost }) => {
+const SongCard: React.FC<SongCardProps> = ({ cancion, currentUserId, onDeleteSong, onUpdateSong }) => {
   const [sound, setSound] = useState<Audio.Sound | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [duration, setDuration] = useState<number | null>(null);
-  const [position, setPosition] = useState<number | null>(null);
   const [likes, setLikes] = useState<Like[]>([]);
   const [comentarios, setComentarios] = useState<Comentario[]>([]);
   const [nuevoComentario, setNuevoComentario] = useState('');
@@ -80,6 +76,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, currentUserId, onDeletePost }
   const [showOptions, setShowOptions] = useState(false);
   const [showOptionsModal, setShowOptionsModal] = useState(false);
   const { playSound, currentSong, isPlaying: globalIsPlaying, pauseSound } = useAudioPlayer();
+  const [isEditModalVisible, setIsEditModalVisible] = useState(false);
 
   useEffect(() => {
     return sound
@@ -93,12 +90,12 @@ const PostCard: React.FC<PostCardProps> = ({ post, currentUserId, onDeletePost }
   useEffect(() => {
     fetchLikesAndComments();
     checkIfLiked();
-  }, [post.id]);
+  }, [cancion.id]);
 
   const loadAudio = async () => {
-    if (post.cancion?.archivo_audio) {
+    if (cancion.archivo_audio) {
       const { sound: newSound } = await Audio.Sound.createAsync(
-        { uri: post.cancion.archivo_audio },
+        { uri: cancion.archivo_audio },
         { shouldPlay: false },
         onPlaybackStatusUpdate
       );
@@ -130,7 +127,6 @@ const PostCard: React.FC<PostCardProps> = ({ post, currentUserId, onDeletePost }
     }
   };
 
-
   const formatTime = (millis: number | null) => {
     if (millis === null) return '0:00';
     const minutes = Math.floor(millis / 60000);
@@ -138,24 +134,24 @@ const PostCard: React.FC<PostCardProps> = ({ post, currentUserId, onDeletePost }
     return `${minutes}:${(Number(seconds) < 10 ? '0' : '')}${seconds}`;
   };
 
+
   const fetchLikesAndComments = async () => {
     const { data: likesData } = await supabase
-      .from('likes_publicacion')
+      .from('likes_cancion')
       .select('*')
-      .eq('publicacion_id', post.id);
+      .eq('cancion_id', cancion.id);
     
     const { data: comentariosData } = await supabase
-      .from('comentario_publicacion')
+      .from('comentario_cancion')
       .select('*, perfil(*)')
-      .eq('publicacion_id', post.id)
+      .eq('cancion_id', cancion.id)
       .order('created_at', { ascending: false });
-    // Removido el límite de 3 comentarios
 
     if (likesData) setLikes(likesData);
     if (comentariosData) {
       const comentariosConLikes = await Promise.all(comentariosData.map(async (comentario) => {
         const { data: likesData } = await supabase
-          .from('likes_comentario_publicacion')
+          .from('likes_comentario_cancion')
           .select('*')
           .eq('comentario_id', comentario.id);
         
@@ -172,9 +168,9 @@ const PostCard: React.FC<PostCardProps> = ({ post, currentUserId, onDeletePost }
 
   const checkIfLiked = async () => {
     const { data } = await supabase
-      .from('likes_publicacion')
+      .from('likes_cancion')
       .select('*')
-      .eq('publicacion_id', post.id)
+      .eq('cancion_id', cancion.id)
       .eq('usuario_id', currentUserId)
       .single();
 
@@ -184,15 +180,15 @@ const PostCard: React.FC<PostCardProps> = ({ post, currentUserId, onDeletePost }
   const handleLike = async () => {
     if (isLiked) {
       await supabase
-        .from('likes_publicacion')
+        .from('likes_cancion')
         .delete()
-        .eq('publicacion_id', post.id)
+        .eq('cancion_id', cancion.id)
         .eq('usuario_id', currentUserId);
       setLikes(likes.filter(like => like.usuario_id !== currentUserId));
     } else {
       const { data } = await supabase
-        .from('likes_publicacion')
-        .insert({ publicacion_id: post.id, usuario_id: currentUserId })
+        .from('likes_cancion')
+        .insert({ cancion_id: cancion.id, usuario_id: currentUserId })
         .select()
         .single();
       if (data) setLikes([...likes, data]);
@@ -204,16 +200,16 @@ const PostCard: React.FC<PostCardProps> = ({ post, currentUserId, onDeletePost }
     if (nuevoComentario.trim()) {
       try {
         const { data, error } = await supabase
-          .from('comentario_publicacion')
+          .from('comentario_cancion')
           .insert({ 
-            publicacion_id: post.id, 
+            cancion_id: cancion.id, 
             usuario_id: currentUserId, 
             contenido: nuevoComentario.trim() 
           })
           .select(`
             id,
             usuario_id,
-            publicacion_id,
+            cancion_id,
             contenido,
             created_at,
             perfil (
@@ -242,7 +238,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, currentUserId, onDeletePost }
 
     if (isLiked) {
       await supabase
-        .from('likes_comentario_publicacion')
+        .from('likes_comentario_cancion')
         .delete()
         .eq('comentario_id', comentarioId)
         .eq('usuario_id', currentUserId);
@@ -253,7 +249,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, currentUserId, onDeletePost }
       }));
     } else {
       const { data } = await supabase
-        .from('likes_comentario_publicacion')
+        .from('likes_comentario_cancion')
         .insert({ comentario_id: comentarioId, usuario_id: currentUserId })
         .select()
         .single();
@@ -321,7 +317,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, currentUserId, onDeletePost }
     if (selectedCommentId) {
       try {
         await supabase
-          .from('comentario_publicacion')
+          .from('comentario_cancion')
           .delete()
           .eq('id', selectedCommentId)
           .eq('usuario_id', currentUserId);
@@ -346,15 +342,15 @@ const PostCard: React.FC<PostCardProps> = ({ post, currentUserId, onDeletePost }
 
   const handleDelete = () => {
     Alert.alert(
-      "Eliminar publicación",
-      "¿Estás seguro de que quieres eliminar esta publicación? Esta acción no se puede deshacer.",
+      "Eliminar canción",
+      "¿Estás seguro de que quieres eliminar esta canción? Esta acción no se puede deshacer.",
       [
         { text: "Cancelar", style: "cancel" },
         { 
           text: "Eliminar", 
           style: "destructive",
           onPress: () => {
-            onDeletePost(post.id, post.cancion?.id || null);
+            onDeleteSong(cancion.id);
             setShowOptionsModal(false);
           }
         }
@@ -363,21 +359,25 @@ const PostCard: React.FC<PostCardProps> = ({ post, currentUserId, onDeletePost }
   };
 
   const handleEdit = () => {
-    // Por ahora, solo cerramos el modal
+    setIsEditModalVisible(true);
     setShowOptionsModal(false);
-    // Aquí iría la lógica para editar el post
+  };
+
+  const handleEditSuccess = () => {
+    // Aquí puedes actualizar el estado local si es necesario
+    onUpdateSong(cancion.id);
   };
 
   const handlePlayPause = () => {
-    if (post.cancion) {
-      if (currentSong?.id === post.cancion.id && globalIsPlaying) {
+    if (cancion) {
+      if (currentSong?.id === cancion.id && globalIsPlaying) {
         pauseSound();
       } else {
         playSound({
-          id: post.cancion.id,
-          title: post.cancion.titulo,
-          audioUrl: post.cancion.archivo_audio || '',
-          coverUrl: post.cancion.caratula || '',
+          id: cancion.id,
+          title: cancion.titulo,
+          audioUrl: cancion.archivo_audio || '',
+          coverUrl: cancion.caratula || '',
         });
       }
     }
@@ -388,25 +388,23 @@ const PostCard: React.FC<PostCardProps> = ({ post, currentUserId, onDeletePost }
       <View className="flex-row justify-between items-center mb-2">
         <View className="flex-row items-center">
           <Image
-            source={{ uri: post.perfil?.foto_perfil || 'https://via.placeholder.com/50' }}
+            source={{ uri: cancion.perfil?.foto_perfil || 'https://via.placeholder.com/50' }}
             className="w-10 h-10 rounded-full mr-2"
           />
-          <Text className="font-bold">{post.perfil?.username || 'Usuario desconocido'}</Text>
+          <Text className="font-bold">{cancion.perfil?.username || 'Usuario desconocido'}</Text>
         </View>
-        {post.usuario_id === currentUserId && (
+        {cancion.usuario_id === currentUserId && (
           <TouchableOpacity onPress={() => setShowOptionsModal(true)}>
             <Ionicons name="ellipsis-vertical" size={24} color="black" />
           </TouchableOpacity>
         )}
       </View>
-      {post.cancion && (
-        <Text className="font-JakartaSemiBold text-lg mb-2 text-primary-700">{post.cancion.titulo}</Text>
-      )}
-      <Text className="mb-3 text-general-200">{post.contenido}</Text>
-      {post.cancion?.caratula && (
+      <Text className="font-JakartaSemiBold text-lg mb-2 text-primary-700">{cancion.titulo}</Text>
+      <Text className="mb-3 text-general-200">{cancion.contenido}</Text>
+      {cancion.caratula && (
         <TouchableOpacity onPress={toggleImageModal}>
           <Image 
-            source={{ uri: post.cancion.caratula }} 
+            source={{ uri: cancion.caratula }} 
             className="w-full h-48 rounded-lg mb-3"
           />
         </TouchableOpacity>
@@ -414,7 +412,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, currentUserId, onDeletePost }
       <View className="flex-row items-center mt-2">
         <TouchableOpacity onPress={handleLike} className="flex-row items-center mr-4">
           <Image
-            source={isLiked ? require('@/assets/icons/hearto.png') : require('@/assets/icons/heart.png')}
+            source={isLiked ? icons.hearto : icons.heart}
             className="w-6 h-6 mr-1"
             style={{ tintColor: isLiked ? '#6D29D2' : undefined }}
           />
@@ -422,15 +420,17 @@ const PostCard: React.FC<PostCardProps> = ({ post, currentUserId, onDeletePost }
         </TouchableOpacity>
         <TouchableOpacity onPress={toggleCommentsModal} className="flex-row items-center">
           <Image
-            source={require('@/assets/icons/comentario.png')}
+            source={icons.comentario}
             className="w-6 h-6 mr-1"
           />
           <Text className="font-JakartaBold text-sm">{comentarios.length}</Text>
         </TouchableOpacity>
       </View>
       <Text className="text-xs text-general-200 mt-2">
-        {formatCommentDate(post.created_at)}
+        {formatCommentDate(cancion.created_at)}
       </Text>
+
+      {/* Modal para imagen de portada */}
       <Modal
         animationType="fade"
         transparent={true}
@@ -443,13 +443,14 @@ const PostCard: React.FC<PostCardProps> = ({ post, currentUserId, onDeletePost }
           onPress={toggleImageModal}
         >
           <Image 
-            source={{ uri: post.cancion?.caratula }} 
+            source={{ uri: cancion.caratula }} 
             className="w-11/12 h-5/6"
             resizeMode="contain"
           />
         </TouchableOpacity>
       </Modal>
-      {/* Modal para los comentarios */}
+
+      {/* Modal para comentarios */}
       <Modal
         animationType="slide"
         transparent={true}
@@ -540,6 +541,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, currentUserId, onDeletePost }
           </View>
         </View>
       </Modal>
+
       {/* Modal para opciones de comentario */}
       <Modal
         animationType="fade"
@@ -570,6 +572,8 @@ const PostCard: React.FC<PostCardProps> = ({ post, currentUserId, onDeletePost }
           </View>
         </TouchableOpacity>
       </Modal>
+
+      {/* Modal para opciones de canción */}
       <Modal
         animationType="fade"
         transparent={true}
@@ -586,24 +590,33 @@ const PostCard: React.FC<PostCardProps> = ({ post, currentUserId, onDeletePost }
               className="py-3 border-b border-gray-200" 
               onPress={handleEdit}
             >
-              <Text className="text-blue-500 font-semibold">Editar publicación</Text>
+              <Text className="text-blue-500 font-semibold">Editar canción</Text>
             </TouchableOpacity>
             <TouchableOpacity 
               className="py-3" 
               onPress={handleDelete}
             >
-              <Text className="text-red-500 font-semibold">Eliminar publicación</Text>
+              <Text className="text-red-500 font-semibold">Eliminar canción</Text>
             </TouchableOpacity>
           </View>
         </TouchableOpacity>
       </Modal>
-      {post.cancion && (
+
+      {/* Modal para editar canción */}
+      <EditSongModal
+        isVisible={isEditModalVisible}
+        onClose={() => setIsEditModalVisible(false)}
+        onEditSuccess={handleEditSuccess}
+        cancion={cancion}
+      />
+
+      {cancion.archivo_audio && (
         <TouchableOpacity 
           onPress={handlePlayPause}
           className="absolute bottom-4 right-4 bg-primary-500 rounded-full p-2"
         >
           <Ionicons 
-            name={currentSong?.id === post.cancion.id && globalIsPlaying ? "pause" : "play"} 
+            name={currentSong?.id === cancion.id && globalIsPlaying ? "pause" : "play"} 
             size={24} 
             color="white" 
           />
@@ -613,4 +626,4 @@ const PostCard: React.FC<PostCardProps> = ({ post, currentUserId, onDeletePost }
   );
 };
 
-export default PostCard;
+export default SongCard;

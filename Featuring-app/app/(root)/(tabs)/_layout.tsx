@@ -136,7 +136,6 @@ const Layout = () => {
             ),
           }}
         />
-
         <Tabs.Screen
           name="match"
           options={{
@@ -157,27 +156,24 @@ const Layout = () => {
             ),
           }}
         />
-        {/* Excluir las pantallas de notificaciones y chat de la barra inferior */}
-        <Tabs.Screen
-          name="notificaciones"
-          options={{
-            tabBarButton: () => null, // Esto excluye la pantalla de la barra inferior
-            headerShown: false,
-          }}
-        />
+        {/* Pantallas que no deben aparecer en la barra de navegación */}
         <Tabs.Screen
           name="chat"
           options={{
-            tabBarButton: () => null, // Esto excluye la pantalla de la barra inferior
+            tabBarButton: () => null,
             headerShown: false,
           }}
         />
+        <Tabs.Screen name="chat/[id]" options={{ href: null }} />
+        <Tabs.Screen name="chat[id]" options={{ href: null }} />
+       
         <Tabs.Screen
-          name="chatDetail"
+          name="notificaciones"
           options={{
-            tabBarButton: () => null, // Esto excluye la pantalla de la barra inferior
+            tabBarButton: () => null,
             headerShown: false,
           }}
+          
         />
       </Tabs>
     </>

@@ -179,7 +179,8 @@ export interface Database {
           titulo: string
           archivo_audio: string | null
           caratula: string | null
-          created_at: string | null
+          contenido: string
+          created_at: string
         }
         Insert: {
           id?: number
@@ -187,7 +188,8 @@ export interface Database {
           titulo: string
           archivo_audio?: string | null
           caratula?: string | null
-          created_at?: string | null
+          contenido: string
+          created_at?: string
         }
         Update: {
           id?: number
@@ -195,7 +197,8 @@ export interface Database {
           titulo?: string
           archivo_audio?: string | null
           caratula?: string | null
-          created_at?: string | null
+          contenido?: string
+          created_at?: string
         }
         Relationships: [
           {
@@ -357,43 +360,6 @@ export interface Database {
           }
         ]
       }
-      publicacion: {
-        Row: {
-          id: number
-          usuario_id: string
-          contenido: string
-          cancion_id: number | null
-          created_at: string | null
-        }
-        Insert: {
-          id?: number
-          usuario_id: string
-          contenido: string
-          cancion_id?: number | null
-          created_at?: string | null
-        }
-        Update: {
-          id?: number
-          usuario_id?: string
-          contenido?: string
-          cancion_id?: number | null
-          created_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "fk_usuario_publicacion"
-            columns: ["usuario_id"]
-            referencedRelation: "usuario"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_cancion_publicacion"
-            columns: ["cancion_id"]
-            referencedRelation: "cancion"
-            referencedColumns: ["id"]
-          }
-        ]
-      }
       comentario_video: {
         Row: {
           id: number
@@ -427,77 +393,6 @@ export interface Database {
             foreignKeyName: "fk_video_comentario"
             columns: ["video_id"]
             referencedRelation: "video"
-            referencedColumns: ["id"]
-          }
-        ]
-      }
-      comentario_publicacion: {
-        Row: {
-          id: number
-          usuario_id: string
-          publicacion_id: number
-          comentario: string
-          created_at: string | null
-        }
-        Insert: {
-          id?: number
-          usuario_id: number
-          publicacion_id: number
-          comentario: string
-          created_at?: string | null
-        }
-        Update: {
-          id?: number
-          usuario_id?: number
-          publicacion_id?: number
-          comentario?: string
-          created_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "fk_usuario_comentario_publicacion"
-            columns: ["usuario_id"]
-            referencedRelation: "usuario"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_publicacion_comentario"
-            columns: ["publicacion_id"]
-            referencedRelation: "publicacion"
-            referencedColumns: ["id"]
-          }
-        ]
-      }
-      likes_publicacion: {
-        Row: {
-          id: number
-          usuario_id: string
-          publicacion_id: number
-          created_at: string | null
-        }
-        Insert: {
-          id?: number
-          usuario_id: number
-          publicacion_id: number
-          created_at?: string | null
-        }
-        Update: {
-          id?: number
-          usuario_id?: string
-          publicacion_id?: number
-          created_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "fk_usuario_likes"
-            columns: ["usuario_id"]
-            referencedRelation: "usuario"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_publicacion_likes"
-            columns: ["publicacion_id"]
-            referencedRelation: "publicacion"
             referencedColumns: ["id"]
           }
         ]
@@ -720,28 +615,28 @@ export interface Database {
         }
         Relationships: []
       }
-      publicacion_etiqueta: {
+      cancion_etiqueta: {
         Row: {
-          publicacion_id: number
+          cancion_id: number
           etiqueta_id: number
         }
         Insert: {
-          publicacion_id: number
+          cancion_id: number
           etiqueta_id: number
         }
         Update: {
-          publicacion_id?: number
+          cancion_id?: number
           etiqueta_id?: number
         }
         Relationships: [
           {
-            foreignKeyName: "fk_publicacion_etiqueta"
-            columns: ["publicacion_id"]
-            referencedRelation: "publicacion"
+            foreignKeyName: "fk_cancion_etiqueta"
+            columns: ["cancion_id"]
+            referencedRelation: "cancion"
             referencedColumns: ["id"]
             },
             {
-            foreignKeyName: "fk_etiqueta_publicacion"
+            foreignKeyName: "fk_etiqueta_cancion"
             columns: ["etiqueta_id"]
             referencedRelation: "etiqueta"
             referencedColumns: ["id"]
@@ -753,7 +648,6 @@ export interface Database {
             id: number
             usuario_id: string
             cancion_id: number | null
-            publicacion_id: number | null
             puntuacion: number
             created_at: string | null
             }
@@ -761,7 +655,6 @@ export interface Database {
             id?: number
             usuario_id: string
             cancion_id?: number | null
-            publicacion_id?: number | null
             puntuacion: number
             created_at?: string | null
             }
@@ -769,12 +662,11 @@ export interface Database {
             id?: number
             usuario_id?: string
             cancion_id?: number | null
-            publicacion_id?: number | null
             puntuacion?: number
             created_at?: string | null
             }
           }
-          likes_comentario_publicacion: {
+          likes_comentario_cancion: {
             Row: {
               id: number
               usuario_id: string
@@ -795,15 +687,15 @@ export interface Database {
             }
             Relationships: [
               {
-                foreignKeyName: "fk_usuario_likes_comentario_publicacion"
+                foreignKeyName: "fk_usuario_likes_comentario_cancion"
                 columns: ["usuario_id"]
                 referencedRelation: "perfil"
                 referencedColumns: ["usuario_id"]
               },
               {
-                foreignKeyName: "fk_comentario_publicacion_likes"
+                foreignKeyName: "fk_comentario_cancion_likes"
                 columns: ["comentario_id"]
-                referencedRelation: "comentario_publicacion"
+                referencedRelation: "comentario_cancion"
                 referencedColumns: ["id"]
               }
             ]
