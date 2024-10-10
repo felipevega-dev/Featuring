@@ -97,7 +97,7 @@ const ChatDetail = () => {
           emisor_id: currentUserId,
           receptor_id: id,
           contenido: newMessage.trim(),
-          tipo_contenido: 'texto',
+          tipo_contenido: 'texto', // Asegúrate de que sea 'texto' y no 'text'
         })
         .select();
 
@@ -113,12 +113,12 @@ const ChatDetail = () => {
 
   const renderMessage = ({ item }: { item: Message }) => (
     <View className={`p-2 m-1 max-w-[80%] rounded-lg ${item.emisor_id === currentUserId ? 'bg-blue-500 self-end' : 'bg-gray-300 self-start'}`}>
-      {item.tipo_contenido === 'text' ? (
+      {item.tipo_contenido === 'texto' ? (
         <Text className={item.emisor_id === currentUserId ? 'text-white' : 'text-black'}>{item.contenido}</Text>
       ) : item.tipo_contenido === 'image' ? (
         <Image source={{ uri: item.url_contenido || '' }} style={{ width: 200, height: 200 }} />
       ) : (
-        <Text className={item.emisor_id === currentUserId ? 'text-white' : 'text-black'}>Contenido no soportado</Text>
+        <Text className={item.emisor_id === currentUserId ? 'text-white' : 'text-black'}>{item.contenido}</Text>
       )}
       <Text className={`text-xs ${item.emisor_id === currentUserId ? 'text-blue-200' : 'text-gray-600'}`}>
         {new Date(item.fecha_envio).toLocaleTimeString()}
@@ -136,41 +136,39 @@ const ChatDetail = () => {
 
   return (
     <SafeAreaView className="flex-1 bg-white">
+      <View className="flex-row items-center p-4 bg-white border-b border-gray-200">
+        <TouchableOpacity onPress={() => router.back()} className="mr-4">
+          <FontAwesome name="arrow-left" size={24} color="black" />
+        </TouchableOpacity>
+        <Text className="text-lg font-bold">{otherUserName}</Text>
+      </View>
+      
       <KeyboardAvoidingView 
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         className="flex-1"
         keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
       >
-        <View className="flex-row items-center p-4 bg-white border-b border-gray-200">
-          <TouchableOpacity onPress={() => router.back()} className="mr-4">
-            <FontAwesome name="arrow-left" size={24} color="black" />
-          </TouchableOpacity>
-          <Text className="text-lg font-bold">{otherUserName}</Text>
-        </View>
+        <FlatList
+          ref={flatListRef}
+          data={messages}
+          renderItem={renderMessage}
+          keyExtractor={(item) => item.id.toString()}
+          onContentSizeChange={() => flatListRef.current?.scrollToEnd({animated: true})}
+          onLayout={() => flatListRef.current?.scrollToEnd({animated: true})}
+          contentContainerStyle={{ flexGrow: 1, justifyContent: 'flex-end', paddingBottom: 20 }}
+        />
         
-        <View className="flex-1 justify-between">
-          <FlatList
-            ref={flatListRef}
-            data={messages}
-            renderItem={renderMessage}
-            keyExtractor={(item) => item.id.toString()}
-            onContentSizeChange={() => flatListRef.current?.scrollToEnd({animated: true})}
-            onLayout={() => flatListRef.current?.scrollToEnd({animated: true})}
-            contentContainerStyle={{ flexGrow: 1, justifyContent: 'flex-end', paddingBottom: 20 }}
-          />
-          
-          <View className="bg-white border-t border-gray-200 p-2">
-            <View className="flex-row items-center">
-              <TextInput
-                className="flex-1 bg-gray-100 rounded-full px-4 py-2 mr-2"
-                value={newMessage}
-                onChangeText={setNewMessage}
-                placeholder="Escribe un mensaje..."
-              />
-              <TouchableOpacity onPress={sendMessage} className="bg-blue-500 rounded-full p-2">
-                <FontAwesome name="send" size={20} color="white" />
-              </TouchableOpacity>
-            </View>
+        <View className="bg-white border-t border-gray-200 p-2">
+          <View className="flex-row items-center">
+            <TextInput
+              className="flex-1 bg-gray-100 rounded-full px-4 py-2 mr-2"
+              value={newMessage}
+              onChangeText={setNewMessage}
+              placeholder="Escribe un mensaje..."
+            />
+            <TouchableOpacity onPress={sendMessage} className="bg-blue-500 rounded-full p-2">
+              <FontAwesome name="send" size={20} color="white" />
+            </TouchableOpacity>
           </View>
         </View>
       </KeyboardAvoidingView>
