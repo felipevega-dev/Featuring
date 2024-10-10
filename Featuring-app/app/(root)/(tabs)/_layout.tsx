@@ -165,7 +165,13 @@ const Layout = () => {
           }}
         />
         
-        <Tabs.Screen name="chat/[id]" options={{ href: null }} />
+        <Tabs.Screen
+          name="chat/[id]"
+          options={{
+            href: null,
+            headerShown: false,  // Esto ocultará el encabezado por defecto
+          }}
+        />
        
         <Tabs.Screen
           name="notificaciones"

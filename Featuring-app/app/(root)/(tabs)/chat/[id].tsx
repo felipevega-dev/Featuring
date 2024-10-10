@@ -3,6 +3,7 @@ import { View, Text, TextInput, TouchableOpacity, FlatList, KeyboardAvoidingView
 import { supabase } from '@/lib/supabase';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { FontAwesome } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 
 interface Message {
   id: number;
@@ -24,6 +25,7 @@ const ChatDetail = () => {
   const [otherUserName, setOtherUserName] = useState<string>('');
   const flatListRef = useRef<FlatList>(null);
   const router = useRouter();
+  const navigation = useNavigation();
 
   useEffect(() => {
     getCurrentUser();
@@ -113,18 +115,18 @@ const ChatDetail = () => {
 
   const renderMessage = ({ item }: { item: Message }) => (
     <View className={`p-2 m-1 max-w-[80%] rounded-lg ${item.emisor_id === currentUserId ? 'bg-blue-500 self-end' : 'bg-gray-300 self-start'}`}>
-      {item.tipo_contenido === 'texto' ? (
-        <Text className={item.emisor_id === currentUserId ? 'text-white' : 'text-black'}>{item.contenido}</Text>
-      ) : item.tipo_contenido === 'image' ? (
-        <Image source={{ uri: item.url_contenido || '' }} style={{ width: 200, height: 200 }} />
-      ) : (
-        <Text className={item.emisor_id === currentUserId ? 'text-white' : 'text-black'}>{item.contenido}</Text>
-      )}
+      <Text className={item.emisor_id === currentUserId ? 'text-white' : 'text-black'}>{item.contenido}</Text>
       <Text className={`text-xs ${item.emisor_id === currentUserId ? 'text-blue-200' : 'text-gray-600'}`}>
         {new Date(item.fecha_envio).toLocaleTimeString()}
       </Text>
     </View>
   );
+
+  useEffect(() => {
+    navigation.setOptions({
+      headerShown: false,  // O configura un título personalizado aquí
+    });
+  }, [navigation]);
 
   if (isLoading) {
     return (
@@ -144,33 +146,29 @@ const ChatDetail = () => {
       </View>
       
       <KeyboardAvoidingView 
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        behavior={Platform.OS === "ios" ? "padding" : undefined} 
         className="flex-1"
         keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
       >
+        <View className="flex-row items-center p-2 bg-white border-t border-gray-200">
+          <TextInput
+            className="flex-1 bg-gray-100 rounded-full px-4 py-2 mr-2"
+            value={newMessage}
+            onChangeText={setNewMessage}
+            placeholder="Escribe un mensaje..."
+          />
+          <TouchableOpacity onPress={sendMessage} className="bg-blue-500 rounded-full p-2">
+            <FontAwesome name="send" size={20} color="white" />
+          </TouchableOpacity>
+        </View>
+
         <FlatList
-          ref={flatListRef}
           data={messages}
           renderItem={renderMessage}
           keyExtractor={(item) => item.id.toString()}
-          onContentSizeChange={() => flatListRef.current?.scrollToEnd({animated: true})}
-          onLayout={() => flatListRef.current?.scrollToEnd({animated: true})}
-          contentContainerStyle={{ flexGrow: 1, justifyContent: 'flex-end', paddingBottom: 20 }}
+          contentContainerStyle={{ flexGrow: 1, justifyContent: 'flex-end', paddingVertical: 10 }}
+          inverted
         />
-        
-        <View className="bg-white border-t border-gray-200 p-2">
-          <View className="flex-row items-center">
-            <TextInput
-              className="flex-1 bg-gray-100 rounded-full px-4 py-2 mr-2"
-              value={newMessage}
-              onChangeText={setNewMessage}
-              placeholder="Escribe un mensaje..."
-            />
-            <TouchableOpacity onPress={sendMessage} className="bg-blue-500 rounded-full p-2">
-              <FontAwesome name="send" size={20} color="white" />
-            </TouchableOpacity>
-          </View>
-        </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
