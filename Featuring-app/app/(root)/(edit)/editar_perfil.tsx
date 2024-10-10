@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Image, ScrollView, Alert, Modal } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Image, ScrollView, Alert, Modal, Linking } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { styled } from 'nativewind';
 import { supabase } from "@/lib/supabase";
 import * as ImagePicker from 'expo-image-picker';
 import { icons } from "@/constants";
 import DropDownPicker from 'react-native-dropdown-picker';
+import { FontAwesome } from '@expo/vector-icons';
 
 const StyledView = styled(View)
 const StyledText = styled(Text)
@@ -25,6 +26,8 @@ interface Perfil {
   biografia: string;
   generos: string[];
   habilidades: string[];
+  mensaje: string; // Añadimos el campo mensaje
+  redes_sociales: { nombre: string; url: string }[];
 }
 
 const EditarPerfil = () => {
@@ -39,7 +42,7 @@ const EditarPerfil = () => {
     { label: 'Otro', value: 'otro' }
   ]);
   const [modalVisible, setModalVisible] = useState(false);
-  const [modalContent, setModalContent] = useState<'generos' | 'habilidades'>('generos');
+  const [modalContent, setModalContent] = useState<'generos' | 'habilidades' | 'redes_sociales'>('generos');
 
   const [habilidadesMusicales, setHabilidadesMusicales] = useState([
     "Canto", "Guitarra", "Piano", "Batería", "Bajo", "Violín", "Saxofón", "Trompeta",
@@ -50,6 +53,12 @@ const EditarPerfil = () => {
     "Pop", "Rock", "Hip Hop", "R&B", "Jazz", "Clásica", "Electrónica", "Reggaeton",
     "Country", "Folk", "Blues", "Metal", "Punk", "Indie", "Salsa", "Reggae"
   ]);
+
+  const [nuevaRedSocial, setNuevaRedSocial] = useState({ nombre: '', url: '' });
+  const [redesSociales] = useState([
+    "SoundCloud", "Instagram", "Facebook", "Twitter", "Spotify"
+  ]);
+  const [modalRedSocialVisible, setModalRedSocialVisible] = useState(false);
 
   useEffect(() => {
     fetchPerfil();
@@ -72,7 +81,9 @@ const EditarPerfil = () => {
           ubicacion,
           biografia,
           perfil_genero (genero),
-          perfil_habilidad (habilidad)
+          perfil_habilidad (habilidad),
+          mensaje,
+          red_social (nombre, url)
         `)
         .eq('usuario_id', user.id)
         .single();
@@ -83,11 +94,13 @@ const EditarPerfil = () => {
         setPerfil({
           ...data,
           full_name: user.user_metadata?.full_name || '',
-          generos: data.perfil_genero.map(g => g.genero),
-          habilidades: data.perfil_habilidad.map(h => h.habilidad)
+          generos: data.perfil_genero?.map(g => g.genero) || [],
+          habilidades: data.perfil_habilidad?.map(h => h.habilidad) || [],
+          redes_sociales: data.red_social?.map(r => ({ nombre: r.nombre, url: r.url })) || [],
+          mensaje: data.mensaje || ''
         });
         setFotoPerfil(data.foto_perfil);
-        setGeneroValue(data.sexo); // Establecer el valor inicial del género
+        setGeneroValue(data.sexo || '');
       }
     } catch (error) {
       console.error("Error al obtener el perfil:", error);
@@ -135,8 +148,9 @@ const EditarPerfil = () => {
           edad: perfil.edad,
           ubicacion: perfil.ubicacion,
           biografia: perfil.biografia,
+          mensaje: perfil.mensaje
         })
-        .eq('usuario_id', user.id); // Cambiado de 'id' a 'usuario_id'
+        .eq('usuario_id', user.id);
 
       if (updateError) throw updateError;
 
@@ -152,6 +166,16 @@ const EditarPerfil = () => {
         await supabase.from('perfil_habilidad').insert({ perfil_id: user.id, habilidad });
       }
 
+      // Actualizar redes sociales
+      await supabase.from('red_social').delete().eq('perfil_id', user.id);
+      for (const red of perfil.redes_sociales) {
+        await supabase.from('red_social').insert({ 
+          perfil_id: user.id, 
+          nombre: red.nombre, 
+          url: red.url 
+        });
+      }
+
       Alert.alert("Éxito", "Perfil actualizado correctamente");
       router.back();
     } catch (error) {
@@ -160,7 +184,7 @@ const EditarPerfil = () => {
     }
   };
 
-  const toggleItem = (item: string, type: 'generos' | 'habilidades') => {
+  const toggleItem = (item: string, type: 'generos' | 'habilidades' | 'redes_sociales') => {
     if (!perfil) return;
 
     setPerfil(prevPerfil => {
@@ -185,9 +209,108 @@ const EditarPerfil = () => {
     });
   };
 
+  const agregarRedSocial = (nombreRed: string) => {
+    if (!perfil) return;
+
+    if (perfil.redes_sociales.length >= 3) {
+      Alert.alert("Límite alcanzado", "Solo puedes agregar un máximo de 3 redes sociales.");
+      return;
+    }
+
+    setNuevaRedSocial(prev => ({ ...prev, nombre: nombreRed }));
+    setModalRedSocialVisible(false);
+  };
+
+  const validarURL = (nombre: string, url: string): boolean => {
+    const patrones = {
+      'SoundCloud': /^https?:\/\/(www\.)?soundcloud\.com\/.+/i,
+      'Instagram': /^https?:\/\/(www\.)?instagram\.com\/.+/i,
+      'Facebook': /^https?:\/\/(www\.)?facebook\.com\/.+/i,
+      'Twitter': /^https?:\/\/(www\.)?twitter\.com\/.+/i,
+      'Spotify': /^https?:\/\/open\.spotify\.com\/.+/i,
+    };
+
+    const patron = patrones[nombre as keyof typeof patrones];
+    return patron ? patron.test(url) : false;
+  };
+
+  const guardarRedSocial = () => {
+    if (!perfil) return;
+
+    if (nuevaRedSocial.nombre.trim() === '' || nuevaRedSocial.url.trim() === '') {
+      Alert.alert("Error", "Por favor, ingresa tanto el nombre como la URL de la red social.");
+      return;
+    }
+
+    if (!validarURL(nuevaRedSocial.nombre, nuevaRedSocial.url)) {
+      Alert.alert("Error", `La URL ingresada no es válida para ${nuevaRedSocial.nombre}.`);
+      return;
+    }
+
+    setPerfil(prevPerfil => ({
+      ...prevPerfil,
+      redes_sociales: [...prevPerfil.redes_sociales, nuevaRedSocial]
+    }));
+    setNuevaRedSocial({ nombre: '', url: '' });
+  };
+
+  const eliminarRedSocial = (index: number) => {
+    if (!perfil) return;
+
+    Alert.alert(
+      "Eliminar Red Social",
+      "¿Estás seguro de que quieres eliminar esta red social?",
+      [
+        {
+          text: "Cancelar",
+          style: "cancel"
+        },
+        { 
+          text: "Eliminar", 
+          onPress: () => {
+            setPerfil(prevPerfil => ({
+              ...prevPerfil,
+              redes_sociales: prevPerfil.redes_sociales.filter((_, i) => i !== index)
+            }));
+          },
+          style: "destructive"
+        }
+      ]
+    );
+  };
+
+  const getRedSocialIcon = (nombre: string) => {
+    switch (nombre.toLowerCase()) {
+      case 'soundcloud':
+        return 'soundcloud';
+      case 'instagram':
+        return 'instagram';
+      case 'facebook':
+        return 'facebook';
+      case 'twitter':
+        return 'twitter';
+      case 'spotify':
+        return 'spotify';
+      default:
+        return ''; // Retornamos una cadena vacía en lugar de 'link'
+    }
+  };
+
+  const handleRedSocialPress = (url: string) => {
+    Linking.openURL(url).catch((err) => console.error('Error al abrir el enlace:', err));
+  };
+
+  const handleRedSocialLongPress = (index: number) => {
+    eliminarRedSocial(index);
+  };
+
   const renderModalContent = () => {
-    const items = modalContent === 'generos' ? generosMusicales : habilidadesMusicales;
-    const selectedItems = modalContent === 'generos' ? perfil?.generos : perfil?.habilidades;
+    const items = modalContent === 'generos' ? generosMusicales : 
+                  modalContent === 'habilidades' ? habilidadesMusicales : 
+                  redesSociales;
+    const selectedItems = modalContent === 'generos' ? perfil?.generos : 
+                          modalContent === 'habilidades' ? perfil?.habilidades :
+                          perfil?.redes_sociales;
 
     return (
       <View className="flex-1">
@@ -260,6 +383,20 @@ const EditarPerfil = () => {
             value={perfil.full_name}
             onChangeText={(text) => setPerfil({...perfil, full_name: text})}
           />
+        </StyledView>
+
+        <StyledView className="mb-2">
+          <StyledText className="text-lg font-bold mb-2">Mensaje del perfil:</StyledText>
+          <StyledTextInput
+            className="border border-gray-300 p-2 rounded-md"
+            value={perfil.mensaje || ''} // Aseguramos que siempre haya un valor
+            onChangeText={(text) => setPerfil({...perfil, mensaje: text.slice(0, 100)})}
+            maxLength={100}
+            multiline
+          />
+          <StyledText className="text-sm text-gray-500 mt-1">
+            {(perfil.mensaje || '').length}/100 caracteres
+          </StyledText>
         </StyledView>
 
         <StyledView className="mb-2 z-50">
@@ -343,6 +480,55 @@ const EditarPerfil = () => {
           </StyledTouchableOpacity>
         </StyledView>
 
+        <StyledView className="mb-4">
+          <StyledText className="text-lg font-bold mb-2">Redes Sociales (máx. 3):</StyledText>
+          <View className="flex-row justify-start mb-2">
+            {perfil.redes_sociales.map((red, index) => {
+              const iconName = getRedSocialIcon(red.nombre);
+              if (iconName) {
+                return (
+                  <TouchableOpacity 
+                    key={index} 
+                    onPress={() => handleRedSocialPress(red.url)}
+                    onLongPress={() => handleRedSocialLongPress(index)}
+                    delayLongPress={500}
+                    className="mr-4"
+                  >
+                    <FontAwesome name={iconName} size={30} color="blue" />
+                  </TouchableOpacity>
+                );
+              }
+              return null;
+            })}
+          </View>
+          {perfil.redes_sociales.length < 3 && (
+            <View>
+              <TouchableOpacity 
+                className="bg-blue-500 p-2 rounded-md mb-2"
+                onPress={() => setModalRedSocialVisible(true)}
+              >
+                <Text className="text-white text-center">Agregar Red Social</Text>
+              </TouchableOpacity>
+              {nuevaRedSocial.nombre && (
+                <>
+                  <StyledTextInput
+                    className="border border-gray-300 p-2 rounded-md mb-2"
+                    value={nuevaRedSocial.url}
+                    onChangeText={(text) => setNuevaRedSocial(prev => ({ ...prev, url: text }))}
+                    placeholder={`URL de ${nuevaRedSocial.nombre}`}
+                  />
+                  <TouchableOpacity 
+                    className="bg-green-500 p-2 rounded-md"
+                    onPress={guardarRedSocial}
+                  >
+                    <Text className="text-white text-center">Guardar Red Social</Text>
+                  </TouchableOpacity>
+                </>
+              )}
+            </View>
+          )}
+        </StyledView>
+
         <StyledTouchableOpacity 
           className="bg-purple-800 p-2 rounded-md items-center mt-2"
           onPress={actualizarPerfil}
@@ -361,7 +547,9 @@ const EditarPerfil = () => {
           <View className="bg-white rounded-t-3xl p-4 h-3/4">
             <View className="flex-row justify-between items-center mb-4">
               <Text className="text-lg font-bold text-primary-700">
-                {modalContent === 'generos' ? 'Modificar Géneros Musicales' : 'Modificar Habilidades Musicales'}
+                {modalContent === 'generos' ? 'Modificar Géneros Musicales' : 
+                 modalContent === 'habilidades' ? 'Modificar Habilidades Musicales' : 
+                 'Modificar Redes Sociales'}
               </Text>
               <TouchableOpacity onPress={() => setModalVisible(false)}>
                   <Image source={icons.close} className="w-6 h-6" />
@@ -375,6 +563,35 @@ const EditarPerfil = () => {
               onPress={() => setModalVisible(false)}
             >
               <Text className="text-white text-center font-bold">Guardar Cambios</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal para seleccionar red social */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={modalRedSocialVisible}
+        onRequestClose={() => setModalRedSocialVisible(false)}
+      >
+        <View className="flex-1 justify-end bg-black bg-opacity-50">
+          <View className="bg-white rounded-t-3xl p-4">
+            <Text className="text-lg font-bold mb-4 text-center">Selecciona una Red Social</Text>
+            {redesSociales.map((red) => (
+              <TouchableOpacity
+                key={red}
+                className="p-3 border-b border-gray-200"
+                onPress={() => agregarRedSocial(red)}
+              >
+                <Text className="text-center">{red}</Text>
+              </TouchableOpacity>
+            ))}
+            <TouchableOpacity
+              className="mt-4 bg-red-500 p-3 rounded-full"
+              onPress={() => setModalRedSocialVisible(false)}
+            >
+              <Text className="text-white text-center">Cancelar</Text>
             </TouchableOpacity>
           </View>
         </View>

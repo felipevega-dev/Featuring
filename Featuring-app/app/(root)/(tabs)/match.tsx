@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { View, Text, Image, Animated, TouchableOpacity, PanResponder, GestureResponderEvent, PanResponderGestureState, ActivityIndicator, Alert, Modal, ScrollView } from 'react-native';
+import { View, Text, Image, Animated, TouchableOpacity, PanResponder, GestureResponderEvent, PanResponderGestureState, ActivityIndicator, Alert, Modal, ScrollView, Linking } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { FontAwesome } from '@expo/vector-icons';
 import { supabase } from "@/lib/supabase";
@@ -8,20 +8,6 @@ import { useRouter } from 'expo-router';
 import * as Location from 'expo-location';
 
 const SWIPE_THRESHOLD = 120;
-
-// Añade esta función al principio del archivo, fuera del componente Match
-function calcularDistancia(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const R = 6371; // Radio de la Tierra en km
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLon = (lon2 - lon1) * Math.PI / 180;
-  const a = 
-    Math.sin(dLat/2) * Math.sin(dLat/2) +
-    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
-    Math.sin(dLon/2) * Math.sin(dLon/2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-  const d = R * c; // Distancia en km
-  return Math.round(d);
-}
 
 interface CardProps {
   card: {
@@ -32,71 +18,24 @@ interface CardProps {
     ubicacion: string;
     edad: number;
     sexo: string;
-    perfil_habilidad: { habilidad: string }[]; // Cambiamos esto
-    latitud: number | null;
-    longitud: number | null;
-    distancia: number | null;
+    perfil_habilidad: { habilidad: string }[];
+    perfil_genero: {genero : string }[];
+  
+    latitud: number;
+    longitud: number;
+    distance?: number;
+    mensaje: string;
+    red_social: { nombre: string; url: string }[]; // Añadimos red_social
   };
   isFirst?: boolean;
   onSwipe?: (direction: 'left' | 'right') => void;
   onLike?: (userId: string) => void;
-  onViewProfile?: (user: CardProps['card']) => void;
   [key: string]: any;
 }
 
-interface UserProfileModalProps {
-  isVisible: boolean;
-  onClose: () => void;
-  user: CardProps['card'];
-}
-
-const UserProfileModal: React.FC<UserProfileModalProps> = ({ isVisible, onClose, user }) => {
-  return (
-    <Modal
-      animationType="slide"
-      transparent={true}
-      visible={isVisible}
-      onRequestClose={onClose}
-    >
-      <View className="flex-1 justify-center items-center bg-black bg-opacity-50">
-        <View className="bg-white rounded-xl p-5 w-[90%] max-h-[80%]">
-          <ScrollView>
-            <TouchableOpacity className="absolute top-2 right-2 z-10" onPress={onClose}>
-              <FontAwesome name="close" size={24} color="black" />
-            </TouchableOpacity>
-            <View className="items-center mb-4">
-              {user.foto_perfil ? (
-                <Image
-                  source={{ uri: user.foto_perfil }}
-                  className="w-32 h-32 rounded-full"
-                />
-              ) : (
-                <View className="w-32 h-32 rounded-full bg-gray-300 justify-center items-center">
-                  <FontAwesome name="user" size={50} color="white" />
-                </View>
-              )}
-              <Text className="text-xl font-bold mt-2">{user.username}</Text>
-              <Text className="text-gray-600">{user.edad} años • {user.ubicacion}</Text>
-            </View>
-            <Text className="font-bold mb-2">Biografía:</Text>
-            <Text className="mb-4">{user.biografia}</Text>
-            <Text className="font-bold mb-2">Habilidades:</Text>
-            <View className="flex-row flex-wrap mb-4">
-              {user.perfil_habilidad.map((habilidad, index) => (
-                <View key={index} className="bg-blue-100 rounded-full px-3 py-1 m-1">
-                  <Text className="text-blue-800">{habilidad.habilidad}</Text>
-                </View>
-              ))}
-            </View>
-          </ScrollView>
-        </View>
-      </View>
-    </Modal>
-  );
-};
-
-const Card: React.FC<CardProps> = ({ card, isFirst, onSwipe, onLike, onViewProfile, ...rest }) => {
+const Card: React.FC<CardProps> = ({ card, isFirst, onSwipe, onLike, ...rest }) => {
   const [imageError, setImageError] = useState(false);
+  const [modalVisible, setModalVisible] = useState(false);
 
   const renderHabilidades = (habilidades: { habilidad: string }[] | null | undefined) => {
     if (!habilidades || habilidades.length === 0) {
@@ -112,6 +51,34 @@ const Card: React.FC<CardProps> = ({ card, isFirst, onSwipe, onLike, onViewProfi
     }
   };
 
+  const renderGeneros = (generos: { genero: string }[] | null | undefined) => {
+    if (!generos || generos.length === 0) {
+      return "Sin géneros especificados";
+    }
+    return generos.map(g => g.genero).join(', ');
+  };
+
+  const getRedSocialIcon = (nombre: string) => {
+    switch (nombre.toLowerCase()) {
+      case 'soundcloud':
+        return 'soundcloud';
+      case 'instagram':
+        return 'instagram';
+      case 'facebook':
+        return 'facebook';
+      case 'twitter':
+        return 'twitter';
+      case 'spotify':
+        return 'spotify';
+      default:
+        return 'link';
+    }
+  };
+
+  const handleRedSocialPress = (url: string) => {
+    Linking.openURL(url).catch((err) => console.error('Error al abrir el enlace:', err));
+  };
+
   return (
     <Animated.View
       className={`absolute w-[85%] justify-start items-center h-[85%] bg-white rounded-xl shadow-lg ${
@@ -119,15 +86,18 @@ const Card: React.FC<CardProps> = ({ card, isFirst, onSwipe, onLike, onViewProfi
       } top-5 border-2 border-blue-500 shadow-blue-500`}
       {...rest}
     >
-      <View className="w-[75%] mt-5 h-2/4 rounded-t-xl overflow-hidden">
+      <View className="w-full px-4 py-2 bg-primary-600 rounded-t-xl">
+        <Text className="text-white text-center font-bold">{card.mensaje}</Text>
+      </View>
+      <View className="w-[75%] mt-2 h-2/5 rounded-xl overflow-hidden">
         {card.foto_perfil && !imageError ? (
           <Image
             source={{ uri: card.foto_perfil }}
-            className="w-full h-full rounded-full border-4 border-secondary-500"
+            className="w-full h-full rounded-xl border-4 border-secondary-500"
             onError={() => setImageError(true)}
           />
         ) : (
-          <View className="w-full h-full rounded-full bg-gray-300 justify-center items-center border-4 border-secondary-500">
+          <View className="w-full h-full rounded-xl bg-gray-300 justify-center items-center border-4 border-secondary-500">
             <Image source={icons.person} className="w-20 h-20" />
             <Text className="mt-2 text-gray-500">
               {imageError ? 'Error al cargar la imagen' : 'No hay imagen de perfil'}
@@ -142,16 +112,16 @@ const Card: React.FC<CardProps> = ({ card, isFirst, onSwipe, onLike, onViewProfi
           <Text className="text-gray-500 font-bold mx-2">•</Text>
           <Text className="font-bold">{card.edad} años</Text>
         </View>
-        {card.distancia !== null && (
-          <Text className="text-gray-500 mt-1">A {card.distancia} km de distancia</Text>
+        {card.distance !== undefined && (
+          <Text className="text-gray-500 mt-1">{card.distance.toFixed(1)} km de distancia</Text>
         )}
-        <Text className="text-center mt-2">{card.biografia}</Text>
+        <Text className="text-center mt-2 text-black">{card.biografia}</Text>
         <Text className="text-center mt-2 text-blue-500 font-semibold">
           {renderHabilidades(card.perfil_habilidad)}
         </Text>
         <TouchableOpacity 
           className="bg-blue-500 rounded-full mt-4 p-2 w-1/2"
-          onPress={() => onViewProfile && onViewProfile(card)}
+          onPress={() => setModalVisible(true)}
         >
           <Text className="text-white font-bold text-center">Ver Perfil</Text>
         </TouchableOpacity>
@@ -164,6 +134,55 @@ const Card: React.FC<CardProps> = ({ card, isFirst, onSwipe, onLike, onViewProfi
           </TouchableOpacity>
         </View>
       </View>
+
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={modalVisible}
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View className="flex-1 justify-center items-center bg-black bg-opacity-50">
+          <View className="bg-white rounded-xl p-5 w-[90%] max-h-[90%]">
+            <TouchableOpacity 
+              className="absolute right-2 top-2 z-10"
+              onPress={() => setModalVisible(false)}
+            >
+              <FontAwesome name="close" size={24} color="black" />
+            </TouchableOpacity>
+            <ScrollView>
+              <Image
+                source={card.foto_perfil ? { uri: card.foto_perfil } : icons.person}
+                className="w-32 h-32 rounded-full self-center mb-4"
+              />
+              <Text className="text-2xl font-bold text-center mb-2">{card.username}</Text>
+              <Text className="text-center mb-2">{card.edad} años • {card.ubicacion}</Text>
+              <Text className="text-center mb-4">{card.biografia}</Text>
+              <Text className="font-bold mb-2">Habilidades:</Text>
+              <Text className="mb-4">{renderHabilidades(card.perfil_habilidad)}</Text>
+              <Text className="font-bold mb-2">Géneros favoritos:</Text>
+              <Text className="mb-4">{renderGeneros(card.perfil_genero)}</Text>
+              
+              {/* Añadimos la sección de redes sociales */}
+              <Text className="font-bold mb-2">Redes Sociales:</Text>
+              <View className="flex-row flex-wrap justify-center mb-4">
+                {card.red_social && card.red_social.length > 0 ? (
+                  card.red_social.map((red, index) => (
+                    <TouchableOpacity
+                      key={index}
+                      onPress={() => handleRedSocialPress(red.url)}
+                      className="m-2"
+                    >
+                      <FontAwesome name={getRedSocialIcon(red.nombre)} size={30} color="#4B5563" />
+                    </TouchableOpacity>
+                  ))
+                ) : (
+                  <Text className="text-gray-500">No hay redes sociales agregadas</Text>
+                )}
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </Animated.View>
   );
 };
@@ -179,9 +198,9 @@ const Match = () => {
     extrapolate: 'clamp',
   });
   const router = useRouter();
-  const [selectedUser, setSelectedUser] = useState<CardProps['card'] | null>(null);
-  const [isProfileModalVisible, setIsProfileModalVisible] = useState(false);
-  const [userLocation, setUserLocation] = useState<{latitud: number, longitud: number} | null>(null);
+  const [lastRefreshTime, setLastRefreshTime] = useState(Date.now());
+  const [shownCards, setShownCards] = useState<Set<string>>(new Set());
+  const [userLocation, setUserLocation] = useState<Location.LocationObject | null>(null);
 
   useEffect(() => {
     getCurrentUser();
@@ -192,7 +211,7 @@ const Match = () => {
     if (currentUserId) {
       fetchUsers();
     }
-  }, [currentUserId]);
+  }, [currentUserId, lastRefreshTime]);
 
   const getCurrentUser = async () => {
     try {
@@ -209,40 +228,35 @@ const Match = () => {
   };
 
   const getUserLocation = async () => {
-    try {
-      let { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        console.log('Permiso de ubicación denegado');
-        // Usar una ubicación por defecto o manejar la falta de permiso
-        setUserLocation({
-          latitud: 0,
-          longitud: 0
-        });
-        return;
-      }
-
-      let location = await Location.getCurrentPositionAsync({});
-      setUserLocation({
-        latitud: location.coords.latitude,
-        longitud: location.coords.longitude
-      });
-    } catch (error) {
-      console.log('Error obteniendo ubicación:', error);
-      // Usar una ubicación por defecto o manejar el error
-      setUserLocation({
-        latitud: 0,
-        longitud: 0
-      });
+    let { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== 'granted') {
+      console.error('Permiso de ubicación denegado');
+      return;
     }
+
+    let location = await Location.getCurrentPositionAsync({});
+    setUserLocation(location);
+  };
+
+  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+    const R = 6371; // Radio de la Tierra en km
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = 
+      Math.sin(dLat/2) * Math.sin(dLat/2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+      Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c; // Distancia en km
   };
 
   const fetchUsers = async () => {
-    if (!currentUserId) return;
+    if (!currentUserId || !userLocation) return;
 
     try {
       setIsLoading(true);
 
-      // Obtenemos las conexiones donde el usuario actual es usuario1_id o usuario2_id
+      // Obtenemos todas las conexiones del usuario actual
       const { data: connections, error: connectionsError } = await supabase
         .from('conexion')
         .select('usuario1_id, usuario2_id, estado')
@@ -250,21 +264,25 @@ const Match = () => {
 
       if (connectionsError) throw connectionsError;
 
-      // Creamos un conjunto de IDs de usuarios que el usuario actual ya ha likeado
-      const likedUserIds = new Set(
-        connections
-          .filter(conn => conn.usuario1_id === currentUserId)
-          .map(conn => conn.usuario2_id)
+      // Creamos un conjunto de IDs de usuarios que el usuario actual ya no debe ver
+      const excludedUserIds = new Set(
+        connections.flatMap(conn => {
+          if (conn.estado === true) {
+            // Si hay match, excluimos al otro usuario sin importar quién sea usuario1 o usuario2
+            return [conn.usuario1_id === currentUserId ? conn.usuario2_id : conn.usuario1_id];
+          } else if (conn.usuario1_id === currentUserId) {
+            // Si el usuario actual dio like pero no hay match aún, excluimos al otro usuario
+            return [conn.usuario2_id];
+          }
+          // No excluimos si el usuario actual recibió un like pero aún no ha respondido
+          return [];
+        })
       );
 
-      // Obtenemos los IDs de usuarios que han dado like al usuario actual pero aún no hay match
-      const likedByUserIds = new Set(
-        connections
-          .filter(conn => conn.usuario2_id === currentUserId && !conn.estado)
-          .map(conn => conn.usuario1_id)
-      );
+      // Añadimos los IDs de las cartas ya mostradas a los excluidos
+      shownCards.forEach(id => excludedUserIds.add(id));
 
-      // Obtenemos todos los perfiles excepto el del usuario actual
+      // Obtenemos los perfiles excluyendo al usuario actual y a los usuarios excluidos
       const { data: profiles, error: profilesError } = await supabase
         .from('perfil')
         .select(`
@@ -276,61 +294,32 @@ const Match = () => {
           sexo,
           ubicacion,
           perfil_habilidad (habilidad),
+          perfil_genero (genero),
           latitud,
-          longitud
+          longitud,
+          mensaje,
+          red_social (nombre, url)
         `)
+        .not('usuario_id', 'in', `(${Array.from(excludedUserIds).join(',')})`)
         .neq('usuario_id', currentUserId);
 
       if (profilesError) throw profilesError;
 
-      // Filtramos y procesamos los perfiles
-      const processedProfiles = await Promise.all(profiles
-        .filter(profile => !likedUserIds.has(profile.usuario_id) || likedByUserIds.has(profile.usuario_id))
-        .map(async (profile) => {
-          let imageUrl = profile.foto_perfil;
-          if (profile.foto_perfil && !profile.foto_perfil.startsWith('http') && !profile.foto_perfil.startsWith('file:')) {
-            try {
-              const { data, error } = await supabase
-                .storage
-                .from('avatars')
-                .createSignedUrl(profile.foto_perfil, 60 * 60);
-
-              if (data && !error) {
-                imageUrl = data.signedUrl;
-              } else {
-                console.log(`No se pudo obtener URL firmada para ${profile.username}, usando URL original`);
-              }
-            } catch (error) {
-              console.log(`Error al procesar la foto de perfil de ${profile.username}, usando URL original`);
-            }
-          }
-
-          let distancia = null;
-          if (userLocation && profile.latitud && profile.longitud) {
-            distancia = calcularDistancia(
-              userLocation.latitud,
-              userLocation.longitud,
-              profile.latitud,
-              profile.longitud
-            );
-          }
-
-          return { 
-            ...profile, 
-            foto_perfil: imageUrl, 
-            hasLikedMe: likedByUserIds.has(profile.usuario_id),
-            distancia
-          };
-        }));
-
-      // Ordenamos los perfiles para que los usuarios que han dado like al usuario actual aparezcan primero
-      const sortedProfiles = processedProfiles.sort((a, b) => {
-        if (a.hasLikedMe && !b.hasLikedMe) return -1;
-        if (!a.hasLikedMe && b.hasLikedMe) return 1;
-        return 0;
+      // Procesamos los perfiles y calculamos la distancia
+      const processedProfiles = profiles.map(profile => {
+        let distance = undefined;
+        if (profile.latitud && profile.longitud) {
+          distance = calculateDistance(
+            userLocation.coords.latitude,
+            userLocation.coords.longitude,
+            profile.latitud,
+            profile.longitud
+          );
+        }
+        return { ...profile, distance };
       });
 
-      setCards(sortedProfiles);
+      setCards(processedProfiles);
     } catch (error) {
       console.error('Error al obtener usuarios:', error);
     } finally {
@@ -352,8 +341,21 @@ const Match = () => {
         // Si ya existe una conexión, verificamos si es un match
         const existingConnection = existingConnections[0];
         if (existingConnection.usuario1_id === userId2 && existingConnection.usuario2_id === userId1) {
-          // Es un match, actualizamos la conexión existente
+          // Es un match, actualizamos ambas conexiones
           await updateConnectionStatus(existingConnection.id, true);
+          const { data: newConnection, error: insertError } = await supabase
+            .from('conexion')
+            .insert({ 
+              usuario1_id: userId1, 
+              usuario2_id: userId2,
+              estado: true
+            })
+            .select()
+            .single();
+          if (insertError) throw insertError;
+          if (newConnection) {
+            await updateConnectionStatus(newConnection.id, true);
+          }
           console.log('¡Es un match!');
           showMatchAlert(userId2);
           return true; // Indicamos que es un match
@@ -364,42 +366,19 @@ const Match = () => {
       }
 
       // Si no existe, insertamos la nueva conexión
-      const { data: newConnection, error: insertError } = await supabase
+      const { error: insertError } = await supabase
         .from('conexion')
         .insert({ 
           usuario1_id: userId1, 
           usuario2_id: userId2,
           estado: false
-        })
-        .select()
-        .single();
+        });
 
       if (insertError) throw insertError;
 
       console.log('Conexión guardada, esperando match');
 
-      // Verificamos si hay un match
-      const { data: matchCheck, error: matchError } = await supabase
-        .from('conexion')
-        .select()
-        .eq('usuario1_id', userId2)
-        .eq('usuario2_id', userId1)
-        .single();
-
-      if (matchError && matchError.code !== 'PGRST116') throw matchError;
-
-      if (matchCheck) {
-        // Es un match, actualizamos ambas conexiones
-        await updateConnectionStatus(matchCheck.id, true);
-        if (newConnection) {
-          await updateConnectionStatus(newConnection.id, true);
-        }
-        console.log('¡Es un match!');
-        showMatchAlert(userId2);
-        return true; // Indicamos que es un match
-      }
-
-      return false; // No es un match
+      return false; // No es un match todavía
     } catch (error) {
       console.error('Error al guardar la conexión:', error);
       return false;
@@ -427,10 +406,7 @@ const Match = () => {
       [
         {
           text: "Enviar mensaje",
-          onPress: () => router.push({
-            pathname: "/chat/[id]",
-            params: { id: matchedUserId }
-          }),
+          onPress: () => router.push(`/chat/${matchedUserId}` as any),
         },
         {
           text: "Continuar",
@@ -449,7 +425,13 @@ const Match = () => {
       useNativeDriver: false,
     }).start(() => {
       console.log('no');
-      setCards((prevCards) => prevCards.slice(1));
+      // Eliminamos la tarjeta actual y la añadimos a las mostradas
+      setCards((prevCards) => {
+        if (prevCards.length > 0) {
+          setShownCards(prev => new Set(prev).add(prevCards[0].usuario_id));
+        }
+        return prevCards.slice(1);
+      });
       position.setValue({ x: 0, y: 0 });
     });
   };
@@ -458,13 +440,19 @@ const Match = () => {
     if (currentUserId) {
       const isMatch = await saveConnection(currentUserId, likedUserId);
       
+      // Eliminamos la tarjeta actual y la añadimos a las mostradas
+      setCards((prevCards) => {
+        setShownCards(prev => new Set(prev).add(likedUserId));
+        return prevCards.slice(1);
+      });
+      
       if (isMatch) {
-        // Si es un match, eliminamos la tarjeta inmediatamente
-        setCards((prevCards) => prevCards.filter(card => card.usuario_id !== likedUserId));
-      } else {
-        // Si no es un match, simplemente pasamos a la siguiente tarjeta
-        handleSwipe('right');
+        // Si es un match, mostramos la alerta
+        showMatchAlert(likedUserId);
       }
+      
+      // Pasamos a la siguiente tarjeta
+      position.setValue({ x: 0, y: 0 });
     }
   };
 
@@ -487,12 +475,8 @@ const Match = () => {
         }
       },
     })
+    
   ).current;
-
-  const handleViewProfile = (user: CardProps['card']) => {
-    setSelectedUser(user);
-    setIsProfileModalVisible(true);
-  };
 
   const renderCards = () => {
     return cards.map((card, index) => {
@@ -504,7 +488,6 @@ const Match = () => {
             isFirst={true}
             onSwipe={handleSwipe}
             onLike={handleLike}
-            onViewProfile={handleViewProfile}
             {...panResponder.panHandlers}
             style={{
               transform: [
@@ -516,12 +499,12 @@ const Match = () => {
           />
         );
       }
-      return <Card key={card.usuario_id} card={card} isFirst={false} onSwipe={handleSwipe} onLike={handleLike} onViewProfile={handleViewProfile} />;
+      return <Card key={card.usuario_id} card={card} isFirst={false} onSwipe={handleSwipe} onLike={handleLike} />;
     }).reverse();
   };
 
   const refreshCards = () => {
-    fetchUsers();
+    setLastRefreshTime(Date.now());
     position.setValue({ x: 0, y: 0 });
   };
 
@@ -544,13 +527,6 @@ const Match = () => {
           <Text className="text-white font-bold">Refrescar</Text>
         </TouchableOpacity>
       </View>
-      {selectedUser && (
-        <UserProfileModal
-          isVisible={isProfileModalVisible}
-          onClose={() => setIsProfileModalVisible(false)}
-          user={selectedUser}
-        />
-      )}
     </GestureHandlerRootView>
   );
 };

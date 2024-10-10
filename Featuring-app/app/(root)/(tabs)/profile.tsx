@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, Image, ScrollView, ActivityIndicator, TouchableOpacity, Alert } from "react-native";
+import { View, Text, Image, ScrollView, ActivityIndicator, TouchableOpacity, Alert, Linking } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { supabase } from "@/lib/supabase";
 import { router } from "expo-router";
 import { icons } from "@/constants";
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, FontAwesome } from '@expo/vector-icons';
 
 interface Perfil {
   username: string;
@@ -16,6 +16,7 @@ interface Perfil {
   biografia: string;
   generos: string[];
   habilidades: string[];
+  redes_sociales: { nombre: string; url: string }[];
 }
 
 export default function Profile() {
@@ -46,7 +47,8 @@ export default function Profile() {
           edad,
           biografia,
           perfil_genero (genero),
-          perfil_habilidad (habilidad)
+          perfil_habilidad (habilidad),
+          red_social (nombre, url)
         `)
         .eq('usuario_id', user.id)
         .single();
@@ -56,9 +58,10 @@ export default function Profile() {
       if (data) {
         const perfilData = {
           ...data,
-          full_name: user.user_metadata?.full_name || '', // Obtener full_name directamente de los metadatos del usuario
+          full_name: user.user_metadata?.full_name || '',
           generos: data.perfil_genero.map(g => g.genero),
-          habilidades: data.perfil_habilidad.map(h => h.habilidad)
+          habilidades: data.perfil_habilidad.map(h => h.habilidad),
+          redes_sociales: data.red_social
         };
       
         setPerfil(perfilData);
@@ -115,6 +118,27 @@ export default function Profile() {
   const handleUploadSuccess = () => {
     // Aquí podrías actualizar la lista de canciones del usuario si la muestras en el perfil
     console.log('Canción subida exitosamente');
+  };
+
+  const getRedSocialIcon = (nombre: string) => {
+    switch (nombre.toLowerCase()) {
+      case 'soundcloud':
+        return 'soundcloud';
+      case 'instagram':
+        return 'instagram';
+      case 'facebook':
+        return 'facebook';
+      case 'twitter':
+        return 'twitter';
+      case 'spotify':
+        return 'spotify';
+      default:
+        return 'link';
+    }
+  };
+
+  const handleRedSocialPress = (url: string) => {
+    Linking.openURL(url).catch((err) => console.error('Error al abrir el enlace:', err));
   };
 
   if (isLoading) {
@@ -200,6 +224,24 @@ export default function Profile() {
                     <Text className="text-secondary-500">{habilidad}</Text>
                   </View>
                 ))}
+              </View>
+            </ProfileSection>
+
+            <ProfileSection icon={icons.link} title="Redes Sociales">
+              <View className="flex-row flex-wrap">
+                {perfil.redes_sociales && perfil.redes_sociales.length > 0 ? (
+                  perfil.redes_sociales.map((red, index) => (
+                    <TouchableOpacity
+                      key={index}
+                      onPress={() => handleRedSocialPress(red.url)}
+                      className="m-2"
+                    >
+                      <FontAwesome name={getRedSocialIcon(red.nombre)} size={30} color="#4B5563" />
+                    </TouchableOpacity>
+                  ))
+                ) : (
+                  <Text className="text-gray-500">No hay redes sociales agregadas</Text>
+                )}
               </View>
             </ProfileSection>
 
