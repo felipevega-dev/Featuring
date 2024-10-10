@@ -1,97 +1,133 @@
-import React from 'react';
-import { View, Text, Image, Dimensions } from 'react-native';
-import Swiper from 'react-native-deck-swiper';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, FlatList, TouchableOpacity, Dimensions, SafeAreaView, Platform, StatusBar } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import VideoCard from '@/components/VideoCard';
+import UploadVideoModal from '@/components/UploadVideoModal';
+import useVideos from '@/hooks/useVideos';
+import { supabase } from '@/lib/supabase';
+import { VideoProvider, useVideo } from '@/contexts/VideoContext';
+import { useFocusEffect } from '@react-navigation/native';
+import { Video } from 'expo-av';
 
 const { width, height } = Dimensions.get('window');
 
-// ... (DUMMY_USERS permanece igual)
-const DUMMY_USERS = [
-  {
-    id: 1,
-    nombre_completo: "Cris Fourkahde",
-    foto_perfil: "https://example.com/cris.jpg",
-    ubicacion: "Concepción",
-    distancia: "3 kms away",
-    busco: "baterista",
-    habilidades: ["Bassist", "Film Music Composer", "Synth Explorer", "Guitar"]
-  },
-  {
-    id: 2,
-    nombre_completo: "Laura Strings",
-    foto_perfil: "https://example.com/laura.jpg",
-    ubicacion: "Santiago",
-    distancia: "5 kms away",
-    busco: "guitarrista",
-    habilidades: ["Violinist", "Orchestra Conductor", "Piano"]
-  },
-  {
-    id: 3,
-    nombre_completo: "Mike Beats",
-    foto_perfil: "https://example.com/mike.jpg",
-    ubicacion: "Valparaíso",
-    distancia: "10 kms away",
-    busco: "vocalista",
-    habilidades: ["Drummer", "Percussionist", "Music Producer"]
+const STATUSBAR_HEIGHT = Platform.OS === 'ios' ? 20 : StatusBar.currentHeight;
+const BOTTOM_TAB_HEIGHT = 35; // Ajusta esto según la altura real de tu barra de pestañas inferior
+
+const WatchContent = () => {
+  const { videos, setVideos, isLoading, error, refetchVideos } = useVideos();
+  const [isUploadModalVisible, setIsUploadModalVisible] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const flatListRef = useRef<FlatList>(null);
+  const { setCurrentPlayingId } = useVideo();
+
+  useEffect(() => {
+    getCurrentUser();
+  }, []);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      if (currentIndex >= 0 && videos[currentIndex]) {
+        setCurrentPlayingId(videos[currentIndex].id);
+      }
+      return () => {
+        setCurrentPlayingId(null);
+        videos.forEach(video => {
+          if (video.ref && video.ref.current) {
+            video.ref.current.pauseAsync();
+          }
+        });
+      };
+    }, [currentIndex, videos, setCurrentPlayingId])
+  );
+
+  const getCurrentUser = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      setCurrentUserId(user.id);
+    }
+  };
+
+  const handleUploadSuccess = () => {
+    refetchVideos();
+    setIsUploadModalVisible(false);
+  };
+
+  const onViewableItemsChanged = React.useCallback(({ viewableItems }) => {
+    if (viewableItems.length > 0) {
+      setCurrentIndex(viewableItems[0].index);
+      setCurrentPlayingId(viewableItems[0].item.id);
+    }
+  }, [setCurrentPlayingId]);
+
+  const viewabilityConfig = {
+    itemVisiblePercentThreshold: 50
+  };
+
+  const handleDeleteVideo = (videoId: number) => {
+    setVideos(prevVideos => prevVideos.filter(v => v.id !== videoId));
+  };
+
+  const handleUpdateVideo = (videoId: number, updatedData: { titulo: string, descripcion: string }) => {
+    setVideos(prevVideos => prevVideos.map(v => 
+      v.id === videoId ? { ...v, ...updatedData } : v
+    ));
+  };
+
+  if (isLoading || error) {
+    return null; // O un componente de carga/error
   }
-];
-const MatchCard = ({ user }) => (
-  <View className="bg-white rounded-3xl p-5 border-2 border-green-500 w-[90%] h-[70%] justify-center items-center">
-    <View className="bg-purple-600 p-3 rounded-full mb-4">
-      <Text className="text-white text-center text-base">
-        Hola, me gustaría encontrar {user.busco}
-      </Text>
-    </View>
-    
-    <Image
-      source={{ uri: user.foto_perfil }}
-      className="w-48 h-48 rounded-lg self-center mb-4"
-    />
-    
-    <Text className="text-2xl font-bold text-center mb-1">{user.nombre_completo}</Text>
-    <Text className="text-gray-600 text-center mb-2">{user.ubicacion} • {user.distancia}</Text>
-    
-    <Text className="text-purple-600 font-semibold text-center">
-      {user.habilidades.slice(0, 3).join(', ')}
-    </Text>
-    {user.habilidades.length > 3 && (
-      <Text className="text-purple-600 text-center">&amp; {user.habilidades.length - 3} more</Text>
-    )}
-  </View>
-);
 
-const Match = () => {
-  const handleSwipedRight = (index) => {
-    console.log(`Liked ${DUMMY_USERS[index].nombre_completo}`);
-  };
-
-  const handleSwipedLeft = (index) => {
-    console.log(`Passed ${DUMMY_USERS[index].nombre_completo}`);
-  };
+  const videoHeight = height - STATUSBAR_HEIGHT - BOTTOM_TAB_HEIGHT;
 
   return (
-    <View className="flex-1 bg-gray-100 justify-center items-center">
-         <View className="w-full h-full pb-20">
-        <Swiper
-          cards={DUMMY_USERS}
-          renderCard={(card) => <MatchCard user={card} />}
-          onSwipedRight={handleSwipedRight}
-          onSwipedLeft={handleSwipedLeft}
-          cardIndex={0}
-          backgroundColor={'transparent'}
-          stackSize={3}
-          stackSeparation={15}
-          outputRotationRange={["-5deg", "0deg", "5deg"]}
-          cardHorizontalMargin={0}
-          cardVerticalMargin={0}
-          containerStyle={{
-            flex: 1,
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
+    <SafeAreaView style={{ flex: 1, backgroundColor: 'black' }}>
+      <View style={{ flex: 1 }}>
+        <View style={{ position: 'absolute', top: 620, right: 175, zIndex: 10 }}>
+          <TouchableOpacity
+            onPress={() => setIsUploadModalVisible(true)}
+            style={{ backgroundColor: '#66E7D5', padding: 10, borderRadius: 30 }}
+          >
+            <Ionicons name="add" size={24} color="white" />
+          </TouchableOpacity>
+        </View>
+        <FlatList
+          ref={flatListRef}
+          data={videos}
+          renderItem={({ item, index }) => (
+            <VideoCard 
+              video={item} 
+              currentUserId={currentUserId || ''} 
+              isActive={index === currentIndex}
+              height={videoHeight}
+              onDeleteVideo={handleDeleteVideo}
+              onUpdateVideo={handleUpdateVideo}
+              setVideos={setVideos}
+            />
+          )}
+          keyExtractor={(item) => item.id.toString()}
+          pagingEnabled
+          snapToInterval={videoHeight}
+          decelerationRate="fast"
+          showsVerticalScrollIndicator={false}
+          onViewableItemsChanged={onViewableItemsChanged}
+          viewabilityConfig={viewabilityConfig}
+        />
+        <UploadVideoModal
+          isVisible={isUploadModalVisible}
+          onClose={() => setIsUploadModalVisible(false)}
+          onUploadSuccess={handleUploadSuccess}
         />
       </View>
-    </View>
+    </SafeAreaView>
   );
 };
 
-export default Match;
+const Watch = () => (
+  <VideoProvider>
+    <WatchContent />
+  </VideoProvider>
+);
+
+export default Watch;

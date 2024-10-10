@@ -40,7 +40,10 @@ const Chat = () => {
     if (error) {
       console.error('Error al obtener el usuario actual:', error);
     } else if (user) {
+      console.log('Usuario actual obtenido:', user.id);
       setCurrentUserId(user.id);
+    } else {
+      console.error('No hay usuario autenticado');
     }
   };
 
@@ -49,7 +52,9 @@ const Chat = () => {
 
     try {
       setIsLoading(true);
-      // Obtener las conexiones (matches) del usuario actual
+      console.log('Obteniendo conexiones para el usuario:', currentUserId);
+
+      // Modificamos la consulta para obtener todas las conexiones del usuario actual
       const { data: connections, error: connectionsError } = await supabase
         .from('conexion')
         .select('*')
@@ -57,6 +62,15 @@ const Chat = () => {
         .eq('estado', true);
 
       if (connectionsError) throw connectionsError;
+      
+      console.log('Conexiones obtenidas:', connections);
+
+      if (!connections || connections.length === 0) {
+        console.log('No se encontraron conexiones');
+        setChatList([]);
+        setIsLoading(false);
+        return;
+      }
 
       // Obtener los detalles de los usuarios y los últimos mensajes
       const chatListPromises = connections.map(async (connection) => {
@@ -93,6 +107,7 @@ const Chat = () => {
       });
 
       const chatListData = await Promise.all(chatListPromises);
+      console.log('Lista de chats procesada:', chatListData);
       setChatList(chatListData);
     } catch (error) {
       console.error('Error al obtener la lista de chats:', error);
