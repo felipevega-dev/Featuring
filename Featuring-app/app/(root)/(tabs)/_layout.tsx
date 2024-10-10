@@ -165,7 +165,7 @@ const Layout = () => {
           }}
         />
         
-        <Tabs.Screen name="chat[id]" options={{ href: null }} />
+        <Tabs.Screen name="chat/[id]" options={{ href: null }} />
        
         <Tabs.Screen
           name="notificaciones"

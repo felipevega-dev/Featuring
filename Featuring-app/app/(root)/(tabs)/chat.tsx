@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { FontAwesome } from '@expo/vector-icons'; // Asegúrate de tener esta dependencia instalada
+import { Link, useRouter } from 'expo-router';
 
 type RootStackParamList = {
   Chat: undefined;
@@ -27,6 +28,7 @@ const Chat = () => {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const navigation = useNavigation<ChatScreenNavigationProp>();
+  const router = useRouter();
 
   useEffect(() => {
     getCurrentUser();
@@ -122,7 +124,7 @@ const Chat = () => {
   const renderChatItem = ({ item }: { item: ChatListItem }) => (
     <TouchableOpacity 
       className="flex-row items-center p-4 border-b border-gray-200"
-      onPress={() => navigation.navigate('ChatDetail', { id: item.otherUserId })}
+      onPress={() => router.push(`/chat/${item.otherUserId}`)}
     >
       {item.otherUserAvatar ? (
         <Image
@@ -155,7 +157,7 @@ const Chat = () => {
       <FontAwesome name="comments-o" size={80} color="#CCCCCC" />
       <Text className="text-xl font-bold text-gray-400 mt-4">No hay matches disponibles</Text>
       <Text className="text-gray-400 mt-2 text-center px-4">
-        ¡Sigue explorando y conectando con otros músicos para comenzar a chatear
+        ¡Sigue explorando y conectando con otros músicos para comenzar a chatear!
       </Text>
       <TouchableOpacity 
         className="mt-6 bg-blue-500 py-3 px-6 rounded-full"
