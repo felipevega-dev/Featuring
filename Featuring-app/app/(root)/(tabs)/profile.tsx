@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { View, Text, Image, ScrollView, ActivityIndicator, TouchableOpacity, Alert, Linking } from "react-native";
 import { supabase } from "@/lib/supabase";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { icons } from "@/constants";
 import { Ionicons, FontAwesome } from '@expo/vector-icons';
 
@@ -19,6 +19,7 @@ interface Perfil {
 }
 
 export default function Profile() {
+  const { refreshProfile } = useLocalSearchParams<{ refreshProfile: string }>();
   const [perfil, setPerfil] = useState<Perfil | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isUploadModalVisible, setIsUploadModalVisible] = useState(false);
@@ -26,8 +27,7 @@ export default function Profile() {
 
   useEffect(() => {
     fetchPerfil();
-    fetchUserProfile();
-  }, []);
+  }, [refreshProfile]);
 
   const fetchPerfil = async () => {
     try {
@@ -114,11 +114,6 @@ export default function Profile() {
     );
   };
 
-  const handleUploadSuccess = () => {
-    // Aquí podrías actualizar la lista de canciones del usuario si la muestras en el perfil
-    console.log('Canción subida exitosamente');
-  };
-
   const getRedSocialIcon = (nombre: string) => {
     switch (nombre.toLowerCase()) {
       case 'soundcloud':
@@ -193,12 +188,7 @@ export default function Profile() {
             >
               <Image source={icons.editar} className="w-8 h-8" style={{ tintColor: '#00CED1' }} />
             </TouchableOpacity>
-            <TouchableOpacity 
-              onPress={fetchPerfil} 
-              className="absolute top-0 left-0 p-2"
-            >
-              <Ionicons name="refresh" size={24} color="#00CED1" />
-            </TouchableOpacity>
+            
             <View className="items-center pb-4">
               <View className="w-36 h-36 rounded-full shadow-lg shadow-black/50 mb-4">
                 {perfil.foto_perfil ? (
@@ -279,4 +269,3 @@ export default function Profile() {
     </View>
   );
 }
-

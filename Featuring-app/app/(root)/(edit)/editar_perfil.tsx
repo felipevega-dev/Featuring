@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Image, ScrollView, Alert, Modal, Linking } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Image, ScrollView, Alert, Modal, Linking, LogBox } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { styled } from 'nativewind';
 import { supabase } from "@/lib/supabase";
@@ -7,6 +7,9 @@ import * as ImagePicker from 'expo-image-picker';
 import { icons } from "@/constants";
 import DropDownPicker from 'react-native-dropdown-picker';
 import { FontAwesome } from '@expo/vector-icons';
+
+// Ignorar la advertencia específica
+LogBox.ignoreLogs(['VirtualizedLists should never be nested']);
 
 const StyledView = styled(View)
 const StyledText = styled(Text)
@@ -34,13 +37,6 @@ const EditarPerfil = () => {
   const router = useRouter();
   const [perfil, setPerfil] = useState<Perfil | null>(null);
   const [fotoPerfil, setFotoPerfil] = useState<string | null>(null);
-  const [generoOpen, setGeneroOpen] = useState(false);
-  const [generoValue, setGeneroValue] = useState('');
-  const [generoItems, setGeneroItems] = useState([
-    { label: 'Masculino', value: 'masculino' },
-    { label: 'Femenino', value: 'femenino' },
-    { label: 'Otro', value: 'otro' }
-  ]);
   const [modalVisible, setModalVisible] = useState(false);
   const [modalContent, setModalContent] = useState<'generos' | 'habilidades' | 'redes_sociales'>('generos');
 
@@ -108,7 +104,6 @@ const EditarPerfil = () => {
           mensaje: data.mensaje || ''
         });
         setFotoPerfil(data.foto_perfil);
-        setGeneroValue(data.sexo || '');
       }
     } catch (error) {
       console.error("Error al obtener el perfil:", error);
@@ -148,9 +143,18 @@ const EditarPerfil = () => {
       if (userError) throw userError;
       if (!user) throw new Error('No se encontró un usuario autenticado');
 
+      // Actualizar full_name en auth.users
+      const { error: updateUserError } = await supabase.auth.updateUser({
+        data: { full_name: perfil.full_name }
+      });
+
+      if (updateUserError) throw updateUserError;
+
+      // Actualizar el resto de la información en la tabla perfil
       const { error: updateError } = await supabase
         .from('perfil')
         .update({
+          username: perfil.username,
           foto_perfil: fotoPerfil,
           sexo: perfil.sexo,
           edad: perfil.edad,
@@ -185,7 +189,11 @@ const EditarPerfil = () => {
       }
 
       Alert.alert("Éxito", "Perfil actualizado correctamente");
-      router.back();
+      if (router.canGoBack()) {
+        router.back();
+        // Emitir un evento para actualizar el perfil en la página anterior
+        router.setParams({ refreshProfile: Date.now().toString() });
+      }
     } catch (error) {
       console.error("Error al actualizar el perfil:", error);
       Alert.alert("Error", "No se pudo actualizar el perfil");
@@ -312,6 +320,16 @@ const EditarPerfil = () => {
     eliminarRedSocial(index);
   };
 
+  const renderSelectedItems = (items: string[], type: 'generos' | 'habilidades') => (
+    <View className="flex-row flex-wrap mt-2">
+      {items.map((item, index) => (
+        <View key={index} className={`m-1 p-2 rounded-full ${type === 'generos' ? 'bg-secondary-500' : 'bg-secondary-500'}`}>
+          <Text className="text-white font-JakartaMedium">{item}</Text>
+        </View>
+      ))}
+    </View>
+  );
+
   const renderModalContent = () => {
     const items = modalContent === 'generos' ? generosMusicales : 
                   modalContent === 'habilidades' ? habilidadesMusicales : 
@@ -348,6 +366,13 @@ const EditarPerfil = () => {
     );
   };
 
+  // Agregar esta función para manejar la selección de género
+  const handleGeneroSelection = (selectedGenero: string) => {
+    if (perfil) {
+      setPerfil({...perfil, sexo: selectedGenero});
+    }
+  };
+
   if (!perfil) {
     return <View><Text>Cargando...</Text></View>;
   }
@@ -362,7 +387,7 @@ const EditarPerfil = () => {
           className="absolute top-14 left-4 z-4"
           onPress={() => router.back()}
         >
-          <Image source={icons.backArrow} className="w-8 h-8" />
+          <Image source={icons.backArrow} className="w-8 h-8" style={{ tintColor: '#6D29D2' }} />
         </StyledTouchableOpacity>
         
         <StyledView className="items-center mb-2">
@@ -371,12 +396,12 @@ const EditarPerfil = () => {
             className="w-24 h-24 rounded-full mb-3"
           />
           <StyledTouchableOpacity onPress={cambiarFoto}>
-            <StyledText className="text-blue-500">Cambiar foto</StyledText>
+            <StyledText className="text-secondary-500">Cambiar foto</StyledText>
           </StyledTouchableOpacity>
         </StyledView>
         
         <StyledView className="mb-2">
-          <StyledText className="text-lg font-bold mb-2">Nombre de usuario:</StyledText>
+          <StyledText className="text-lg font-bold mb-2 text-primary-700">Nombre de usuario:</StyledText>
           <StyledTextInput
             className="border border-gray-300 p-2 rounded-md"
             value={perfil.username}
@@ -385,7 +410,7 @@ const EditarPerfil = () => {
         </StyledView>
 
         <StyledView className="mb-2">
-          <StyledText className="text-lg font-bold mb-2">Nombre completo:</StyledText>
+          <StyledText className="text-lg font-bold mb-2 text-primary-700">Nombre completo:</StyledText>
           <StyledTextInput
             className="border border-gray-300 p-2 rounded-md"
             value={perfil.full_name}
@@ -394,7 +419,7 @@ const EditarPerfil = () => {
         </StyledView>
 
         <StyledView className="mb-2">
-          <StyledText className="text-lg font-bold mb-2">Mensaje del perfil:</StyledText>
+          <StyledText className="text-lg font-bold mb-2 text-primary-700">Mensaje del perfil:</StyledText>
           <StyledTextInput
             className="border border-gray-300 p-2 rounded-md"
             value={perfil.mensaje || ''} // Aseguramos que siempre haya un valor
@@ -407,37 +432,72 @@ const EditarPerfil = () => {
           </StyledText>
         </StyledView>
 
-        <StyledView className="mb-2 z-50">
-          <StyledText className="text-lg font-bold mb-2">Género:</StyledText>
-          <DropDownPicker
-            open={generoOpen}
-            value={generoValue}
-            items={generoItems}
-            setOpen={setGeneroOpen}
-            setValue={setGeneroValue}
-            setItems={setGeneroItems}
-            onChangeValue={(value) => {
-              if (perfil && value) {
-                setPerfil({...perfil, sexo: value});
-              }
-            }}
-            zIndex={3000}
-            zIndexInverse={1000}
-          />
+        <StyledView className="mb-3">
+          <StyledText className="text-lg font-bold mb-2 text-primary-700">Género:</StyledText>
+          <View className="flex flex-row">
+            <TouchableOpacity
+              className={`p-3 border-2 m-2 rounded-full ${
+                perfil.sexo === "Masculino" ? "bg-primary-500 border-primary-700" : "bg-primary-200 border-primary-400"
+              }`}
+              onPress={() => handleGeneroSelection("Masculino")}
+            >
+              <Text
+                className={`${
+                  perfil.sexo === "Masculino" ? "text-white" : "text-primary-700"
+                } font-JakartaSemiBold`}
+              >
+                Masculino
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              className={`p-3 border-2 m-2 rounded-full ${
+                perfil.sexo === "Femenino" ? "bg-secondary-500 border-secondary-700" : "bg-primary-200 border-primary-400"
+              }`}
+              onPress={() => handleGeneroSelection("Femenino")}
+            >
+              <Text
+                className={`${
+                  perfil.sexo === "Femenino" ? "text-white" : "text-secondary-700"
+                } font-JakartaSemiBold`}
+              >
+                Femenino
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              className={`p-3 border-2 m-2 rounded-full ${
+                perfil.sexo === "Otro" ? "bg-general-200 border-general-400" : "bg-primary-200 border-primary-400"
+              }`}
+              onPress={() => handleGeneroSelection("Otro")}
+            >
+              <Text
+                className={`${
+                  perfil.sexo === "Otro" ? "text-white" : "text-general-800"
+                } font-JakartaSemiBold`}
+              >
+                Otro
+              </Text>
+            </TouchableOpacity>
+          </View>
         </StyledView>
 
         <StyledView className="mb-2">
-          <StyledText className="text-lg font-bold mb-2">Edad:</StyledText>
+          <StyledText className="text-lg font-bold mb-2 text-primary-700">Edad:</StyledText>
           <StyledTextInput
             className="border border-gray-300 p-2 rounded-md"
             value={perfil.edad.toString()}
-            onChangeText={(text) => setPerfil({...perfil, edad: parseInt(text) || 0})}
+            onChangeText={(text) => {
+              const age = parseInt(text) || 0;
+              if (age <= 100) {
+                setPerfil({...perfil, edad: age});
+              }
+            }}
             keyboardType="numeric"
+            maxLength={3}
           />
         </StyledView>
 
         <StyledView className="mb-2">
-          <StyledText className="text-lg font-bold mb-2">Ubicación:</StyledText>
+          <StyledText className="text-lg font-bold mb-2 text-primary-700">Ubicación:</StyledText>
           <StyledTextInput
             className="border border-gray-300 p-2 rounded-md"
             value={perfil.ubicacion}
@@ -446,7 +506,7 @@ const EditarPerfil = () => {
         </StyledView>
 
         <StyledView className="mb-2">
-          <StyledText className="text-lg font-bold mb-2">Biografía:</StyledText>
+          <StyledText className="text-lg font-bold mb-2 text-primary-700">Biografía:</StyledText>
           <StyledTextInput
             className="border border-gray-300 p-2 rounded-md"
             value={perfil.biografia}
@@ -457,39 +517,35 @@ const EditarPerfil = () => {
         </StyledView>
 
         <StyledView className="mb-4">
-          <StyledText className="text-lg font-bold mb-2">Géneros Musicales:</StyledText>
-          {perfil.generos.map((genero, index) => (
-            <StyledText key={index}>{genero}</StyledText>
-          ))}
+          <StyledText className="text-lg font-bold text-primary-700">Géneros Musicales Seleccionados:</StyledText>
+          {renderSelectedItems(perfil.generos, 'generos')}
           <StyledTouchableOpacity 
-            className="bg-blue-500 p-2 rounded-md mt-2"
+            className="bg-primary-500 p-2 rounded-md mt-2"
             onPress={() => {
               setModalContent('generos');
               setModalVisible(true);
             }}
           >
-            <StyledText className="text-white text-center">Modificar Géneros</StyledText>
+            <StyledText className="text-white text-center font-JakartaMedium ">Modificar Géneros</StyledText>
           </StyledTouchableOpacity>
         </StyledView>
 
         <StyledView className="mb-4">
-          <StyledText className="text-lg font-bold mb-2">Habilidades Musicales:</StyledText>
-          {perfil.habilidades.map((habilidad, index) => (
-            <StyledText key={index}>{habilidad}</StyledText>
-          ))}
+          <StyledText className="text-lg font-bold text-primary-700">Habilidades Musicales Seleccionadas:</StyledText>
+          {renderSelectedItems(perfil.habilidades, 'habilidades')}
           <StyledTouchableOpacity 
-            className="bg-blue-500 p-2 rounded-md mt-2"
+            className="bg-primary-500 p-2 rounded-md mt-2"
             onPress={() => {
               setModalContent('habilidades');
               setModalVisible(true);
             }}
           >
-            <StyledText className="text-white text-center">Modificar Habilidades</StyledText>
+            <StyledText className="text-white text-center font-JakartaMedium">Modificar Habilidades</StyledText>
           </StyledTouchableOpacity>
         </StyledView>
 
         <StyledView className="mb-4">
-          <StyledText className="text-lg font-bold mb-2">Redes Sociales (máx. 3):</StyledText>
+          <StyledText className="text-lg font-bold mb-2 text-blue-600">Redes Sociales (máx. 3):</StyledText>
           <View className="flex-row justify-start mb-2">
             {perfil.redes_sociales.map((red, index) => {
               const iconName = getRedSocialIcon(red.nombre);
