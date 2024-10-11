@@ -40,6 +40,8 @@ import comentario from "@/assets/icons/comentario.png";
 import hearto from "@/assets/icons/hearto.png";
 import shuffle from "@/assets/icons/shuffle.png";
 import trespuntos from "@/assets/icons/trespuntos.png";
+import link from "@/assets/icons/link.png";
+import features from "@/assets/icons/features.png";
 //IMAGENES
 import check from "@/assets/images/check.png";
 import getStarted from "@/assets/images/get-started.png";
@@ -76,6 +78,8 @@ export const images = {
 };
 
 export const icons = {
+  features,
+  link,
   editar,
   shuffle,
   email,

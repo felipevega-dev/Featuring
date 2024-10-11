@@ -168,7 +168,7 @@ const Layout = () => {
         <Tabs.Screen
           name="chat/[id]"
           options={{
-            href: null,
+            tabBarButton: () => null,
             headerShown: false,  // Esto ocultará el encabezado por defecto
           }}
         />

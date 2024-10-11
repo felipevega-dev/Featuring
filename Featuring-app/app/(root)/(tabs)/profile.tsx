@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import { View, Text, Image, ScrollView, ActivityIndicator, TouchableOpacity, Alert, Linking } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { supabase } from "@/lib/supabase";
 import { router } from "expo-router";
 import { icons } from "@/constants";
@@ -157,6 +156,27 @@ export default function Profile() {
     );
   }
 
+  function ProfileSection({ icon, title, children }) {
+    return (
+      <View className="mb-3">
+        <View className="flex-row items-center mb-2">
+          <Image source={icon} className="w-6 h-6 mr-2" />
+          <Text className="text-xl font-semibold text-gray-800">{title}</Text>
+        </View>
+        {children}
+      </View>
+    );
+  }
+  
+  function ProfileItem({ label, value }) {
+    return (
+      <View className="flex-row justify-between items-center py-1">
+        <Text className="text-primary-700 font-medium">{label}</Text>
+        <Text className="text-gray-800">{value || "No especificado"}</Text>
+      </View>
+    );
+  }
+
   return (
     <View className="flex-1 bg-primary-600 p-1">
       <View className="mb-2 mt-2">
@@ -208,9 +228,9 @@ export default function Profile() {
             </ProfileSection>
 
             <ProfileSection icon={icons.generos} title="Géneros Musicales">
-              <View className="flex-row flex-wrap mb-10">
+              <View className="flex-row flex-wrap">
                 {perfil.generos.map((genero, index) => (
-                  <View key={index} className="bg-primary-100 rounded-full px-3 py-1 m-1">
+                  <View key={index} className="bg-primary-100 rounded-full px-2 py-1 m-1">
                     <Text className="text-primary-600">{genero}</Text>
                   </View>
                 ))}
@@ -220,7 +240,7 @@ export default function Profile() {
             <ProfileSection icon={icons.star} title="Habilidades Musicales">
               <View className="flex-row flex-wrap">
                 {perfil.habilidades.map((habilidad, index) => (
-                  <View key={index} className="bg-secondary-100 rounded-full px-3 py-1 m-1">
+                  <View key={index} className="bg-secondary-100 rounded-full px-2 py-1 m-1">
                     <Text className="text-secondary-500">{habilidad}</Text>
                   </View>
                 ))}
@@ -236,7 +256,7 @@ export default function Profile() {
                       onPress={() => handleRedSocialPress(red.url)}
                       className="m-2"
                     >
-                      <FontAwesome name={getRedSocialIcon(red.nombre)} size={30} color="#4B5563" />
+                      <FontAwesome name={getRedSocialIcon(red.nombre)} size={30} color="#5416A0" />
                     </TouchableOpacity>
                   ))
                 ) : (
@@ -260,23 +280,3 @@ export default function Profile() {
   );
 }
 
-function ProfileSection({ icon, title, children }) {
-  return (
-    <View className="mb-4">
-      <View className="flex-row items-center mb-2">
-        <Image source={icon} className="w-6 h-6 mr-2" />
-        <Text className="text-xl font-semibold text-gray-800">{title}</Text>
-      </View>
-      {children}
-    </View>
-  );
-}
-
-function ProfileItem({ label, value }) {
-  return (
-    <View className="flex-row justify-between items-center py-1">
-      <Text className="text-primary-700 font-medium">{label}</Text>
-      <Text className="text-gray-800">{value || "No especificado"}</Text>
-    </View>
-  );
-}

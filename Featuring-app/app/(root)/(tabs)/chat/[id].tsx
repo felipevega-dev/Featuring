@@ -353,18 +353,18 @@ export default function ChatDetail() {
 
         <View className="flex-row items-center p-2 bg-white border-t border-primary-200">
           <TextInput
-            className="flex-1 bg-primary-100 rounded-full px-4 py-2 mr-2"
+            className="flex-1 bg-primary-100 rounded-full px-4 py-2 mr-2 mb-14"
             value={newMessage}
             onChangeText={setNewMessage}
             placeholder="Escribe un mensaje..."
           />
           <TouchableOpacity 
             onPress={isRecording ? stopRecording : startRecording}
-            className="bg-primary-500 rounded-full p-2 mr-2"
+            className="bg-primary-500 rounded-full p-2 mr-2 mb-14"
           >
             <FontAwesome name={isRecording ? "stop" : "microphone"} size={20} color="white" />
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => sendMessage(newMessage, 'texto')} className="bg-primary-500 rounded-full p-2">
+          <TouchableOpacity onPress={() => sendMessage(newMessage, 'texto')} className="bg-primary-500 rounded-full p-2 mb-14">
             <FontAwesome name="send" size={20} color="white" />
           </TouchableOpacity>
         </View>
