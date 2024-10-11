@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, FlatList, TouchableOpacity, Image } from 'react-native';
-import { supabase } from '@/lib/supabase';
-import { useRouter } from 'expo-router';
-import { FontAwesome } from '@expo/vector-icons';
+import React, { useEffect, useState } from "react";
+import { View, Text, FlatList, TouchableOpacity, Image } from "react-native";
+import { supabase } from "@/lib/supabase";
+import { useRouter } from "expo-router";
+import { FontAwesome } from "@expo/vector-icons";
 
 interface ChatListItem {
   id: string;
@@ -30,7 +30,9 @@ export default function Chat() {
   }, [currentUserId]);
 
   const getCurrentUser = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (user) setCurrentUserId(user.id);
   };
 
@@ -40,10 +42,10 @@ export default function Chat() {
     try {
       setIsLoading(true);
       const { data: connections, error: connectionsError } = await supabase
-        .from('conexion')
-        .select('*')
+        .from("conexion")
+        .select("*")
         .or(`usuario1_id.eq.${currentUserId},usuario2_id.eq.${currentUserId}`)
-        .eq('estado', true);
+        .eq("estado", true);
 
       if (connectionsError) throw connectionsError;
 
@@ -55,8 +57,11 @@ export default function Chat() {
 
       // Crear un Set para almacenar IDs de usuarios únicos
       const uniqueUserIds = new Set<string>();
-      const uniqueConnections = connections.filter(connection => {
-        const otherUserId = connection.usuario1_id === currentUserId ? connection.usuario2_id : connection.usuario1_id;
+      const uniqueConnections = connections.filter((connection) => {
+        const otherUserId =
+          connection.usuario1_id === currentUserId
+            ? connection.usuario2_id
+            : connection.usuario1_id;
         if (!uniqueUserIds.has(otherUserId)) {
           uniqueUserIds.add(otherUserId);
           return true;
@@ -65,25 +70,31 @@ export default function Chat() {
       });
 
       const chatListPromises = uniqueConnections.map(async (connection) => {
-        const otherUserId = connection.usuario1_id === currentUserId ? connection.usuario2_id : connection.usuario1_id;
+        const otherUserId =
+          connection.usuario1_id === currentUserId
+            ? connection.usuario2_id
+            : connection.usuario1_id;
 
         const { data: userData, error: userError } = await supabase
-          .from('perfil')
-          .select('username, foto_perfil')
-          .eq('usuario_id', otherUserId)
+          .from("perfil")
+          .select("username, foto_perfil")
+          .eq("usuario_id", otherUserId)
           .single();
 
         if (userError) throw userError;
 
         const { data: lastMessageData, error: messageError } = await supabase
-          .from('mensaje')
-          .select('contenido, fecha_envio')
-          .or(`and(emisor_id.eq.${currentUserId},receptor_id.eq.${otherUserId}),and(emisor_id.eq.${otherUserId},receptor_id.eq.${currentUserId})`)
-          .order('fecha_envio', { ascending: false })
+          .from("mensaje")
+          .select("contenido, fecha_envio")
+          .or(
+            `and(emisor_id.eq.${currentUserId},receptor_id.eq.${otherUserId}),and(emisor_id.eq.${otherUserId},receptor_id.eq.${currentUserId})`
+          )
+          .order("fecha_envio", { ascending: false })
           .limit(1)
           .single();
 
-        if (messageError && messageError.code !== 'PGRST116') throw messageError;
+        if (messageError && messageError.code !== "PGRST116")
+          throw messageError;
 
         return {
           id: connection.id,
@@ -98,14 +109,14 @@ export default function Chat() {
       const chatListData = await Promise.all(chatListPromises);
       setChatList(chatListData);
     } catch (error) {
-      console.error('Error al obtener la lista de chats:', error);
+      console.error("Error al obtener la lista de chats:", error);
     } finally {
       setIsLoading(false);
     }
   };
 
   const renderChatItem = ({ item }: { item: ChatListItem }) => (
-    <TouchableOpacity 
+    <TouchableOpacity
       className="flex-row items-center p-4 border-b border-primary-200"
       onPress={() => router.push(`/chat/${item.otherUserId}`)}
     >
@@ -122,9 +133,11 @@ export default function Chat() {
         </View>
       )}
       <View className="flex-1">
-        <Text className="font-JakartaBold text-lg text-primary-700">{item.otherUserName}</Text>
+        <Text className="font-JakartaBold text-lg text-primary-700">
+          {item.otherUserName}
+        </Text>
         <Text className="text-primary-600" numberOfLines={1}>
-          {item.lastMessage || 'No hay mensajes aún'}
+          {item.lastMessage || "No hay mensajes aún"}
         </Text>
       </View>
       {item.lastMessageTime && (
@@ -138,15 +151,20 @@ export default function Chat() {
   const renderEmptyList = () => (
     <View className="flex-1 justify-center items-center mb-16">
       <FontAwesome name="comments-o" size={80} color="#6D29D2" />
-      <Text className="text-xl font-JakartaBold text-primary-700 mt-4">No hay conexiones disponibles 😢</Text>
-      <Text className="text-primary-600 mt-2 text-center px-4 font-JakartaMedium">
-        ¡Sigue explorando y conectando con otros músicos para comenzar a chatear! 🎸🥁🎹
+      <Text className="text-xl font-JakartaBold text-primary-700 mt-4">
+        No hay conexiones disponibles 😢
       </Text>
-      <TouchableOpacity 
+      <Text className="text-primary-600 mt-2 text-center px-4 font-JakartaMedium">
+        ¡Sigue explorando y conectando con otros músicos para comenzar a
+        chatear! 🎸🥁🎹
+      </Text>
+      <TouchableOpacity
         className="mt-6 bg-primary-500 py-3 px-6 rounded-full"
-        onPress={() => router.push('/match')}
+        onPress={() => router.push("/match")}
       >
-        <Text className="text-white font-JakartaBold">Buscar Colaboradores 🤝</Text>
+        <Text className="text-white font-JakartaBold">
+          Buscar Colaboradores 🤝
+        </Text>
       </TouchableOpacity>
     </View>
   );
@@ -154,14 +172,18 @@ export default function Chat() {
   if (isLoading) {
     return (
       <View className="flex-1 justify-center items-center bg-white">
-        <Text className="text-primary-700 font-JakartaMedium">Cargando chats... 🎵</Text>
+        <Text className="text-primary-700 font-JakartaMedium">
+          Cargando chats... 🎵
+        </Text>
       </View>
     );
   }
 
   return (
     <View className="flex-1 bg-white">
-      <Text className="text-2xl font-JakartaBold p-4 text-primary-700">Chats</Text>
+      <Text className="text-2xl font-JakartaBold p-4 text-primary-700">
+        Chats
+      </Text>
       {chatList.length > 0 ? (
         <FlatList
           data={chatList}

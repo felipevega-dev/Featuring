@@ -1,5 +1,11 @@
-import React, { createContext, useState, useContext, useEffect, useRef } from 'react';
-import { Audio } from 'expo-av';
+import React, {
+  createContext,
+  useState,
+  useContext,
+  useEffect,
+  useRef,
+} from "react";
+import { Audio } from "expo-av";
 
 interface AudioPlayerContextType {
   currentSong: {
@@ -11,7 +17,12 @@ interface AudioPlayerContextType {
   isPlaying: boolean;
   duration: number | null;
   position: number | null;
-  playSound: (song: { id: number; title: string; audioUrl: string; coverUrl: string }) => Promise<void>;
+  playSound: (song: {
+    id: number;
+    title: string;
+    audioUrl: string;
+    coverUrl: string;
+  }) => Promise<void>;
   pauseSound: () => Promise<void>;
   resumeSound: () => Promise<void>;
   seekSound: (position: number) => Promise<void>;
@@ -19,19 +30,26 @@ interface AudioPlayerContextType {
   setDuration: React.Dispatch<React.SetStateAction<number | null>>;
 }
 
-const AudioPlayerContext = createContext<AudioPlayerContextType | undefined>(undefined);
+const AudioPlayerContext = createContext<AudioPlayerContextType | undefined>(
+  undefined
+);
 
 export const useAudioPlayer = () => {
   const context = useContext(AudioPlayerContext);
   if (context === undefined) {
-    throw new Error('useAudioPlayer must be used within an AudioPlayerProvider');
+    throw new Error(
+      "useAudioPlayer must be used within an AudioPlayerProvider"
+    );
   }
   return context;
 };
 
-export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
   const [sound, setSound] = useState<Audio.Sound | null>(null);
-  const [currentSong, setCurrentSong] = useState<AudioPlayerContextType['currentSong']>(null);
+  const [currentSong, setCurrentSong] =
+    useState<AudioPlayerContextType["currentSong"]>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [duration, setDuration] = useState<number | null>(null);
   const [position, setPosition] = useState<number | null>(null);
@@ -40,13 +58,18 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
   useEffect(() => {
     return sound
       ? () => {
-          console.log('Unloading Sound');
+          console.log("Unloading Sound");
           sound.unloadAsync();
         }
       : undefined;
   }, [sound]);
 
-  const playSound = async (song: { id: number; title: string; audioUrl: string; coverUrl: string }) => {
+  const playSound = async (song: {
+    id: number;
+    title: string;
+    audioUrl: string;
+    coverUrl: string;
+  }) => {
     if (sound) {
       if (currentSong?.id === song.id) {
         // Si es la misma canción, reanudar desde la posición actual

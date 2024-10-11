@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { View, Text, FlatList, TouchableOpacity, Alert } from "react-native";
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons } from "@expo/vector-icons";
 import SongCard from "@/components/SongCard";
 import { getSongs } from "@/app/(api)/comunidad";
 import { supabase } from "@/lib/supabase";
@@ -9,8 +9,8 @@ import UploadSongModal from "@/components/UploadSongModal";
 import GlobalAudioPlayer from "@/components/GlobalAudioPlayer";
 import { AudioPlayerProvider } from "@/contexts/AudioPlayerContext";
 
-type CancionDB = Database['public']['Tables']['cancion']['Row'];
-type PerfilDB = Database['public']['Tables']['perfil']['Row'];
+type CancionDB = Database["public"]["Tables"]["cancion"]["Row"];
+type PerfilDB = Database["public"]["Tables"]["perfil"]["Row"];
 
 interface Perfil {
   usuario_id: string;
@@ -19,7 +19,7 @@ interface Perfil {
   // Añade otras propiedades necesarias
 }
 
-interface Cancion extends Omit<CancionDB, 'perfil'> {
+interface Cancion extends Omit<CancionDB, "perfil"> {
   perfil: Perfil | null;
 }
 
@@ -36,7 +36,9 @@ const Comunidad = () => {
   }, []);
 
   const getCurrentUser = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (user) {
       setCurrentUserId(user.id);
     }
@@ -46,14 +48,16 @@ const Comunidad = () => {
     try {
       setIsLoading(true);
       const data = await getSongs();
-      const cancionesFormateadas: Cancion[] = data.map(cancion => ({
+      const cancionesFormateadas: Cancion[] = data.map((cancion) => ({
         ...cancion,
-        perfil: cancion.perfil ? {
-          usuario_id: cancion.perfil.usuario_id,
-          username: cancion.perfil.username || 'Usuario desconocido',
-          foto_perfil: cancion.perfil.foto_perfil,
-          // Mapea otras propiedades necesarias
-        } : null
+        perfil: cancion.perfil
+          ? {
+              usuario_id: cancion.perfil.usuario_id,
+              username: cancion.perfil.username || "Usuario desconocido",
+              foto_perfil: cancion.perfil.foto_perfil,
+              // Mapea otras propiedades necesarias
+            }
+          : null,
       }));
       setCanciones(cancionesFormateadas);
     } catch (err) {
@@ -72,9 +76,9 @@ const Comunidad = () => {
   const handleDeleteSong = async (cancionId: number) => {
     try {
       const { data: cancionData, error: fetchCancionError } = await supabase
-        .from('cancion')
-        .select('archivo_audio, caratula, usuario_id')
-        .eq('id', cancionId)
+        .from("cancion")
+        .select("archivo_audio, caratula, usuario_id")
+        .eq("id", cancionId)
         .single();
 
       if (fetchCancionError) throw fetchCancionError;
@@ -82,49 +86,54 @@ const Comunidad = () => {
       if (cancionData) {
         // Eliminar archivo de audio del storage
         if (cancionData.archivo_audio) {
-          console.log('URL del archivo de audio:', cancionData.archivo_audio);
-          const audioFileName = cancionData.archivo_audio.split('/').pop();
-          console.log('Nombre del archivo de audio extraído:', audioFileName);
+          console.log("URL del archivo de audio:", cancionData.archivo_audio);
+          const audioFileName = cancionData.archivo_audio.split("/").pop();
+          console.log("Nombre del archivo de audio extraído:", audioFileName);
           if (audioFileName) {
-            console.log('Intentando eliminar:', `${cancionData.usuario_id}/${audioFileName}`);
+            console.log(
+              "Intentando eliminar:",
+              `${cancionData.usuario_id}/${audioFileName}`
+            );
             const { error: audioDeleteError } = await supabase.storage
-              .from('canciones')
+              .from("canciones")
               .remove([`${cancionData.usuario_id}/${audioFileName}`]);
             if (audioDeleteError) {
-              console.error('Error deleting audio file:', audioDeleteError);
+              console.error("Error deleting audio file:", audioDeleteError);
             } else {
-              console.log('Archivo de audio eliminado con éxito');
+              console.log("Archivo de audio eliminado con éxito");
             }
           }
         }
 
         // Eliminar carátula del storage
         if (cancionData.caratula) {
-          const caratulaFileName = cancionData.caratula.split('/').pop();
+          const caratulaFileName = cancionData.caratula.split("/").pop();
           if (caratulaFileName) {
             const { error: caratulaDeleteError } = await supabase.storage
-              .from('caratulas')
+              .from("caratulas")
               .remove([`${cancionData.usuario_id}/${caratulaFileName}`]);
             if (caratulaDeleteError) {
-              console.error('Error deleting cover image:', caratulaDeleteError);
+              console.error("Error deleting cover image:", caratulaDeleteError);
             }
           }
         }
 
         // Eliminar la canción de la base de datos
         const { error: deleteCancionError } = await supabase
-          .from('cancion')
+          .from("cancion")
           .delete()
-          .eq('id', cancionId);
+          .eq("id", cancionId);
 
         if (deleteCancionError) throw deleteCancionError;
 
         // Actualizar la lista de canciones
-        setCanciones(prevCanciones => prevCanciones.filter(cancion => cancion.id !== cancionId));
+        setCanciones((prevCanciones) =>
+          prevCanciones.filter((cancion) => cancion.id !== cancionId)
+        );
         Alert.alert("Éxito", "La canción ha sido eliminada completamente");
       }
     } catch (error) {
-      console.error('Error al eliminar la canción:', error);
+      console.error("Error al eliminar la canción:", error);
       Alert.alert("Error", "No se pudo eliminar la canción completamente");
     }
   };
@@ -135,9 +144,9 @@ const Comunidad = () => {
   };
 
   const renderItem = ({ item }: { item: Cancion }) => (
-    <SongCard 
+    <SongCard
       cancion={item}
-      currentUserId={currentUserId || ''}
+      currentUserId={currentUserId || ""}
       onDeleteSong={handleDeleteSong}
       onUpdateSong={handleUpdateSong}
     />
@@ -174,7 +183,10 @@ const Comunidad = () => {
             data={canciones}
             renderItem={renderItem}
             keyExtractor={(item) => item.id.toString()}
-            contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 100 }}
+            contentContainerStyle={{
+              paddingHorizontal: 16,
+              paddingBottom: 100,
+            }}
           />
         ) : (
           <View className="flex-1 items-center justify-center">

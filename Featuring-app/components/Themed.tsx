@@ -15,7 +15,7 @@ import useColorScheme from "../hooks/useColorScheme";
 
 export function useThemeColor(
   props: { light?: string; dark?: string },
-  colorName: keyof typeof Colors.light & keyof typeof Colors.dark,
+  colorName: keyof typeof Colors.light & keyof typeof Colors.dark
 ) {
   const theme = useColorScheme();
   const colorFromProps = props[theme];
@@ -48,7 +48,7 @@ export function View(props: ViewProps) {
   const { style, lightColor, darkColor, ...otherProps } = props;
   const backgroundColor = useThemeColor(
     { light: lightColor, dark: darkColor },
-    "background",
+    "background"
   );
 
   return <DefaultView style={[{ backgroundColor }, style]} {...otherProps} />;
@@ -58,7 +58,7 @@ export function Card(props: ViewProps) {
   const { style, lightColor, darkColor, ...otherProps } = props;
   const backgroundColor = useThemeColor(
     { light: lightColor, dark: darkColor },
-    "card",
+    "card"
   );
 
   return <DefaultView style={[{ backgroundColor }, style]} {...otherProps} />;
@@ -75,7 +75,7 @@ export function TextInput(props: DefaultTextInput["props"]) {
   const backgroundColor = useThemeColor({}, "card");
   const placeholderColor = useThemeColor(
     { light: "#6b7280", dark: "#9ca3af" },
-    "text",
+    "text"
   );
   const primary = useThemeColor({}, "primary");
   return (

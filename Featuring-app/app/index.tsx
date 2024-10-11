@@ -14,12 +14,11 @@ const Home = () => {
     const session = await supabase.auth.getSession();
     setIsSignedIn(!!session.data.session);
   };
-  
+
   if (isSignedIn) {
     //poner dsp de terminar perfiles
     //return <Redirect href="/(root)/(tabs)/home" />;
     return <Redirect href="/(auth)/preguntas" />;
-
   }
 
   return <Redirect href="/(auth)/welcome" />;

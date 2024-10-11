@@ -1,12 +1,21 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, Image, TouchableOpacity, TextInput, Alert, Modal, ScrollView } from 'react-native';
-import { Audio } from 'expo-av';
-import { supabase } from '@/lib/supabase';
-import { icons } from '@/constants/index';
-import * as Clipboard from 'expo-clipboard';
-import { Ionicons } from '@expo/vector-icons';
-import { useAudioPlayer } from '@/contexts/AudioPlayerContext';
-import EditSongModal from './EditSongModal';
+import React, { useState, useEffect } from "react";
+import {
+  View,
+  Text,
+  Image,
+  TouchableOpacity,
+  TextInput,
+  Alert,
+  Modal,
+  ScrollView,
+} from "react-native";
+import { Audio } from "expo-av";
+import { supabase } from "@/lib/supabase";
+import { icons } from "@/constants/index";
+import * as Clipboard from "expo-clipboard";
+import { Ionicons } from "@expo/vector-icons";
+import { useAudioPlayer } from "@/contexts/AudioPlayerContext";
+import EditSongModal from "./EditSongModal";
 
 interface Perfil {
   usuario_id: string;
@@ -27,22 +36,22 @@ interface Cancion {
 }
 
 interface Comentario {
-    id: number;
-    usuario_id: string;
-    cancion_id: number;
-    contenido: string;
-    created_at: string;
-    likes_count: number;
-    perfil: Perfil;
-    isLiked?: boolean;
-  }
+  id: number;
+  usuario_id: string;
+  cancion_id: number;
+  contenido: string;
+  created_at: string;
+  likes_count: number;
+  perfil: Perfil;
+  isLiked?: boolean;
+}
 
-  interface ComentarioLike {
-    id: number;
-    usuario_id: string;
-    comentario_id: number;
-    created_at: string;
-  }
+interface ComentarioLike {
+  id: number;
+  usuario_id: string;
+  comentario_id: number;
+  created_at: string;
+}
 
 interface Like {
   id: number;
@@ -58,30 +67,46 @@ interface SongCardProps {
   onUpdateSong: (cancionId: number) => void;
 }
 
-const SongCard: React.FC<SongCardProps> = ({ cancion, currentUserId, onDeleteSong, onUpdateSong }) => {
+const SongCard: React.FC<SongCardProps> = ({
+  cancion,
+  currentUserId,
+  onDeleteSong,
+  onUpdateSong,
+}) => {
   const [sound, setSound] = useState<Audio.Sound | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [likes, setLikes] = useState<Like[]>([]);
   const [comentarios, setComentarios] = useState<Comentario[]>([]);
-  const [nuevoComentario, setNuevoComentario] = useState('');
+  const [nuevoComentario, setNuevoComentario] = useState("");
   const [isLiked, setIsLiked] = useState(false);
-  const [comentarioLikes, setComentarioLikes] = useState<{[key: number]: ComentarioLike[]}>({});
+  const [comentarioLikes, setComentarioLikes] = useState<{
+    [key: number]: ComentarioLike[];
+  }>({});
   const [showComments, setShowComments] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [commentsModalVisible, setCommentsModalVisible] = useState(false);
-  const [commentSortOrder, setCommentSortOrder] = useState<'newest' | 'oldest'>('newest');
+  const [commentSortOrder, setCommentSortOrder] = useState<"newest" | "oldest">(
+    "newest"
+  );
   const [showSortOptions, setShowSortOptions] = useState(false);
-  const [selectedCommentId, setSelectedCommentId] = useState<number | null>(null);
+  const [selectedCommentId, setSelectedCommentId] = useState<number | null>(
+    null
+  );
   const [commentOptionsVisible, setCommentOptionsVisible] = useState(false);
   const [showOptions, setShowOptions] = useState(false);
   const [showOptionsModal, setShowOptionsModal] = useState(false);
-  const { playSound, currentSong, isPlaying: globalIsPlaying, pauseSound } = useAudioPlayer();
+  const {
+    playSound,
+    currentSong,
+    isPlaying: globalIsPlaying,
+    pauseSound,
+  } = useAudioPlayer();
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
 
   useEffect(() => {
     return sound
       ? () => {
-          console.log('Unloading Sound');
+          console.log("Unloading Sound");
           sound.unloadAsync();
         }
       : undefined;
@@ -128,50 +153,56 @@ const SongCard: React.FC<SongCardProps> = ({ cancion, currentUserId, onDeleteSon
   };
 
   const formatTime = (millis: number | null) => {
-    if (millis === null) return '0:00';
+    if (millis === null) return "0:00";
     const minutes = Math.floor(millis / 60000);
     const seconds = ((millis % 60000) / 1000).toFixed(0);
-    return `${minutes}:${(Number(seconds) < 10 ? '0' : '')}${seconds}`;
+    return `${minutes}:${Number(seconds) < 10 ? "0" : ""}${seconds}`;
   };
-
 
   const fetchLikesAndComments = async () => {
     const { data: likesData } = await supabase
-      .from('likes_cancion')
-      .select('*')
-      .eq('cancion_id', cancion.id);
-    
+      .from("likes_cancion")
+      .select("*")
+      .eq("cancion_id", cancion.id);
+
     const { data: comentariosData } = await supabase
-      .from('comentario_cancion')
-      .select('*, perfil(*)')
-      .eq('cancion_id', cancion.id)
-      .order('created_at', { ascending: false });
+      .from("comentario_cancion")
+      .select("*, perfil(*)")
+      .eq("cancion_id", cancion.id)
+      .order("created_at", { ascending: false });
 
     if (likesData) setLikes(likesData);
     if (comentariosData) {
-      const comentariosConLikes = await Promise.all(comentariosData.map(async (comentario) => {
-        const { data: likesData } = await supabase
-          .from('likes_comentario_cancion')
-          .select('*')
-          .eq('comentario_id', comentario.id);
-        
-        setComentarioLikes(prev => ({...prev, [comentario.id]: likesData || []}));
-        
-        return {
-          ...comentario,
-          isLiked: (likesData || []).some(like => like.usuario_id === currentUserId)
-        };
-      }));
+      const comentariosConLikes = await Promise.all(
+        comentariosData.map(async (comentario) => {
+          const { data: likesData } = await supabase
+            .from("likes_comentario_cancion")
+            .select("*")
+            .eq("comentario_id", comentario.id);
+
+          setComentarioLikes((prev) => ({
+            ...prev,
+            [comentario.id]: likesData || [],
+          }));
+
+          return {
+            ...comentario,
+            isLiked: (likesData || []).some(
+              (like) => like.usuario_id === currentUserId
+            ),
+          };
+        })
+      );
       setComentarios(comentariosConLikes);
     }
   };
 
   const checkIfLiked = async () => {
     const { data } = await supabase
-      .from('likes_cancion')
-      .select('*')
-      .eq('cancion_id', cancion.id)
-      .eq('usuario_id', currentUserId)
+      .from("likes_cancion")
+      .select("*")
+      .eq("cancion_id", cancion.id)
+      .eq("usuario_id", currentUserId)
       .single();
 
     setIsLiked(!!data);
@@ -180,14 +211,14 @@ const SongCard: React.FC<SongCardProps> = ({ cancion, currentUserId, onDeleteSon
   const handleLike = async () => {
     if (isLiked) {
       await supabase
-        .from('likes_cancion')
+        .from("likes_cancion")
         .delete()
-        .eq('cancion_id', cancion.id)
-        .eq('usuario_id', currentUserId);
-      setLikes(likes.filter(like => like.usuario_id !== currentUserId));
+        .eq("cancion_id", cancion.id)
+        .eq("usuario_id", currentUserId);
+      setLikes(likes.filter((like) => like.usuario_id !== currentUserId));
     } else {
       const { data } = await supabase
-        .from('likes_cancion')
+        .from("likes_cancion")
         .insert({ cancion_id: cancion.id, usuario_id: currentUserId })
         .select()
         .single();
@@ -200,13 +231,14 @@ const SongCard: React.FC<SongCardProps> = ({ cancion, currentUserId, onDeleteSon
     if (nuevoComentario.trim()) {
       try {
         const { data, error } = await supabase
-          .from('comentario_cancion')
-          .insert({ 
-            cancion_id: cancion.id, 
-            usuario_id: currentUserId, 
-            contenido: nuevoComentario.trim() 
+          .from("comentario_cancion")
+          .insert({
+            cancion_id: cancion.id,
+            usuario_id: currentUserId,
+            contenido: nuevoComentario.trim(),
           })
-          .select(`
+          .select(
+            `
             id,
             usuario_id,
             cancion_id,
@@ -216,68 +248,76 @@ const SongCard: React.FC<SongCardProps> = ({ cancion, currentUserId, onDeleteSon
               username,
               foto_perfil
             )
-          `)
+          `
+          )
           .single();
 
         if (error) throw error;
 
         if (data) {
           setComentarios([data as Comentario, ...comentarios]);
-          setNuevoComentario('');
+          setNuevoComentario("");
         }
       } catch (error) {
-        console.error('Error al enviar el comentario:', error);
-        Alert.alert('Error', 'No se pudo enviar el comentario. Por favor, intenta de nuevo.');
+        console.error("Error al enviar el comentario:", error);
+        Alert.alert(
+          "Error",
+          "No se pudo enviar el comentario. Por favor, intenta de nuevo."
+        );
       }
     }
   };
 
   const handleCommentLike = async (comentarioId: number) => {
     const likes = comentarioLikes[comentarioId] || [];
-    const isLiked = likes.some(like => like.usuario_id === currentUserId);
+    const isLiked = likes.some((like) => like.usuario_id === currentUserId);
 
     if (isLiked) {
       await supabase
-        .from('likes_comentario_cancion')
+        .from("likes_comentario_cancion")
         .delete()
-        .eq('comentario_id', comentarioId)
-        .eq('usuario_id', currentUserId);
-      
-      setComentarioLikes(prev => ({
+        .eq("comentario_id", comentarioId)
+        .eq("usuario_id", currentUserId);
+
+      setComentarioLikes((prev) => ({
         ...prev,
-        [comentarioId]: prev[comentarioId].filter(like => like.usuario_id !== currentUserId)
+        [comentarioId]: prev[comentarioId].filter(
+          (like) => like.usuario_id !== currentUserId
+        ),
       }));
     } else {
       const { data } = await supabase
-        .from('likes_comentario_cancion')
+        .from("likes_comentario_cancion")
         .insert({ comentario_id: comentarioId, usuario_id: currentUserId })
         .select()
         .single();
-      
+
       if (data) {
-        setComentarioLikes(prev => ({
+        setComentarioLikes((prev) => ({
           ...prev,
-          [comentarioId]: [...(prev[comentarioId] || []), data]
+          [comentarioId]: [...(prev[comentarioId] || []), data],
         }));
       }
     }
 
-    setComentarios(prev => prev.map(comentario => 
-      comentario.id === comentarioId 
-        ? {...comentario, isLiked: !isLiked}
-        : comentario
-    ));
+    setComentarios((prev) =>
+      prev.map((comentario) =>
+        comentario.id === comentarioId
+          ? { ...comentario, isLiked: !isLiked }
+          : comentario
+      )
+    );
   };
 
   const formatCommentDate = (dateString: string) => {
     const date = new Date(dateString);
     const hours = date.getHours();
-    const minutes = date.getMinutes().toString().padStart(2, '0');
-    const ampm = hours >= 12 ? 'PM' : 'AM';
+    const minutes = date.getMinutes().toString().padStart(2, "0");
+    const ampm = hours >= 12 ? "PM" : "AM";
     const formattedHours = hours % 12 || 12;
     const day = date.getDate();
-    const month = date.toLocaleString('es-ES', { month: 'long' });
-    
+    const month = date.toLocaleString("es-ES", { month: "long" });
+
     return `${day} de ${month} ${formattedHours}:${minutes} ${ampm}`;
   };
 
@@ -297,13 +337,19 @@ const SongCard: React.FC<SongCardProps> = ({ cancion, currentUserId, onDeleteSon
     setShowSortOptions(!showSortOptions);
   };
 
-  const sortComments = (order: 'newest' | 'oldest') => {
+  const sortComments = (order: "newest" | "oldest") => {
     setCommentSortOrder(order);
     let sortedComments = [...comentarios];
-    if (order === 'newest') {
-      sortedComments.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    if (order === "newest") {
+      sortedComments.sort(
+        (a, b) =>
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
     } else {
-      sortedComments.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+      sortedComments.sort(
+        (a, b) =>
+          new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      );
     }
     setComentarios(sortedComments);
   };
@@ -317,25 +363,27 @@ const SongCard: React.FC<SongCardProps> = ({ cancion, currentUserId, onDeleteSon
     if (selectedCommentId) {
       try {
         await supabase
-          .from('comentario_cancion')
+          .from("comentario_cancion")
           .delete()
-          .eq('id', selectedCommentId)
-          .eq('usuario_id', currentUserId);
-        
-        setComentarios(prevComentarios => prevComentarios.filter(c => c.id !== selectedCommentId));
+          .eq("id", selectedCommentId)
+          .eq("usuario_id", currentUserId);
+
+        setComentarios((prevComentarios) =>
+          prevComentarios.filter((c) => c.id !== selectedCommentId)
+        );
         setCommentOptionsVisible(false);
       } catch (error) {
-        console.error('Error al eliminar el comentario:', error);
-        Alert.alert('Error', 'No se pudo eliminar el comentario');
+        console.error("Error al eliminar el comentario:", error);
+        Alert.alert("Error", "No se pudo eliminar el comentario");
       }
     }
   };
 
   const handleCopyComment = async () => {
-    const comentario = comentarios.find(c => c.id === selectedCommentId);
+    const comentario = comentarios.find((c) => c.id === selectedCommentId);
     if (comentario) {
       await Clipboard.setStringAsync(comentario.contenido);
-      Alert.alert('Éxito', 'Contenido del comentario copiado al portapapeles');
+      Alert.alert("Éxito", "Contenido del comentario copiado al portapapeles");
       setCommentOptionsVisible(false);
     }
   };
@@ -346,14 +394,14 @@ const SongCard: React.FC<SongCardProps> = ({ cancion, currentUserId, onDeleteSon
       "¿Estás seguro de que quieres eliminar esta canción? Esta acción no se puede deshacer.",
       [
         { text: "Cancelar", style: "cancel" },
-        { 
-          text: "Eliminar", 
+        {
+          text: "Eliminar",
           style: "destructive",
           onPress: () => {
             onDeleteSong(cancion.id);
             setShowOptionsModal(false);
-          }
-        }
+          },
+        },
       ]
     );
   };
@@ -376,8 +424,8 @@ const SongCard: React.FC<SongCardProps> = ({ cancion, currentUserId, onDeleteSon
         playSound({
           id: cancion.id,
           title: cancion.titulo,
-          audioUrl: cancion.archivo_audio || '',
-          coverUrl: cancion.caratula || '',
+          audioUrl: cancion.archivo_audio || "",
+          coverUrl: cancion.caratula || "",
         });
       }
     }
@@ -388,10 +436,15 @@ const SongCard: React.FC<SongCardProps> = ({ cancion, currentUserId, onDeleteSon
       <View className="flex-row justify-between items-center mb-2">
         <View className="flex-row items-center">
           <Image
-            source={{ uri: cancion.perfil?.foto_perfil || 'https://via.placeholder.com/50' }}
+            source={{
+              uri:
+                cancion.perfil?.foto_perfil || "https://via.placeholder.com/50",
+            }}
             className="w-10 h-10 rounded-full mr-2"
           />
-          <Text className="font-bold">{cancion.perfil?.username || 'Usuario desconocido'}</Text>
+          <Text className="font-bold">
+            {cancion.perfil?.username || "Usuario desconocido"}
+          </Text>
         </View>
         {cancion.usuario_id === currentUserId && (
           <TouchableOpacity onPress={() => setShowOptionsModal(true)}>
@@ -399,30 +452,37 @@ const SongCard: React.FC<SongCardProps> = ({ cancion, currentUserId, onDeleteSon
           </TouchableOpacity>
         )}
       </View>
-      <Text className="font-JakartaSemiBold text-lg mb-2 text-primary-700">{cancion.titulo}</Text>
+      <Text className="font-JakartaSemiBold text-lg mb-2 text-primary-700">
+        {cancion.titulo}
+      </Text>
       <Text className="mb-3 text-general-200">{cancion.contenido}</Text>
       {cancion.caratula && (
         <TouchableOpacity onPress={toggleImageModal}>
-          <Image 
-            source={{ uri: cancion.caratula }} 
+          <Image
+            source={{ uri: cancion.caratula }}
             className="w-full h-48 rounded-lg mb-3"
           />
         </TouchableOpacity>
       )}
       <View className="flex-row items-center mt-2">
-        <TouchableOpacity onPress={handleLike} className="flex-row items-center mr-4">
+        <TouchableOpacity
+          onPress={handleLike}
+          className="flex-row items-center mr-4"
+        >
           <Image
             source={isLiked ? icons.hearto : icons.heart}
             className="w-6 h-6 mr-1"
-            style={{ tintColor: isLiked ? '#6D29D2' : undefined }}
+            style={{ tintColor: isLiked ? "#6D29D2" : undefined }}
           />
-          <Text className="font-JakartaBold text-sm text-primary-500">{likes.length}</Text>
+          <Text className="font-JakartaBold text-sm text-primary-500">
+            {likes.length}
+          </Text>
         </TouchableOpacity>
-        <TouchableOpacity onPress={toggleCommentsModal} className="flex-row items-center">
-          <Image
-            source={icons.comentario}
-            className="w-6 h-6 mr-1"
-          />
+        <TouchableOpacity
+          onPress={toggleCommentsModal}
+          className="flex-row items-center"
+        >
+          <Image source={icons.comentario} className="w-6 h-6 mr-1" />
           <Text className="font-JakartaBold text-sm">{comentarios.length}</Text>
         </TouchableOpacity>
       </View>
@@ -437,13 +497,13 @@ const SongCard: React.FC<SongCardProps> = ({ cancion, currentUserId, onDeleteSon
         visible={modalVisible}
         onRequestClose={toggleImageModal}
       >
-        <TouchableOpacity 
+        <TouchableOpacity
           className="flex-1 justify-center items-center bg-black bg-opacity-70"
-          activeOpacity={1} 
+          activeOpacity={1}
           onPress={toggleImageModal}
         >
-          <Image 
-            source={{ uri: cancion.caratula }} 
+          <Image
+            source={{ uri: cancion.caratula }}
             className="w-11/12 h-5/6"
             resizeMode="contain"
           />
@@ -464,59 +524,89 @@ const SongCard: React.FC<SongCardProps> = ({ cancion, currentUserId, onDeleteSon
                 <Image
                   source={icons.shuffle}
                   className="w-6 h-6"
-                  style={{ tintColor: '#00BFA5' }}
+                  style={{ tintColor: "#00BFA5" }}
                 />
               </TouchableOpacity>
               <View className="flex-row items-center">
-                <Text className="text-secondary-500 font-JakartaBold mr-2">{comentarios.length}</Text>
+                <Text className="text-secondary-500 font-JakartaBold mr-2">
+                  {comentarios.length}
+                </Text>
                 <Text className="font-JakartaBold text-lg">Comentarios</Text>
               </View>
               <TouchableOpacity onPress={toggleCommentsModal}>
-                <Text className="text-secondary-500 font-JakartaBold">Cerrar</Text>
+                <Text className="text-secondary-500 font-JakartaBold">
+                  Cerrar
+                </Text>
               </TouchableOpacity>
             </View>
             {showSortOptions && (
               <View className="flex-row justify-center mb-4">
-                <TouchableOpacity onPress={() => sortComments('newest')} className="mr-4">
-                  <Text className={`text-sm ${commentSortOrder === 'newest' ? 'text-secondary-500 font-bold' : 'text-gray-500'}`}>Más nuevos</Text>
+                <TouchableOpacity
+                  onPress={() => sortComments("newest")}
+                  className="mr-4"
+                >
+                  <Text
+                    className={`text-sm ${commentSortOrder === "newest" ? "text-secondary-500 font-bold" : "text-gray-500"}`}
+                  >
+                    Más nuevos
+                  </Text>
                 </TouchableOpacity>
-                <TouchableOpacity onPress={() => sortComments('oldest')}>
-                  <Text className={`text-sm ${commentSortOrder === 'oldest' ? 'text-secondary-500 font-bold' : 'text-gray-500'}`}>Más antiguos</Text>
+                <TouchableOpacity onPress={() => sortComments("oldest")}>
+                  <Text
+                    className={`text-sm ${commentSortOrder === "oldest" ? "text-secondary-500 font-bold" : "text-gray-500"}`}
+                  >
+                    Más antiguos
+                  </Text>
                 </TouchableOpacity>
               </View>
             )}
             <ScrollView className="mb-4">
-              {comentarios.map(comentario => (
-                <View key={comentario.id} className="mb-3 border-b border-general-300 pb-2">
+              {comentarios.map((comentario) => (
+                <View
+                  key={comentario.id}
+                  className="mb-3 border-b border-general-300 pb-2"
+                >
                   <View className="flex-row justify-between items-start mb-1">
                     <View className="flex-row items-center flex-1">
                       {comentario.perfil?.foto_perfil && (
-                        <Image 
-                          source={{ uri: comentario.perfil.foto_perfil }} 
+                        <Image
+                          source={{ uri: comentario.perfil.foto_perfil }}
                           className="w-8 h-8 rounded-full mr-2"
                         />
                       )}
                       <View className="flex-1">
                         <View className="flex-row items-center">
-                          <Text className="font-JakartaBold text-sm mr-2">{comentario.perfil?.username || 'Usuario desconocido'}</Text>
-                          <Text className="text-xs text-general-200">{formatCommentDate(comentario.created_at)}</Text>
+                          <Text className="font-JakartaBold text-sm mr-2">
+                            {comentario.perfil?.username ||
+                              "Usuario desconocido"}
+                          </Text>
+                          <Text className="text-xs text-general-200">
+                            {formatCommentDate(comentario.created_at)}
+                          </Text>
                         </View>
-                        <Text className="text-sm mt-1">{comentario.contenido}</Text>
+                        <Text className="text-sm mt-1">
+                          {comentario.contenido}
+                        </Text>
                       </View>
                     </View>
-                    <TouchableOpacity onPress={() => handleCommentOptions(comentario)} className="ml-2">
-                      <Image
-                        source={icons.trespuntos}
-                        className="w-5 h-5"
-                      />
+                    <TouchableOpacity
+                      onPress={() => handleCommentOptions(comentario)}
+                      className="ml-2"
+                    >
+                      <Image source={icons.trespuntos} className="w-5 h-5" />
                     </TouchableOpacity>
                   </View>
                   <View className="flex-row items-center mt-2 ml-10">
-                    <TouchableOpacity onPress={() => handleCommentLike(comentario.id)} className="flex-row items-center">
+                    <TouchableOpacity
+                      onPress={() => handleCommentLike(comentario.id)}
+                      className="flex-row items-center"
+                    >
                       <Image
                         source={comentario.isLiked ? icons.hearto : icons.heart}
                         className="w-4 h-4 mr-1"
-                        style={{ tintColor: comentario.isLiked ? '#6D29D2' : undefined }}
+                        style={{
+                          tintColor: comentario.isLiked ? "#6D29D2" : undefined,
+                        }}
                       />
                       <Text className="text-xs text-primary-500 font-JakartaBold">
                         {(comentarioLikes[comentario.id] || []).length}
@@ -534,7 +624,10 @@ const SongCard: React.FC<SongCardProps> = ({ cancion, currentUserId, onDeleteSon
                 placeholder="Añade un comentario..."
                 placeholderTextColor="#858585"
               />
-              <TouchableOpacity onPress={handleComment} className="bg-primary-500 rounded-full py-2 items-center">
+              <TouchableOpacity
+                onPress={handleComment}
+                className="bg-primary-500 rounded-full py-2 items-center"
+              >
                 <Text className="text-white font-JakartaBold">Enviar</Text>
               </TouchableOpacity>
             </View>
@@ -549,26 +642,32 @@ const SongCard: React.FC<SongCardProps> = ({ cancion, currentUserId, onDeleteSon
         visible={commentOptionsVisible}
         onRequestClose={() => setCommentOptionsVisible(false)}
       >
-        <TouchableOpacity 
+        <TouchableOpacity
           className="flex-1 justify-center items-center bg-black/50"
-          activeOpacity={1} 
+          activeOpacity={1}
           onPress={() => setCommentOptionsVisible(false)}
         >
           <View className="bg-white rounded-lg p-4 w-3/4">
-            <TouchableOpacity 
-              className="py-3 border-b border-gray-200" 
+            <TouchableOpacity
+              className="py-3 border-b border-gray-200"
               onPress={handleCopyComment}
             >
-              <Text className="text-primary-500 font-JakartaMedium">Copiar contenido</Text>
+              <Text className="text-primary-500 font-JakartaMedium">
+                Copiar contenido
+              </Text>
             </TouchableOpacity>
-            {selectedCommentId && comentarios.find(c => c.id === selectedCommentId)?.usuario_id === currentUserId && (
-              <TouchableOpacity 
-                className="py-3" 
-                onPress={handleDeleteComment}
-              >
-                <Text className="text-red-500 font-JakartaMedium">Eliminar comentario</Text>
-              </TouchableOpacity>
-            )}
+            {selectedCommentId &&
+              comentarios.find((c) => c.id === selectedCommentId)
+                ?.usuario_id === currentUserId && (
+                <TouchableOpacity
+                  className="py-3"
+                  onPress={handleDeleteComment}
+                >
+                  <Text className="text-red-500 font-JakartaMedium">
+                    Eliminar comentario
+                  </Text>
+                </TouchableOpacity>
+              )}
           </View>
         </TouchableOpacity>
       </Modal>
@@ -580,23 +679,29 @@ const SongCard: React.FC<SongCardProps> = ({ cancion, currentUserId, onDeleteSon
         visible={showOptionsModal}
         onRequestClose={() => setShowOptionsModal(false)}
       >
-        <TouchableOpacity 
-          style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)' }}
-          activeOpacity={1} 
+        <TouchableOpacity
+          style={{
+            flex: 1,
+            justifyContent: "center",
+            alignItems: "center",
+            backgroundColor: "rgba(0,0,0,0.5)",
+          }}
+          activeOpacity={1}
           onPress={() => setShowOptionsModal(false)}
         >
           <View className="bg-white rounded-lg p-4 w-3/4">
-            <TouchableOpacity 
-              className="py-3 border-b border-gray-200" 
+            <TouchableOpacity
+              className="py-3 border-b border-gray-200"
               onPress={handleEdit}
             >
-              <Text className="text-blue-500 font-semibold">Editar canción</Text>
+              <Text className="text-blue-500 font-semibold">
+                Editar canción
+              </Text>
             </TouchableOpacity>
-            <TouchableOpacity 
-              className="py-3" 
-              onPress={handleDelete}
-            >
-              <Text className="text-red-500 font-semibold">Eliminar canción</Text>
+            <TouchableOpacity className="py-3" onPress={handleDelete}>
+              <Text className="text-red-500 font-semibold">
+                Eliminar canción
+              </Text>
             </TouchableOpacity>
           </View>
         </TouchableOpacity>
@@ -611,14 +716,18 @@ const SongCard: React.FC<SongCardProps> = ({ cancion, currentUserId, onDeleteSon
       />
 
       {cancion.archivo_audio && (
-        <TouchableOpacity 
+        <TouchableOpacity
           onPress={handlePlayPause}
           className="absolute bottom-4 right-4 bg-primary-500 rounded-full p-2"
         >
-          <Ionicons 
-            name={currentSong?.id === cancion.id && globalIsPlaying ? "pause" : "play"} 
-            size={24} 
-            color="white" 
+          <Ionicons
+            name={
+              currentSong?.id === cancion.id && globalIsPlaying
+                ? "pause"
+                : "play"
+            }
+            size={24}
+            color="white"
           />
         </TouchableOpacity>
       )}

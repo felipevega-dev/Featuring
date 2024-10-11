@@ -20,9 +20,9 @@ const updates: Update[] = [
       "Búsqueda de colaboradores musicales",
       "Filtros por género y habilidades",
       "Sistema de matching para colaboraciones",
-      "Solicitudes de colaboración"
+      "Solicitudes de colaboración",
     ],
-    icon: "globe"
+    icon: "globe",
   },
   {
     id: 2,
@@ -32,9 +32,9 @@ const updates: Update[] = [
       "Transmisiones en vivo de performances",
       "Interacción en tiempo real con la audiencia",
       "Programación de eventos en vivo",
-      "Notificaciones de transmisiones de artistas seguidos"
+      "Notificaciones de transmisiones de artistas seguidos",
     ],
-    icon: "watch"
+    icon: "watch",
   },
   {
     id: 3,
@@ -44,9 +44,9 @@ const updates: Update[] = [
       "Implementación de chat en tiempo real",
       "Envío de mensajes de texto y audio",
       "Eliminación de mensajes",
-      "Lista de conversaciones activas"
+      "Lista de conversaciones activas",
     ],
-    icon: "chat"
+    icon: "chat",
   },
   {
     id: 4,
@@ -56,9 +56,9 @@ const updates: Update[] = [
       "Subida y reproducción de canciones",
       "Comentarios y likes en publicaciones",
       "Perfil de usuario mejorado",
-      "Exploración de contenido musical"
+      "Exploración de contenido musical",
     ],
-    icon: "community"
+    icon: "community",
   },
   {
     id: 5,
@@ -68,22 +68,28 @@ const updates: Update[] = [
       "Edición de información personal",
       "Carga de foto de perfil",
       "Gestión de géneros musicales",
-      "Gestión de habilidades musicales"
+      "Gestión de habilidades musicales",
     ],
-    icon: "profile"
-  }
+    icon: "profile",
+  },
 ];
 
 const UpdateCard = ({ update }: { update: Update }) => (
   <View className="bg-white rounded-xl shadow-lg p-6 mb-6">
     <View className="flex-row items-center mb-3">
-      <Image source={icons[update.icon]} className="w-8 h-8 mr-3" style={{ tintColor: '#6D29D2' }} />
+      <Image
+        source={icons[update.icon]}
+        className="w-8 h-8 mr-3"
+        style={{ tintColor: "#6D29D2" }}
+      />
       <Text className="text-primary-600 text-xl font-bold">{update.title}</Text>
     </View>
     <Text className="text-primary-400 text-sm mb-3">{update.date}</Text>
     <View className="ml-11">
       {update.features.map((feature, index) => (
-        <Text key={index} className="text-primary-500 text-base mb-2">• {feature}</Text>
+        <Text key={index} className="text-primary-500 text-base mb-2">
+          • {feature}
+        </Text>
       ))}
     </View>
   </View>
@@ -94,16 +100,22 @@ const Inicio = () => {
     <View className="flex-1 bg-primary-100">
       <View className="bg-primary-500 shadow-md py-4 px-6 mb-4">
         <View className="flex flex-row justify-center items-center mb-2 ">
-          <Text className="text-white text-3xl font-bold mr-2">Actualizaciones</Text>
-          <Image source={icons.features} className="w-8 h-8" style={{ tintColor: '#00BFA5' }} />
+          <Text className="text-white text-3xl font-bold mr-2">
+            Actualizaciones
+          </Text>
+          <Image
+            source={icons.features}
+            className="w-8 h-8"
+            style={{ tintColor: "#00BFA5" }}
+          />
         </View>
         <Text className="text-secondary-400 text-xl font-semibold text-center">
           Featuring V.1.0
         </Text>
       </View>
-      
+
       <ScrollView className="flex-1 px-4 mb-14">
-        {updates.map(update => (
+        {updates.map((update) => (
           <UpdateCard key={update.id} update={update} />
         ))}
       </ScrollView>

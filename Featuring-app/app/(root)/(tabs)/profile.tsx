@@ -1,9 +1,18 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, Image, ScrollView, ActivityIndicator, TouchableOpacity, Alert, Linking } from "react-native";
+import {
+  View,
+  Text,
+  Image,
+  ScrollView,
+  ActivityIndicator,
+  TouchableOpacity,
+  Alert,
+  Linking,
+} from "react-native";
 import { supabase } from "@/lib/supabase";
 import { router, useLocalSearchParams } from "expo-router";
 import { icons } from "@/constants";
-import { Ionicons, FontAwesome } from '@expo/vector-icons';
+import { Ionicons, FontAwesome } from "@expo/vector-icons";
 
 interface Perfil {
   username: string;
@@ -32,13 +41,17 @@ export default function Profile() {
   const fetchPerfil = async () => {
     try {
       setIsLoading(true);
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
       if (userError) throw userError;
       if (!user) throw new Error("Usuario no autenticado");
 
       const { data, error } = await supabase
-        .from('perfil')
-        .select(`
+        .from("perfil")
+        .select(
+          `
           username,
           foto_perfil,
           ubicacion,
@@ -48,8 +61,9 @@ export default function Profile() {
           perfil_genero (genero),
           perfil_habilidad (habilidad),
           red_social (nombre, url)
-        `)
-        .eq('usuario_id', user.id)
+        `
+        )
+        .eq("usuario_id", user.id)
         .single();
 
       if (error) throw error;
@@ -57,12 +71,12 @@ export default function Profile() {
       if (data) {
         const perfilData = {
           ...data,
-          full_name: user.user_metadata?.full_name || '',
-          generos: data.perfil_genero.map(g => g.genero),
-          habilidades: data.perfil_habilidad.map(h => h.habilidad),
-          redes_sociales: data.red_social
+          full_name: user.user_metadata?.full_name || "",
+          generos: data.perfil_genero.map((g) => g.genero),
+          habilidades: data.perfil_habilidad.map((h) => h.habilidad),
+          redes_sociales: data.red_social,
         };
-      
+
         setPerfil(perfilData);
       } else {
         throw new Error("No se encontró el perfil");
@@ -76,15 +90,17 @@ export default function Profile() {
   };
 
   const fetchUserProfile = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (user) {
       const { data, error } = await supabase
-        .from('perfil')
-        .select('*')
-        .eq('usuario_id', user.id)
+        .from("perfil")
+        .select("*")
+        .eq("usuario_id", user.id)
         .single();
       if (error) {
-        console.error('Error fetching user profile:', error);
+        console.error("Error fetching user profile:", error);
       } else {
         setUserProfile(data);
       }
@@ -97,8 +113,8 @@ export default function Profile() {
       "¿Estás seguro de que quieres cerrar sesión?",
       [
         { text: "Cancelar", style: "cancel" },
-        { 
-          text: "Sí, cerrar sesión", 
+        {
+          text: "Sí, cerrar sesión",
           onPress: async () => {
             try {
               const { error } = await supabase.auth.signOut();
@@ -108,31 +124,33 @@ export default function Profile() {
               console.error("Error al cerrar sesión:", error);
               Alert.alert("Error", "No se pudo cerrar la sesión");
             }
-          }
-        }
+          },
+        },
       ]
     );
   };
 
   const getRedSocialIcon = (nombre: string) => {
     switch (nombre.toLowerCase()) {
-      case 'soundcloud':
-        return 'soundcloud';
-      case 'instagram':
-        return 'instagram';
-      case 'facebook':
-        return 'facebook';
-      case 'twitter':
-        return 'twitter';
-      case 'spotify':
-        return 'spotify';
+      case "soundcloud":
+        return "soundcloud";
+      case "instagram":
+        return "instagram";
+      case "facebook":
+        return "facebook";
+      case "twitter":
+        return "twitter";
+      case "spotify":
+        return "spotify";
       default:
-        return 'link';
+        return "link";
     }
   };
 
   const handleRedSocialPress = (url: string) => {
-    Linking.openURL(url).catch((err) => console.error('Error al abrir el enlace:', err));
+    Linking.openURL(url).catch((err) =>
+      console.error("Error al abrir el enlace:", err)
+    );
   };
 
   if (isLoading) {
@@ -162,7 +180,7 @@ export default function Profile() {
       </View>
     );
   }
-  
+
   function ProfileItem({ label, value }) {
     return (
       <View className="flex-row justify-between items-center py-1">
@@ -182,13 +200,17 @@ export default function Profile() {
       <ScrollView className="flex-1">
         <View className="px-4 pb-8">
           <View className="bg-white rounded-xl shadow-lg shadow-black/30 p-6 mb-10">
-            <TouchableOpacity 
-              onPress={() => router.push('/editar_perfil')}
+            <TouchableOpacity
+              onPress={() => router.push("/editar_perfil")}
               className="absolute top-0 right-0 p-2"
             >
-              <Image source={icons.editar} className="w-8 h-8" style={{ tintColor: '#00CED1' }} />
+              <Image
+                source={icons.editar}
+                className="w-8 h-8"
+                style={{ tintColor: "#00CED1" }}
+              />
             </TouchableOpacity>
-            
+
             <View className="items-center pb-4">
               <View className="w-36 h-36 rounded-full shadow-lg shadow-black/50 mb-4">
                 {perfil.foto_perfil ? (
@@ -206,7 +228,10 @@ export default function Profile() {
                 {perfil.username}
               </Text>
             </View>
-            <ProfileSection icon={icons.usuarioperfil} title="Información Personal">
+            <ProfileSection
+              icon={icons.usuarioperfil}
+              title="Información Personal"
+            >
               <ProfileItem label="Nombre" value={perfil.full_name} />
               <ProfileItem label="Ubicación" value={perfil.ubicacion} />
               <ProfileItem label="Género" value={perfil.sexo} />
@@ -214,13 +239,18 @@ export default function Profile() {
             </ProfileSection>
 
             <ProfileSection icon={icons.biografia} title="Biografía">
-              <Text className="text-gray-600">{perfil.biografia || "No hay biografía disponible."}</Text>
+              <Text className="text-gray-600">
+                {perfil.biografia || "No hay biografía disponible."}
+              </Text>
             </ProfileSection>
 
             <ProfileSection icon={icons.generos} title="Géneros Musicales">
               <View className="flex-row flex-wrap">
                 {perfil.generos.map((genero, index) => (
-                  <View key={index} className="bg-primary-100 rounded-full px-2 py-1 m-1">
+                  <View
+                    key={index}
+                    className="bg-primary-100 rounded-full px-2 py-1 m-1"
+                  >
                     <Text className="text-primary-600">{genero}</Text>
                   </View>
                 ))}
@@ -230,7 +260,10 @@ export default function Profile() {
             <ProfileSection icon={icons.star} title="Habilidades Musicales">
               <View className="flex-row flex-wrap">
                 {perfil.habilidades.map((habilidad, index) => (
-                  <View key={index} className="bg-secondary-100 rounded-full px-2 py-1 m-1">
+                  <View
+                    key={index}
+                    className="bg-secondary-100 rounded-full px-2 py-1 m-1"
+                  >
                     <Text className="text-secondary-500">{habilidad}</Text>
                   </View>
                 ))}
@@ -246,11 +279,17 @@ export default function Profile() {
                       onPress={() => handleRedSocialPress(red.url)}
                       className="m-2"
                     >
-                      <FontAwesome name={getRedSocialIcon(red.nombre)} size={30} color="#5416A0" />
+                      <FontAwesome
+                        name={getRedSocialIcon(red.nombre)}
+                        size={30}
+                        color="#5416A0"
+                      />
                     </TouchableOpacity>
                   ))
                 ) : (
-                  <Text className="text-gray-500">No hay redes sociales agregadas</Text>
+                  <Text className="text-gray-500">
+                    No hay redes sociales agregadas
+                  </Text>
                 )}
               </View>
             </ProfileSection>
@@ -259,11 +298,16 @@ export default function Profile() {
               onPress={handleLogout}
               className="bg-red-500 rounded-full py-2 px-6 flex-row justify-center items-center shadow-lg shadow-black/30"
             >
-              <Image source={icons.cerrarSesion} className="w-5 h-5 mr-2" style={{ tintColor: 'white' }} />
-              <Text className="text-white font-bold text-lg">Cerrar Sesión</Text>
+              <Image
+                source={icons.cerrarSesion}
+                className="w-5 h-5 mr-2"
+                style={{ tintColor: "white" }}
+              />
+              <Text className="text-white font-bold text-lg">
+                Cerrar Sesión
+              </Text>
             </TouchableOpacity>
           </View>
-
         </View>
       </ScrollView>
     </View>

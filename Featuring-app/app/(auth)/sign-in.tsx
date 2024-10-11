@@ -1,4 +1,11 @@
-import { ScrollView, View, Text, Image, Alert, TouchableOpacity } from "react-native";
+import {
+  ScrollView,
+  View,
+  Text,
+  Image,
+  Alert,
+  TouchableOpacity,
+} from "react-native";
 import { icons, images } from "@/constants";
 import { useCallback, useState, useEffect } from "react";
 import InputField from "@/components/InputField";
@@ -6,7 +13,7 @@ import CustomButton from "@/components/CustomButton";
 import CustomCheckbox from "@/components/CustomCheckbox";
 import { Link, useRouter } from "expo-router";
 import OAuth from "@/components/OAuth";
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { supabase } from "@/lib/supabase";
 
 interface FormState {
@@ -29,16 +36,16 @@ const SignIn = () => {
   useEffect(() => {
     const loadSavedData = async () => {
       try {
-        const savedEmail = await AsyncStorage.getItem('savedEmail');
-        const savedPassword = await AsyncStorage.getItem('savedPassword');
-        const savedRememberMe = await AsyncStorage.getItem('rememberMe');
+        const savedEmail = await AsyncStorage.getItem("savedEmail");
+        const savedPassword = await AsyncStorage.getItem("savedPassword");
+        const savedRememberMe = await AsyncStorage.getItem("rememberMe");
 
-        if (savedEmail && savedPassword && savedRememberMe === 'true') {
+        if (savedEmail && savedPassword && savedRememberMe === "true") {
           setForm({ email: savedEmail, password: savedPassword });
           setRememberMe(true);
         }
       } catch (error) {
-        console.error('Error al cargar datos guardados:', error);
+        console.error("Error al cargar datos guardados:", error);
       }
     };
 
@@ -47,13 +54,13 @@ const SignIn = () => {
 
   const checkProfileCompletion = async (userId: string) => {
     const { data, error } = await supabase
-      .from('perfil')
-      .select('username')
-      .eq('usuario_id', userId)
+      .from("perfil")
+      .select("username")
+      .eq("usuario_id", userId)
       .maybeSingle();
 
-    if (error && error.code !== 'PGRST116') {
-      console.error('Error al verificar el perfil:', error);
+    if (error && error.code !== "PGRST116") {
+      console.error("Error al verificar el perfil:", error);
       return false;
     }
 
@@ -71,36 +78,48 @@ const SignIn = () => {
       if (error) {
         console.error("Error de inicio de sesión:", error.message);
         switch (error.message) {
-          case 'Invalid login credentials':
+          case "Invalid login credentials":
             Alert.alert("Error", "Correo electrónico o contraseña incorrectos");
             break;
-          case 'Email not confirmed':
-            Alert.alert("Error", "Por favor, confirma tu correo electrónico antes de iniciar sesión");
+          case "Email not confirmed":
+            Alert.alert(
+              "Error",
+              "Por favor, confirma tu correo electrónico antes de iniciar sesión"
+            );
             break;
-          case 'Too many requests':
-            Alert.alert("Error", "Demasiados intentos fallidos. Por favor, intenta más tarde");
+          case "Too many requests":
+            Alert.alert(
+              "Error",
+              "Demasiados intentos fallidos. Por favor, intenta más tarde"
+            );
             break;
-          case 'User not found':
-            Alert.alert("Error", "No se encontró ninguna cuenta con este correo electrónico");
+          case "User not found":
+            Alert.alert(
+              "Error",
+              "No se encontró ninguna cuenta con este correo electrónico"
+            );
             break;
           default:
-            Alert.alert("Error", `Ocurrió un error durante el inicio de sesión: ${error.message}`);
+            Alert.alert(
+              "Error",
+              `Ocurrió un error durante el inicio de sesión: ${error.message}`
+            );
         }
         return;
       }
 
       if (data.user) {
         // Guardar el user.id en AsyncStorage para uso futuro
-        await AsyncStorage.setItem('usuario_id', data.user.id);
+        await AsyncStorage.setItem("usuario_id", data.user.id);
 
         if (rememberMe) {
-          await AsyncStorage.setItem('savedEmail', form.email);
-          await AsyncStorage.setItem('savedPassword', form.password);
-          await AsyncStorage.setItem('rememberMe', 'true');
+          await AsyncStorage.setItem("savedEmail", form.email);
+          await AsyncStorage.setItem("savedPassword", form.password);
+          await AsyncStorage.setItem("rememberMe", "true");
         } else {
-          await AsyncStorage.removeItem('savedEmail');
-          await AsyncStorage.removeItem('savedPassword');
-          await AsyncStorage.setItem('rememberMe', 'false');
+          await AsyncStorage.removeItem("savedEmail");
+          await AsyncStorage.removeItem("savedPassword");
+          await AsyncStorage.setItem("rememberMe", "false");
         }
 
         const isProfileComplete = await checkProfileCompletion(data.user.id);
@@ -115,7 +134,10 @@ const SignIn = () => {
       }
     } catch (error) {
       console.error("Error durante el inicio de sesión:", error);
-      Alert.alert("Error", "Ocurrió un error inesperado durante el inicio de sesión");
+      Alert.alert(
+        "Error",
+        "Ocurrió un error inesperado durante el inicio de sesión"
+      );
     } finally {
       setIsLoading(false);
     }
@@ -155,8 +177,8 @@ const SignIn = () => {
               className="absolute right-3 top-1/2"
               onPress={() => setShowPassword(!showPassword)}
             >
-              <Image 
-                source={showPassword ? icons.hidePassword : icons.showPassword} 
+              <Image
+                source={showPassword ? icons.hidePassword : icons.showPassword}
                 className="w-6 h-6"
               />
             </TouchableOpacity>

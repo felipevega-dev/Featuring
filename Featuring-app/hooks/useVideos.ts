@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
-import { getVideos } from '@/app/(api)/videos';
+import { useState, useEffect } from "react";
+import { getVideos } from "@/app/(api)/videos";
 import { Database } from "@/types/db_types";
 
-type Video = Database['public']['Tables']['video']['Row'];
+type Video = Database["public"]["Tables"]["video"]["Row"];
 
 export default function useVideos() {
   const [videos, setVideos] = useState<Video[]>([]);

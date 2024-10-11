@@ -2,18 +2,42 @@ import { supabase } from "@/lib/supabase";
 
 export async function POST(request: Request) {
   try {
-    const { nombre_art, sexo_art, fecha_nac, descripcion, redes_social, fotoperfil, ubi, edad_art, usuario_id, generos, habilidades } = await request.json();
+    const {
+      nombre_art,
+      sexo_art,
+      fecha_nac,
+      descripcion,
+      redes_social,
+      fotoperfil,
+      ubi,
+      edad_art,
+      usuario_id,
+      generos,
+      habilidades,
+    } = await request.json();
 
-    if (!nombre_art || !sexo_art || !fecha_nac || !descripcion || !redes_social || !fotoperfil || !ubi || !edad_art || !usuario_id || !generos || !habilidades) {
+    if (
+      !nombre_art ||
+      !sexo_art ||
+      !fecha_nac ||
+      !descripcion ||
+      !redes_social ||
+      !fotoperfil ||
+      !ubi ||
+      !edad_art ||
+      !usuario_id ||
+      !generos ||
+      !habilidades
+    ) {
       return Response.json(
         { error: "Faltan campos requeridos" },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
     // Almacena los datos del usuario en Supabase
     const { data: perfilData, error: perfilError } = await supabase
-      .from("perfil") 
+      .from("perfil")
       .insert({
         usuario_id: usuario_id,
         nombre_completo: nombre_art,
@@ -23,7 +47,7 @@ export async function POST(request: Request) {
         redes_sociales: redes_social,
         foto_perfil: fotoperfil,
         ubicacion: ubi,
-        edad: edad_art
+        edad: edad_art,
       })
       .select();
 
@@ -31,7 +55,6 @@ export async function POST(request: Request) {
       throw perfilError;
     }
 
-   
     return new Response(JSON.stringify({ data: perfilData[0] }), {
       status: 201,
     });
@@ -39,7 +62,7 @@ export async function POST(request: Request) {
     console.log(error);
     return Response.json(
       { error: error.message || "Error interno del servidor" },
-      { status: 500 },
+      { status: 500 }
     );
   }
 }

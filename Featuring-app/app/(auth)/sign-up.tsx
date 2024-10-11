@@ -1,5 +1,12 @@
 import React, { useState } from "react";
-import { ScrollView, View, TouchableOpacity, Text, Image, Alert } from "react-native";
+import {
+  ScrollView,
+  View,
+  TouchableOpacity,
+  Text,
+  Image,
+  Alert,
+} from "react-native";
 import { icons, images } from "@/constants";
 import InputField from "@/components/InputField";
 import CustomButton from "@/components/CustomButton";
@@ -38,14 +45,20 @@ export default function SignUp() {
   const validateEmail = (email: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      setErrors((prev) => ({ ...prev, email: "Ingresa un correo electrónico válido." }));
+      setErrors((prev) => ({
+        ...prev,
+        email: "Ingresa un correo electrónico válido.",
+      }));
     } else {
       setErrors((prev) => ({ ...prev, email: "" }));
     }
   };
 
   const validatePassword = (password: string) => {
-    if (password.length < PASSWORD_MIN_LENGTH || password.length > PASSWORD_MAX_LENGTH) {
+    if (
+      password.length < PASSWORD_MIN_LENGTH ||
+      password.length > PASSWORD_MAX_LENGTH
+    ) {
       setErrors((prev) => ({
         ...prev,
         password: `La contraseña debe tener entre ${PASSWORD_MIN_LENGTH} y ${PASSWORD_MAX_LENGTH} caracteres.`,
@@ -57,7 +70,10 @@ export default function SignUp() {
 
   const validateNombreCompleto = (nombre: string) => {
     if (nombre.trim().length === 0) {
-      setErrors((prev) => ({ ...prev, nombreCompleto: "El nombre completo es requerido." }));
+      setErrors((prev) => ({
+        ...prev,
+        nombreCompleto: "El nombre completo es requerido.",
+      }));
     } else {
       setErrors((prev) => ({ ...prev, nombreCompleto: "" }));
     }
@@ -67,12 +83,18 @@ export default function SignUp() {
     setTouched({ nombreCompleto: true, email: true, password: true });
 
     if (errors.nombreCompleto || errors.email || errors.password) {
-      Alert.alert("Error", "Por favor, corrige los errores antes de continuar.");
+      Alert.alert(
+        "Error",
+        "Por favor, corrige los errores antes de continuar."
+      );
       return;
     }
 
     if (form.password !== form.confirmPassword) {
-      Alert.alert("Error", "Las contraseñas no coinciden. Por favor, verifica e intenta nuevamente.");
+      Alert.alert(
+        "Error",
+        "Las contraseñas no coinciden. Por favor, verifica e intenta nuevamente."
+      );
       return;
     }
 
@@ -95,7 +117,10 @@ export default function SignUp() {
         throw new Error("No se pudo crear el usuario");
       }
     } catch (err: any) {
-      Alert.alert("Error", err.message || "Ocurrió un error durante el registro");
+      Alert.alert(
+        "Error",
+        err.message || "Ocurrió un error durante el registro"
+      );
     }
   };
 
@@ -115,11 +140,16 @@ export default function SignUp() {
             value={form.nombreCompleto}
             onChangeText={(value) => {
               setForm({ ...form, nombreCompleto: value });
-              if (!touched.nombreCompleto) setTouched({ ...touched, nombreCompleto: true });
+              if (!touched.nombreCompleto)
+                setTouched({ ...touched, nombreCompleto: true });
               validateNombreCompleto(value);
             }}
           />
-          {touched.nombreCompleto && errors.nombreCompleto ? <Text className="text-red-500 text-sm">{errors.nombreCompleto}</Text> : null}
+          {touched.nombreCompleto && errors.nombreCompleto ? (
+            <Text className="text-red-500 text-sm">
+              {errors.nombreCompleto}
+            </Text>
+          ) : null}
 
           <InputField
             label="Email"
@@ -134,7 +164,9 @@ export default function SignUp() {
             keyboardType="email-address"
             autoCapitalize="none"
           />
-          {touched.email && errors.email ? <Text className="text-red-500 text-sm">{errors.email}</Text> : null}
+          {touched.email && errors.email ? (
+            <Text className="text-red-500 text-sm">{errors.email}</Text>
+          ) : null}
 
           <View className="relative">
             <InputField
@@ -145,7 +177,8 @@ export default function SignUp() {
               value={form.password}
               onChangeText={(value) => {
                 setForm({ ...form, password: value });
-                if (!touched.password) setTouched({ ...touched, password: true });
+                if (!touched.password)
+                  setTouched({ ...touched, password: true });
                 validatePassword(value);
               }}
             />
@@ -153,10 +186,15 @@ export default function SignUp() {
               className="absolute right-3 top-1/2"
               onPress={() => setShowPassword(!showPassword)}
             >
-              <Image source={showPassword ? icons.hidePassword : icons.showPassword} className="w-6 h-6" />
+              <Image
+                source={showPassword ? icons.hidePassword : icons.showPassword}
+                className="w-6 h-6"
+              />
             </TouchableOpacity>
           </View>
-          {touched.password && errors.password ? <Text className="text-red-500 text-sm">{errors.password}</Text> : null}
+          {touched.password && errors.password ? (
+            <Text className="text-red-500 text-sm">{errors.password}</Text>
+          ) : null}
 
           <View className="relative">
             <InputField
@@ -165,23 +203,38 @@ export default function SignUp() {
               icon={icons.lock}
               secureTextEntry={!showConfirmPassword}
               value={form.confirmPassword}
-              onChangeText={(value) => setForm({ ...form, confirmPassword: value })}
+              onChangeText={(value) =>
+                setForm({ ...form, confirmPassword: value })
+              }
             />
             <TouchableOpacity
               className="absolute right-3 top-1/2"
               onPress={() => setShowConfirmPassword(!showConfirmPassword)}
             >
-              <Image source={showConfirmPassword ? icons.hidePassword : icons.showPassword} className="w-6 h-6" />
+              <Image
+                source={
+                  showConfirmPassword ? icons.hidePassword : icons.showPassword
+                }
+                className="w-6 h-6"
+              />
             </TouchableOpacity>
           </View>
 
-          <CustomButton title="Registrarse" onPress={onSignUpPress} className="mt-4" />
-          <OAuth/>
+          <CustomButton
+            title="Registrarse"
+            onPress={onSignUpPress}
+            className="mt-4"
+          />
+          <OAuth />
           <View className="flex-1 items-center justify-center">
             <Link href="/sign-in">
               <View className="flex flex-col items-center">
-                <Text className="font-JakartaMedium text-md">¿Ya estás registrado?</Text>
-                <Text className="font-JakartaMedium text-primary-500 text-md">Iniciar Sesión</Text>
+                <Text className="font-JakartaMedium text-md">
+                  ¿Ya estás registrado?
+                </Text>
+                <Text className="font-JakartaMedium text-primary-500 text-md">
+                  Iniciar Sesión
+                </Text>
               </View>
             </Link>
           </View>
@@ -189,8 +242,13 @@ export default function SignUp() {
 
         <ReactNativeModal isVisible={showSuccessModal}>
           <View className="bg-white px-7 py-9 rounded-2xl min-h-[300px]">
-            <Image source={images.check} className="w-[110px] h-[110px] mx-auto my-5" />
-            <Text className="text-3xl font-JakartaBold text-center">Verificado</Text>
+            <Image
+              source={images.check}
+              className="w-[110px] h-[110px] mx-auto my-5"
+            />
+            <Text className="text-3xl font-JakartaBold text-center">
+              Verificado
+            </Text>
             <Text className="text-base text-gray-400 font-Jakarta text-center mt-2">
               Has registrado exitosamente tu cuenta.
             </Text>

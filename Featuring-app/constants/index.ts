@@ -59,7 +59,6 @@ import FeatHeader from "@/assets/images/FeatHeader.png";
 import IconoMusical from "@/assets/images/IconoMusical.png";
 import editar from "@/assets/icons/editar.png";
 
-
 export const images = {
   onboarding1,
   onboarding2,

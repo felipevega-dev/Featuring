@@ -43,9 +43,7 @@ const TopBar = () => {
     <SafeAreaView className="bg-[#F6F8FA]">
       <View className="bg-[#F6F8FA] h-15 flex-row justify-between items-center px-5 mt-2 border-b-2 border-b-cyan-200">
         {/* Icono de Notificaciones */}
-        <TouchableOpacity
-          onPress={() => router.push("/(tabs)/notificaciones")}
-        >
+        <TouchableOpacity onPress={() => router.push("/(tabs)/notificaciones")}>
           <Image
             source={icons.bell}
             className="w-7 h-7"
@@ -164,22 +162,21 @@ const Layout = () => {
             headerShown: false,
           }}
         />
-        
+
         <Tabs.Screen
           name="chat/[id]"
           options={{
             tabBarButton: () => null,
-            headerShown: false,  // Esto ocultará el encabezado por defecto
+            headerShown: false, // Esto ocultará el encabezado por defecto
           }}
         />
-       
+
         <Tabs.Screen
           name="notificaciones"
           options={{
             tabBarButton: () => null,
             headerShown: false,
           }}
-          
         />
       </Tabs>
     </>

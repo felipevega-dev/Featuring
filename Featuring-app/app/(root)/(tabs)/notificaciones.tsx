@@ -5,9 +5,21 @@ import { images } from "@/constants";
 
 const notificaciones = () => {
   const notificacionesMock = [
-    { id: '1', titulo: 'Nueva solicitud de amistad', mensaje: 'Juan te ha enviado una solicitud de amistad.' },
-    { id: '2', titulo: 'Recordatorio de evento', mensaje: 'Tu evento "Reunión de trabajo" comienza en 1 hora.' },
-    { id: '3', titulo: 'Actualización de la aplicación', mensaje: 'Hay una nueva versión disponible. ¡Actualiza ahora!' },
+    {
+      id: "1",
+      titulo: "Nueva solicitud de amistad",
+      mensaje: "Juan te ha enviado una solicitud de amistad.",
+    },
+    {
+      id: "2",
+      titulo: "Recordatorio de evento",
+      mensaje: 'Tu evento "Reunión de trabajo" comienza en 1 hora.',
+    },
+    {
+      id: "3",
+      titulo: "Actualización de la aplicación",
+      mensaje: "Hay una nueva versión disponible. ¡Actualiza ahora!",
+    },
   ];
 
   const renderNotificacion = ({ item }) => (
@@ -23,7 +35,7 @@ const notificaciones = () => {
       <FlatList
         data={notificacionesMock}
         renderItem={renderNotificacion}
-        keyExtractor={item => item.id}
+        keyExtractor={(item) => item.id}
         contentContainerStyle={{ flexGrow: 1 }}
       />
     </SafeAreaView>
