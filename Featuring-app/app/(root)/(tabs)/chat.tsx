@@ -1,18 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, FlatList, TouchableOpacity, Image } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '@/lib/supabase';
-import { useNavigation } from '@react-navigation/native';
-import { StackNavigationProp } from '@react-navigation/stack';
-import { FontAwesome } from '@expo/vector-icons'; // Asegúrate de tener esta dependencia instalada
-import { Link, useRouter } from 'expo-router';
-
-type RootStackParamList = {
-  Chat: undefined;
-  ChatDetail: { id: string };
-};
-
-type ChatScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Chat'>;
+import { useRouter } from 'expo-router';
+import { FontAwesome } from '@expo/vector-icons';
 
 interface ChatListItem {
   id: string;
@@ -23,11 +13,10 @@ interface ChatListItem {
   lastMessageTime: string | null;
 }
 
-const Chat = () => {
+export default function Chat() {
   const [chatList, setChatList] = useState<ChatListItem[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const navigation = useNavigation<ChatScreenNavigationProp>();
   const router = useRouter();
 
   useEffect(() => {
@@ -41,15 +30,8 @@ const Chat = () => {
   }, [currentUserId]);
 
   const getCurrentUser = async () => {
-    const { data: { user }, error } = await supabase.auth.getUser();
-    if (error) {
-      console.error('Error al obtener el usuario actual:', error);
-    } else if (user) {
-      console.log('Usuario actual obtenido:', user.id);
-      setCurrentUserId(user.id);
-    } else {
-      console.error('No hay usuario autenticado');
-    }
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) setCurrentUserId(user.id);
   };
 
   const fetchChatList = async () => {
@@ -57,9 +39,6 @@ const Chat = () => {
 
     try {
       setIsLoading(true);
-      console.log('Obteniendo conexiones para el usuario:', currentUserId);
-
-      // Modificamos la consulta para obtener todas las conexiones del usuario actual
       const { data: connections, error: connectionsError } = await supabase
         .from('conexion')
         .select('*')
@@ -67,21 +46,27 @@ const Chat = () => {
         .eq('estado', true);
 
       if (connectionsError) throw connectionsError;
-      
-      console.log('Conexiones obtenidas:', connections);
 
       if (!connections || connections.length === 0) {
-        console.log('No se encontraron conexiones');
         setChatList([]);
         setIsLoading(false);
         return;
       }
 
-      // Obtener los detalles de los usuarios y los últimos mensajes
-      const chatListPromises = connections.map(async (connection) => {
+      // Crear un Set para almacenar IDs de usuarios únicos
+      const uniqueUserIds = new Set<string>();
+      const uniqueConnections = connections.filter(connection => {
+        const otherUserId = connection.usuario1_id === currentUserId ? connection.usuario2_id : connection.usuario1_id;
+        if (!uniqueUserIds.has(otherUserId)) {
+          uniqueUserIds.add(otherUserId);
+          return true;
+        }
+        return false;
+      });
+
+      const chatListPromises = uniqueConnections.map(async (connection) => {
         const otherUserId = connection.usuario1_id === currentUserId ? connection.usuario2_id : connection.usuario1_id;
 
-        // Obtener detalles del otro usuario
         const { data: userData, error: userError } = await supabase
           .from('perfil')
           .select('username, foto_perfil')
@@ -90,7 +75,6 @@ const Chat = () => {
 
         if (userError) throw userError;
 
-        // Obtener el último mensaje
         const { data: lastMessageData, error: messageError } = await supabase
           .from('mensaje')
           .select('contenido, fecha_envio')
@@ -112,7 +96,6 @@ const Chat = () => {
       });
 
       const chatListData = await Promise.all(chatListPromises);
-      console.log('Lista de chats procesada:', chatListData);
       setChatList(chatListData);
     } catch (error) {
       console.error('Error al obtener la lista de chats:', error);
@@ -123,7 +106,7 @@ const Chat = () => {
 
   const renderChatItem = ({ item }: { item: ChatListItem }) => (
     <TouchableOpacity 
-      className="flex-row items-center p-4 border-b border-gray-200"
+      className="flex-row items-center p-4 border-b border-primary-200"
       onPress={() => router.push(`/chat/${item.otherUserId}`)}
     >
       {item.otherUserAvatar ? (
@@ -132,20 +115,20 @@ const Chat = () => {
           className="w-12 h-12 rounded-full mr-4"
         />
       ) : (
-        <View className="w-12 h-12 rounded-full bg-gray-300 mr-4 justify-center items-center">
-          <Text className="text-xl font-bold text-gray-500">
+        <View className="w-12 h-12 rounded-full bg-primary-300 mr-4 justify-center items-center">
+          <Text className="text-xl font-bold text-primary-700">
             {item.otherUserName.charAt(0).toUpperCase()}
           </Text>
         </View>
       )}
       <View className="flex-1">
-        <Text className="font-bold text-lg">{item.otherUserName}</Text>
-        <Text className="text-gray-600" numberOfLines={1}>
+        <Text className="font-JakartaBold text-lg text-primary-700">{item.otherUserName}</Text>
+        <Text className="text-primary-600" numberOfLines={1}>
           {item.lastMessage || 'No hay mensajes aún'}
         </Text>
       </View>
       {item.lastMessageTime && (
-        <Text className="text-gray-400 text-xs">
+        <Text className="text-primary-400 text-xs">
           {new Date(item.lastMessageTime).toLocaleDateString()}
         </Text>
       )}
@@ -154,31 +137,31 @@ const Chat = () => {
 
   const renderEmptyList = () => (
     <View className="flex-1 justify-center items-center">
-      <FontAwesome name="comments-o" size={80} color="#CCCCCC" />
-      <Text className="text-xl font-bold text-gray-400 mt-4">No hay matches disponibles</Text>
-      <Text className="text-gray-400 mt-2 text-center px-4">
+      <FontAwesome name="comments-o" size={80} color="#6D29D2" />
+      <Text className="text-xl font-JakartaBold text-primary-700 mt-4">No hay matches disponibles</Text>
+      <Text className="text-primary-600 mt-2 text-center px-4 font-JakartaMedium">
         ¡Sigue explorando y conectando con otros músicos para comenzar a chatear!
       </Text>
       <TouchableOpacity 
-        className="mt-6 bg-blue-500 py-3 px-6 rounded-full"
-        onPress={() => navigation.navigate('match')}
+        className="mt-6 bg-primary-500 py-3 px-6 rounded-full"
+        onPress={() => router.push('/match')}
       >
-        <Text className="text-white font-bold">Ir a Matches</Text>
+        <Text className="text-white font-JakartaBold">Ir a Matches</Text>
       </TouchableOpacity>
     </View>
   );
 
   if (isLoading) {
     return (
-      <View className="flex-1 justify-center items-center">
-        <Text>Cargando chats...</Text>
+      <View className="flex-1 justify-center items-center bg-white">
+        <Text className="text-primary-700 font-JakartaMedium">Cargando chats...</Text>
       </View>
     );
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
-      <Text className="text-2xl font-bold p-4">Chats</Text>
+    <View className="flex-1 bg-white">
+      <Text className="text-2xl font-JakartaBold p-4 text-primary-700">Chats</Text>
       {chatList.length > 0 ? (
         <FlatList
           data={chatList}
@@ -188,8 +171,6 @@ const Chat = () => {
       ) : (
         renderEmptyList()
       )}
-    </SafeAreaView>
+    </View>
   );
-};
-
-export default Chat;
+}
