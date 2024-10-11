@@ -36,7 +36,7 @@ const Notificaciones = () => {
       if (error) {
         console.error('Error fetching notificaciones:', error);
       } else {
-        console.log('Notificaciones obtenidas:', data);
+        console.log('Notificaciones obtenidas:', JSON.stringify(data, null, 2));
         setNotificaciones(data);
 
         const { error: updateError } = await supabase
@@ -68,9 +68,11 @@ const Notificaciones = () => {
 
   const renderNotificacion = ({ item }: { item: Notificacion }) => (
     <View className="bg-gray-100 p-4 mb-2 rounded-lg">
-      <Text className="font-JakartaBold text-lg">
+      <Text className="font-JakartaBold text-base">
         {item.tipo_notificacion === 'like' && item.perfil
           ? `${item.perfil.username} te ha dado like, ¡conecta!`
+          : item.tipo_notificacion === 'match' && item.perfil
+          ? `Conectaste con ${item.perfil.username}, ¡empieza a colaborar!`
           : item.tipo_notificacion}
       </Text>
       <Text className="text-gray-400 mt-1 text-xs">

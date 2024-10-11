@@ -531,11 +531,13 @@ const Match = () => {
             .insert([
               {
                 usuario_id: likedUserId,
-                tipo_notificacion: 'match'
+                tipo_notificacion: 'match',
+                usuario_origen_id: currentUserId
               },
               {
                 usuario_id: currentUserId,
-                tipo_notificacion: 'match'
+                tipo_notificacion: 'match',
+                usuario_origen_id: likedUserId
               }
             ])
             .select();
