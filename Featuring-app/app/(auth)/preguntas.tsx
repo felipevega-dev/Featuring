@@ -22,6 +22,9 @@ import * as ImagePicker from "expo-image-picker";
 import * as Location from "expo-location";
 import { supabase } from "@/lib/supabase";
 import DropDownPicker from "react-native-dropdown-picker";
+import { Ionicons } from '@expo/vector-icons'; 
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
 
 const { height, width } = Dimensions.get("window");
 
@@ -29,9 +32,6 @@ export default function Preguntas() {
   const swiperRef = useRef<Swiper>(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
-  const [modalVisible, setModalVisible] = useState(false);
-  const [modalContent, setModalContent] = useState<"generos" | "habilidades">("generos");
-
   const [username, setUsername] = useState("");
   const [usernameError, setUsernameError] = useState("");
   const [telefono, setTelefono] = useState("");
@@ -46,16 +46,28 @@ export default function Preguntas() {
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [location, setLocation] = useState<(Location.LocationObject & { ubicacion?: string }) | null>(null);
 
-  const [habilidadesMusicales, setHabilidadesMusicales] = useState([
-    "Canto", "Guitarra", "Piano", "Batería", "Bajo", "Violín", "Saxofón", "Trompeta",
-    "Flauta", "Ukulele", "DJ", "Producción", "Composición", "Arreglos"
+
+
+  const [habilidadesMusicalesCompletas, setHabilidadesMusicalesCompletas] = useState([
+    "Canto", "Guitarra", "Piano", "Batería", "Bajo", "Violín", "Saxofón", "Trompeta", 
+    "Flauta", "Ukulele", "DJ", "Producción", "Composición", "Arreglos", "Percusión", 
+    "Armónica", "Contrabajo", "Clarinete", "Oboe", "Cello", "Trombón", "Teclado", 
+    "Sintetizador", "Banjo", "Mandolina", "Beatboxing", "Técnico de sonido", "Mezcla", 
+    "Masterización", "Improvisación", "Solfeo", "Dirección coral", "Dirección orquestal", 
+    "Lectura de partituras", "Orquestación", "Grabación", "Edición de audio"
   ]);
   const [habilidadesMusicalesSeleccionadas, setHabilidadesMusicalesSeleccionadas] = useState<string[]>([]);
 
-  const [generosMusicales, setGenerosMusicales] = useState([
-    "Pop", "Rock", "Hip Hop", "R&B", "Jazz", "Clásica", "Electrónica", "Reggaeton",
-    "Country", "Folk", "Blues", "Metal", "Punk", "Indie", "Salsa", "Reggae"
+
+  const [generosMusicalesCompletos, setGenerosMusicalesCompletos] = useState([
+    "Pop", "Rock", "Hip Hop", "R&B", "Jazz", "Clásica", "Electrónica", "Reggaeton", 
+    "Country", "Folk", "Blues", "Metal", "Punk", "Indie", "Salsa", "Reggae", 
+    "Trap", "House", "Techno", "Dubstep", "Gospel", "Soul", "Funk", "Bossa Nova", 
+    "Flamenco", "Cumbia", "Bachata", "Merengue", "Tango", "Grunge", "Progressive Rock", 
+    "Disco", "New Wave", "K-Pop", "J-Pop", "Latin Jazz", "Ska", "Afrobeat", 
+    "World Music", "Chillout", "Lo-fi"
   ]);
+
   const [generosMusicalesSeleccionados, setGenerosMusicalesSeleccionados] = useState<string[]>([]);
 
   const isFirstSlide = activeIndex === 0;
@@ -125,47 +137,51 @@ export default function Preguntas() {
   }, []);
 
   const renderHabilidadesMusicales = useCallback(() => (
-    <View className="flex-row flex-wrap justify-center">
-      {habilidadesMusicales.map((habilidad) => (
-        <TouchableOpacity
-          key={habilidad}
-          onPress={() => toggleHabilidadMusical(habilidad)}
-          className={`m-2 p-3 rounded-full ${
-            habilidadesMusicalesSeleccionadas.includes(habilidad)
-              ? "bg-blue-500"
-              : "bg-gray-200"
-          }`}
-        >
-          <Text className={`text-center ${
-            habilidadesMusicalesSeleccionadas.includes(habilidad) ? "text-white" : "text-gray-800"
-          }`}>
-            {habilidad}
-          </Text>
-        </TouchableOpacity>
-      ))}
-    </View>
+    <ScrollView style={{ maxHeight: 300 }} contentContainerStyle={{ flexGrow: 1 }}>
+      <View className="flex-row flex-wrap justify-center">
+        {habilidadesMusicalesCompletas.map((habilidad) => (
+          <TouchableOpacity
+            key={habilidad}
+            onPress={() => toggleHabilidadMusical(habilidad)}
+            className={`m-2 p-3 rounded-full ${
+              habilidadesMusicalesSeleccionadas.includes(habilidad)
+                ? "bg-secondary-600"
+                : "bg-gray-200"
+            }`}
+          >
+            <Text className={`text-center ${
+              habilidadesMusicalesSeleccionadas.includes(habilidad) ? "text-white" : "text-gray-800"
+            }`}>
+              {habilidad}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+    </ScrollView>
   ), [habilidadesMusicalesSeleccionadas, toggleHabilidadMusical]);
 
   const renderGenerosMusicales = useCallback(() => (
-    <View className="flex-row flex-wrap justify-center">
-      {generosMusicales.map((genero) => (
-        <TouchableOpacity
-          key={genero}
-          onPress={() => toggleGeneroMusical(genero)}
-          className={`m-2 p-3 rounded-full ${
-            generosMusicalesSeleccionados.includes(genero)
-              ? "bg-blue-500"
-              : "bg-gray-200"
-          }`}
-        >
-          <Text className={`text-center ${
-            generosMusicalesSeleccionados.includes(genero) ? "text-white" : "text-gray-800"
-          }`}>
-            {genero}
-          </Text>
-        </TouchableOpacity>
-      ))}
-    </View>
+    <ScrollView style={{ maxHeight: 300 }} contentContainerStyle={{ flexGrow: 1 }}>
+      <View className="flex-row flex-wrap justify-center">
+        {generosMusicalesCompletos.map((genero) => (
+          <TouchableOpacity
+            key={genero}
+            onPress={() => toggleGeneroMusical(genero)}
+            className={`m-2 p-3 rounded-full ${
+              generosMusicalesSeleccionados.includes(genero)
+                ? "bg-secondary-600"
+                : "bg-gray-200"
+            }`}
+          >
+            <Text className={`text-center ${
+              generosMusicalesSeleccionados.includes(genero) ? "text-white" : "text-gray-800"
+            }`}>
+              {genero}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+    </ScrollView>
   ), [generosMusicalesSeleccionados, toggleGeneroMusical]);
 
   const pickImage = async () => {
@@ -187,10 +203,10 @@ export default function Preguntas() {
       Alert.alert("Permiso denegado", "No se puede acceder a la ubicación");
       return;
     }
-  
+
     let location = await Location.getCurrentPositionAsync({});
     const { latitude, longitude } = location.coords;
-    
+
     try {
       const [placeDetails] = await Location.reverseGeocodeAsync({ latitude, longitude });
       if (placeDetails) {
@@ -206,13 +222,40 @@ export default function Preguntas() {
     }
   };
 
+  // Validación adicional para el número de teléfono
+  const validatePhoneNumber = (number: string) => {
+    const phoneRegex = /^[0-9]{10,11}$/;
+    return phoneRegex.test(number);
+  };
+
   const handleNext = useCallback(() => {
     if (isLastSlide) {
       SaveProfile();
     } else {
+      // Validaciones adicionales antes de avanzar
+      if (activeIndex === 0 && (!username || !telefono || !validatePhoneNumber(telefono))) {
+        Alert.alert("Error", "Por favor, ingresa un nombre de usuario y un número de teléfono válido (10-11 dígitos).");
+        return;
+      }
+      if (activeIndex === 1 && !genero) {
+        Alert.alert("Error", "Por favor, selecciona tu género.");
+        return;
+      }
+      if (activeIndex === 2 && (!dia || !mes || !anio)) {
+        Alert.alert("Error", "Por favor, selecciona tu fecha de nacimiento completa.");
+        return;
+      }
+      if (activeIndex === 3 && habilidadesMusicalesSeleccionadas.length === 0) {
+        Alert.alert("Error", "Por favor, selecciona al menos una habilidad musical.");
+        return;
+      }
+      if (activeIndex === 4 && generosMusicalesSeleccionados.length === 0) {
+        Alert.alert("Error", "Por favor, selecciona al menos un género musical.");
+        return;
+      }
       swiperRef.current?.scrollBy(1);
     }
-  }, [isLastSlide, activeIndex, username, telefono, genero, habilidadesMusicalesSeleccionadas, generosMusicalesSeleccionados, descripcion, profileImage, location]);
+  }, [isLastSlide, activeIndex, username, telefono, genero, dia, mes, anio, habilidadesMusicalesSeleccionadas, generosMusicalesSeleccionados]);
 
   const handleBack = useCallback(() => {
     if (!isFirstSlide) {
@@ -242,15 +285,15 @@ export default function Preguntas() {
       if (!isUsernameValid) {
         throw new Error("Nombre de usuario inválido");
       }
-  
+
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         throw new Error("No se encontró el ID de usuario autenticado");
       }
-  
+
       const fechaNacimiento = new Date(anio, mes - 1, dia);
       const edad = calcularEdad(dia, mes, anio);
-  
+
       const perfilData = {
         usuario_id: user.id,
         username,
@@ -264,30 +307,30 @@ export default function Preguntas() {
         longitud: location ? location.coords.longitude : null,
         numtelefono: telefono || null,
       };
-  
+
       const { data, error } = await supabase
         .from("perfil")
         .upsert(perfilData)
         .select();
-  
+
       if (error) {
         throw error;
       }
-  
+
       // Insertar habilidades
       for (const habilidad of habilidadesMusicalesSeleccionadas) {
         await supabase
           .from("perfil_habilidad")
           .upsert({ perfil_id: user.id, habilidad });
       }
-  
+
       // Insertar géneros
       for (const genero of generosMusicalesSeleccionados) {
         await supabase
           .from("perfil_genero")
           .upsert({ perfil_id: user.id, genero });
       }
-  
+
       Alert.alert("Perfil guardado exitosamente");
       router.replace("/(root)/(tabs)/home");
     } catch (error) {
@@ -305,11 +348,6 @@ export default function Preguntas() {
   ];
   const anios = Array.from({length: 100}, (_, i) => ({label: `${2023 - i}`, value: 2023 - i}));
 
-  const openModal = (content: "generos" | "habilidades") => {
-    setModalContent(content);
-    setModalVisible(true);
-  };
-
   return (
     <SafeAreaView className="flex-1 bg-white">
       <KeyboardAvoidingView
@@ -326,8 +364,8 @@ export default function Preguntas() {
               ref={swiperRef}
               loop={false}
               scrollEnabled={false}
-              dot={<View className="w-[32px] h-[4px] mx-1 bg-[#E2E8F0] rounded-full" />}
-              activeDot={<View className="w-[32px] h-[4px] mx-1 bg-[#6D29D2] rounded-full" />}
+              dot={<View className="w-[32px] h-[4px] mx-1 bg-primary-300 rounded-full" />}
+              activeDot={<View className="w-[32px] h-[4px] mx-1 bg-primary-700 rounded-full" />}
               index={activeIndex}
               onIndexChanged={setActiveIndex}
               showsPagination={true}
@@ -335,10 +373,10 @@ export default function Preguntas() {
               style={{ height: height - 250 }}
             >
               {/* Slide 1 - Username y Teléfono */}
-              <View className="flex-1 justify-center items-center mb-10">
-                <Text className="text-lg text-blue-500 font-bold mb-4">Ingresa tu información</Text>
+              <View className="flex-1 justify-center items-center mb-10 p-4">
+                <Text className="text-2xl text-primary-700 font-JakartaBold mb-6">Ingresa tu información</Text>
                 <TextInput
-                  className="border-1 rounded-full bg-blue-200 border-blue-500 p-3 w-3/4 mb-4"
+                  className="border-2 rounded-full bg-primary-200 border-primary-500 p-4 w-full mb-4"
                   placeholder="Tu nombre artístico (username)"
                   value={username}
                   onChangeText={(text) => {
@@ -347,66 +385,64 @@ export default function Preguntas() {
                   }}
                 />
                 {usernameError ? (
-                  <Text className="text-red-500 mt-2">{usernameError}</Text>
+                  <Text className="text-danger-600 mt-2 mb-4">{usernameError}</Text>
                 ) : null}
                 <TextInput
-                  className="border-1 rounded-full bg-blue-200 border-blue-500 p-3 w-3/4 mb-4"
+                  className="border-2 rounded-full bg-primary-200 border-primary-500 p-4 w-full mb-4"
                   placeholder="Número de teléfono"
                   value={telefono}
                   onChangeText={setTelefono}
                   keyboardType="phone-pad"
+                  maxLength={11}
                 />
-                <Image
-                  source={images.IconoMusical}
-                  className="w-4/5 h-24 mb-10 mt-10"
-                  resizeMode="contain"
-                />
+                <View className="mb-3 mt-4"><FontAwesome name="user-circle" size={80} color="#6D29D2" /></View>
               </View>
 
               {/* Slide 2 - Género */}
-              <View className="flex-1 justify-center items-center mb-10">
-                <Text className="text-lg text-blue-500 font-bold mb-5">
+              <View className="flex-1 justify-center items-center mb-10 p-4">
+                <View className="mb-3"><FontAwesome name="intersex" size={80} color="#00BFA5" /></View>
+                <Text className="text-2xl text-primary-700 font-JakartaBold mb-5">
                   Selecciona tu género
                 </Text>
-                <View className="flex flex-row mb-10">
+                <View className="flex flex-row mb-20">
                   <TouchableOpacity
-                    className={`p-3 mx-2 border-1 rounded-full ${
-                      genero === "Masculino" ? "bg-blue-500" : "bg-gray-200 "
+                    className={`p-4 mx-1 border-2 rounded-full ${
+                      genero === "Masculino" ? "bg-primary-500 border-primary-700" : "bg-primary-200 border-primary-400"
                     }`}
                     onPress={() => setGenero("Masculino")}
                   >
                     <Text
                       className={`${
-                        genero === "Masculino" ? "text-white" : "text-blue-500"
-                      } font-semibold`}
+                        genero === "Masculino" ? "text-white" : "text-primary-700"
+                      } font-JakartaSemiBold`}
                     >
                       Masculino
                     </Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    className={`p-3 mx-2 border-1 rounded-full ${
-                      genero === "Femenino" ? "bg-pink-500" : "bg-gray-200"
+                    className={`p-4 mx-2 border-2 rounded-full ${
+                      genero === "Femenino" ? "bg-secondary-500 border-secondary-700" : "bg-primary-200 border-primary-400"
                     }`}
                     onPress={() => setGenero("Femenino")}
                   >
                     <Text
                       className={`${
-                        genero === "Femenino" ? "text-white" : "text-pink-500"
-                      } font-semibold`}
+                        genero === "Femenino" ? "text-white" : "text-secondary-700"
+                      } font-JakartaSemiBold`}
                     >
                       Femenino
                     </Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    className={`p-3 mx-2 border-1 rounded-full ${
-                      genero === "Otro" ? "bg-gray-500 " : "bg-gray-200"
+                    className={`p-4 mx-2 border-2 rounded-full ${
+                      genero === "Otro" ? "bg-general-200 border-general-400" : "bg-primary-200 border-primary-400"
                     }`}
                     onPress={() => setGenero("Otro")}
                   >
                     <Text
                       className={`${
-                        genero === "Otro" ? "text-white" : "text-gray-500"
-                      } font-semibold`}
+                        genero === "Otro" ? "text-white" : "text-general-800"
+                      } font-JakartaSemiBold`}
                     >
                       Otro
                     </Text>
@@ -415,9 +451,10 @@ export default function Preguntas() {
               </View>
 
               {/* Slide 3 - Fecha de Nacimiento */}
-              <View className="flex-1 justify-center items-center bg-pink-100 p-4">
-                <Text className="text-lg text-pink-700 font-bold pb-2 ">Fecha de Nacimiento</Text>
-                <View className="flex-row justify-between">
+              <View className="flex-1 justify-center items-center bg-white p-4">
+                <View className="mb-4"><FontAwesome name="birthday-cake" size={60} color="#6D29D2" /></View>
+                <Text className="text-2xl text-primary-700 font-JakartaBold mb-4">Fecha de Nacimiento</Text>
+                <View className="flex-row justify-between w-full mb-36">
                   <View className="w-1/4">
                     <DropDownPicker
                       open={diaOpen}
@@ -428,6 +465,9 @@ export default function Preguntas() {
                       placeholder="Día"
                       zIndex={3000}
                       zIndexInverse={1000}
+                      style={{backgroundColor: '#E6E1F1', borderColor: '#6D29D2'}}
+                      textStyle={{fontFamily: 'Jakarta-Medium', color: '#4A148C'}}
+                      dropDownContainerStyle={{backgroundColor: '#F3F0F8', borderColor: '#6D29D2'}}
                     />
                   </View>
                   <View className="w-2/5">
@@ -440,6 +480,9 @@ export default function Preguntas() {
                       placeholder="Mes"
                       zIndex={2000}
                       zIndexInverse={2000}
+                      style={{backgroundColor: '#E6E1F1', borderColor: '#6D29D2'}}
+                      textStyle={{fontFamily: 'Jakarta-Medium', color: '#4A148C'}}
+                      dropDownContainerStyle={{backgroundColor: '#F3F0F8', borderColor: '#6D29D2'}}
                     />
                   </View>
                   <View className="w-1/3">
@@ -452,52 +495,40 @@ export default function Preguntas() {
                       placeholder="Año"
                       zIndex={1000}
                       zIndexInverse={3000}
+                      style={{backgroundColor: '#E6E1F1', borderColor: '#6D29D2'}}
+                      textStyle={{fontFamily: 'Jakarta-Medium', color: '#4A148C'}}
+                      dropDownContainerStyle={{backgroundColor: '#F3F0F8', borderColor: '#6D29D2'}}
                     />
                   </View>
                 </View>
-                <Image
-                  source={images.IconoMusical}
-                  className="w-5/5 h-24 mb-10 mt-10"
-                  resizeMode="contain"
-                />
               </View>
 
               {/* Slide 4 - Habilidades Musicales */}
-              <View className="flex-1 justify-start items-center mt-8">
-                <Text className="text-lg text-blue-500 font-bold mb-4">
-                  Selecciona tus habilidades musicales
+              <View className="flex-1 justify-start items-center mt-8 p-4">
+                <Text className="text-2xl text-primary-700 font-JakartaBold mb-6">
+                  Selecciona tus habilidades musicales 
                 </Text>
                 {renderHabilidadesMusicales()}
-                <TouchableOpacity
-                  onPress={() => openModal("habilidades")}
-                  className="mt-4 p-2 bg-purple-500 rounded-full"
-                >
-                  <Text className="text-white text-center">Ver más</Text>
-                </TouchableOpacity>
+                <View className="mt-5"><MaterialCommunityIcons name="music-clef-treble" size={60} color="#00BFA5" /></View>
               </View>
 
               {/* Slide 5 - Géneros musicales */}
-              <View className="flex-1 justify-start items-center mt-8">
-                <Text className="text-lg text-blue-500 font-bold mb-4">
+              <View className="flex-1 justify-start items-center mt-8 p-4">
+                <Text className="text-2xl text-primary-700 font-JakartaBold mb-6">
                   Selecciona tus 5 géneros musicales favoritos
                 </Text>
                 {renderGenerosMusicales()}
-                <TouchableOpacity
-                  onPress={() => openModal("generos")}
-                  className="mt-4 p-2 bg-purple-500 rounded-full"
-                >
-                  <Text className="text-white text-center">Ver más</Text>
-                </TouchableOpacity>
+                <Ionicons name="musical-note" size={80} color="#6D29D2" />
               </View>
 
               {/* Slide 6 - Foto de perfil */}
-              <View className="flex-1 justify-center items-center mb-10 pb-10">
-                <Text className="text-lg text-blue-500 font-bold">
+              <View className="flex-1 justify-center items-center mb-32 pb-10 p-4">
+                <Text className="text-2xl text-primary-700 font-JakartaBold mb-10">
                   Selecciona tu foto de perfil
                 </Text>
                 <TouchableOpacity
                   onPress={pickImage}
-                  className="mt-4 rounded-lg border-2 border-blue-500 p-3"
+                  className="mt-4 rounded-full border-4 border-primary-500 p-2"
                 >
                   {profileImage ? (
                     <Image
@@ -505,23 +536,24 @@ export default function Preguntas() {
                       style={{ width: 200, height: 200, borderRadius: 100 }}
                     />
                   ) : (
-                    <View className="w-[200px] h-[200px] bg-gray-300 rounded-full flex items-center justify-center">
-                      <Text className="text-gray-600">
+                    <View className="w-[200px] h-[200px] bg-primary-200 rounded-full flex items-center justify-center">
+                      <Text className="text-primary-600 font-JakartaMedium">
                         Toca para seleccionar
                       </Text>
+                      <Ionicons name="camera" size={50} color="#6D29D2" />
                     </View>
                   )}
                 </TouchableOpacity>
               </View>
 
               {/* Slide 7 - Descripción */}
-              <View className="flex-1 justify-center items-center mb-10 pb-10">
-                <Text className="text-lg text-blue-500 font-bold ">
+              <View className="flex-1 justify-center items-center mb-10 pb-10 p-4">
+                <Text className="text-2xl text-primary-700 font-JakartaBold mb-6">
                   Agrega una descripción
                 </Text>
-                <View className="w-3/4">
+                <View className="w-full">
                   <TextInput
-                    className="border-2 rounded-lg border-blue-500 p-3 mt-4"
+                    className="border-2 rounded-lg border-primary-500 bg-primary-100 p-4 mt-4"
                     placeholder="Describe tu perfil musical (máximo 300 caracteres)"
                     value={descripcion}
                     onChangeText={(text) => setDescripcion(text.slice(0, 300))}
@@ -530,23 +562,24 @@ export default function Preguntas() {
                     textAlignVertical="top"
                     maxLength={300}
                   />
-                  <Text className="text-right text-gray-500 mt-1">
+                  <Text className="text-right text-primary-600 mt-2 font-JakartaMedium">
                     {descripcion.length}/300
                   </Text>
                 </View>
+                <Ionicons name="create" size={80} color="#6D29D2" />
               </View>
 
               {/* Slide 8 - Acceso a la Ubicación */}
-              <View className="flex-1 justify-center items-center mb-10 pb-10">
-                <Text className="text-lg text-blue-500 font-bold">
+              <View className="flex-1 justify-center items-center mb-10 pb-10 p-4">
+                <Text className="text-2xl text-primary-700 font-JakartaBold mb-6">
                   ¿Deseas acceder a tu ubicación?
                 </Text>
-                <Text className="text-center text-blue-500 mt-4 px-4">
+                <Text className="text-center text-primary-700 mt-4 px-4">
                   Al permitir el acceso a tu ubicación, podemos mejorar tu
                   experiencia en la aplicación.
                 </Text>
                 <TouchableOpacity
-                  className="bg-purple-500 border-2 border-purple-700 p-3 mt-4 rounded-md"
+                  className="bg-primary-500 border-2 border-primary-700 p-3 mt-4 rounded-md"
                   onPress={requestLocationPermission}
                 >
                   <Text className="text-white">Permitir ubicación</Text>
@@ -573,34 +606,6 @@ export default function Preguntas() {
           </View>
         )}
       </KeyboardAvoidingView>
-
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={modalVisible}
-        onRequestClose={() => setModalVisible(false)}
-      >
-        <View className="flex-1 justify-center items-center bg-black bg-opacity-50">
-          <View className="bg-white p-5 rounded-lg w-5/6 max-h-5/6">
-            <Text className="text-lg text-blue-500 font-bold mb-4">
-              {modalContent === "generos"
-                ? "Todos los géneros musicales"
-                : "Todas las habilidades musicales"}
-            </Text>
-            <ScrollView>
-              {modalContent === "generos"
-                ? renderGenerosMusicales()
-                : renderHabilidadesMusicales()}
-            </ScrollView>
-            <TouchableOpacity
-              onPress={() => setModalVisible(false)}
-              className="mt-4 p-2 bg-purple-500 rounded-full"
-            >
-              <Text className="text-white text-center">Cerrar</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
     </SafeAreaView>
   );
 }
