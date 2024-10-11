@@ -498,18 +498,57 @@ const Match = () => {
 
   const handleLike = async (likedUserId: string) => {
     if (currentUserId) {
-      const isMatch = await saveConnection(currentUserId, likedUserId);
+      try {
+        const isMatch = await saveConnection(currentUserId, likedUserId);
 
-      setCards((prevCards) => {
-        setShownCards((prev) => new Set(prev).add(likedUserId));
-        return prevCards.slice(1);
-      });
+        console.log('Intentando crear notificación de like');
+        const { data: notificationData, error: notificationError } = await supabase
+          .from('notificacion')
+          .insert({
+            usuario_id: likedUserId,
+            tipo_notificacion: 'like'
+          })
+          .select();
 
-      if (isMatch) {
-        showMatchAlert(likedUserId);
+        if (notificationError) {
+          console.error('Error al crear notificación de like:', notificationError);
+        } else {
+          console.log('Notificación de like creada:', notificationData);
+        }
+
+        setCards((prevCards) => {
+          setShownCards((prev) => new Set(prev).add(likedUserId));
+          return prevCards.slice(1);
+        });
+
+        if (isMatch) {
+          showMatchAlert(likedUserId);
+          console.log('Intentando crear notificaciones de match');
+          const { data: matchNotifications, error: matchNotificationError } = await supabase
+            .from('notificacion')
+            .insert([
+              {
+                usuario_id: likedUserId,
+                tipo_notificacion: 'match'
+              },
+              {
+                usuario_id: currentUserId,
+                tipo_notificacion: 'match'
+              }
+            ])
+            .select();
+
+          if (matchNotificationError) {
+            console.error('Error al crear notificaciones de match:', matchNotificationError);
+          } else {
+            console.log('Notificaciones de match creadas:', matchNotifications);
+          }
+        }
+
+        position.setValue({ x: 0, y: 0 });
+      } catch (error) {
+        console.error('Error en handleLike:', error);
       }
-
-      position.setValue({ x: 0, y: 0 });
     }
   };
 
