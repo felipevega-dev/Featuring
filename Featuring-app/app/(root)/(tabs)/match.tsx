@@ -506,7 +506,8 @@ const Match = () => {
           .from('notificacion')
           .insert({
             usuario_id: likedUserId,
-            tipo_notificacion: 'like'
+            tipo_notificacion: 'like',
+            leido: false  // Cambiado de 'leida' a 'leido'
           })
           .select();
 

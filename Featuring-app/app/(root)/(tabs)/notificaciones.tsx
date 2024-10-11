@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { FlatList, Text, View, RefreshControl } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { supabase } from "@/lib/supabase";
+import { useNotification } from '@/contexts/NotificationContext';
 
 interface Notificacion {
   id: string;
@@ -13,6 +14,7 @@ interface Notificacion {
 const Notificaciones = () => {
   const [notificaciones, setNotificaciones] = useState<Notificacion[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  const { updateUnreadCount } = useNotification();
 
   const fetchNotificaciones = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -28,6 +30,20 @@ const Notificaciones = () => {
       } else {
         console.log('Notificaciones obtenidas:', data);
         setNotificaciones(data);
+
+        // Marcar todas las notificaciones como leídas
+        const { error: updateError } = await supabase
+          .from('notificacion')
+          .update({ leido: true })  // Cambiado de 'leida' a 'leido'
+          .eq('usuario_id', user.id)
+          .eq('leido', false);  // Cambiado de 'leida' a 'leido'
+
+        if (updateError) {
+          console.error('Error al marcar notificaciones como leídas:', updateError);
+        } else {
+          console.log('Notificaciones marcadas como leídas');
+          updateUnreadCount();
+        }
       }
     } else {
       console.log('No se encontró usuario autenticado');

@@ -1,3 +1,4 @@
+import React, { useEffect, useState } from 'react';
 import { Tabs, useRouter } from "expo-router";
 import {
   View,
@@ -8,6 +9,9 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { icons, images } from "@/constants";
+import { supabase } from "@/lib/supabase";
+import { NotificationProvider } from '@/contexts/NotificationContext';
+import { useNotification } from '@/contexts/NotificationContext';
 
 // Componente para los íconos en la barra inferior
 const TabIcon = ({
@@ -36,19 +40,32 @@ const TabIcon = ({
 // Barra superior personalizada
 const TopBar = () => {
   const router = useRouter();
+  const { unreadCount, updateUnreadCount } = useNotification();
 
-  // @ts-ignore
-  // @ts-ignore
+  useEffect(() => {
+    const interval = setInterval(() => {
+      updateUnreadCount();
+    }, 5000);  // Actualizar cada 5 segundos
+
+    return () => clearInterval(interval);
+  }, []);
+
+  console.log('Unread count in TopBar:', unreadCount);
+
   return (
     <SafeAreaView className="bg-[#F6F8FA]">
       <View className="bg-[#F6F8FA] h-15 flex-row justify-between items-center px-5 mt-2 border-b-2 border-b-cyan-200">
-        {/* Icono de Notificaciones */}
-        <TouchableOpacity onPress={() => router.push("/(tabs)/notificaciones")}>
+        <TouchableOpacity onPress={() => router.push("/(tabs)/notificaciones")} className="relative">
           <Image
             source={icons.bell}
             className="w-7 h-7"
             style={{ tintColor: "#5416A0" }}
           />
+          {unreadCount > 0 && (
+            <View className="absolute -top-1 -right-1 bg-red-500 rounded-full w-5 h-5 justify-center items-center">
+              <Text className="text-white text-xs">{unreadCount > 99 ? '99+' : unreadCount}</Text>
+            </View>
+          )}
         </TouchableOpacity>
 
         {/* Logo en el centro */}
@@ -76,8 +93,7 @@ const TopBar = () => {
 // Layout general de la aplicación
 const Layout = () => {
   return (
-    <>
-      {/* Barra superior */}
+    <NotificationProvider>
       <TopBar />
 
       {/* Barra inferior (Tabs) */}
@@ -179,7 +195,7 @@ const Layout = () => {
           }}
         />
       </Tabs>
-    </>
+    </NotificationProvider>
   );
 };
 
