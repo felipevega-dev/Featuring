@@ -138,15 +138,15 @@ export default function Chat() {
   const renderEmptyList = () => (
     <View className="flex-1 justify-center items-center">
       <FontAwesome name="comments-o" size={80} color="#6D29D2" />
-      <Text className="text-xl font-JakartaBold text-primary-700 mt-4">No hay matches disponibles</Text>
+      <Text className="text-xl font-JakartaBold text-primary-700 mt-4">No hay matches disponibles 😢</Text>
       <Text className="text-primary-600 mt-2 text-center px-4 font-JakartaMedium">
-        ¡Sigue explorando y conectando con otros músicos para comenzar a chatear!
+        ¡Sigue explorando y conectando con otros músicos para comenzar a chatear! 🎸🥁🎹
       </Text>
       <TouchableOpacity 
         className="mt-6 bg-primary-500 py-3 px-6 rounded-full"
         onPress={() => router.push('/match')}
       >
-        <Text className="text-white font-JakartaBold">Ir a Matches</Text>
+        <Text className="text-white font-JakartaBold">Ir a Matches 🤝</Text>
       </TouchableOpacity>
     </View>
   );
@@ -154,7 +154,7 @@ export default function Chat() {
   if (isLoading) {
     return (
       <View className="flex-1 justify-center items-center bg-white">
-        <Text className="text-primary-700 font-JakartaMedium">Cargando chats...</Text>
+        <Text className="text-primary-700 font-JakartaMedium">Cargando chats... 🎵</Text>
       </View>
     );
   }
