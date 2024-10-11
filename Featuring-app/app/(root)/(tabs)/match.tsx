@@ -20,12 +20,11 @@ interface CardProps {
     sexo: string;
     perfil_habilidad: { habilidad: string }[];
     perfil_genero: {genero : string }[];
-  
     latitud: number;
     longitud: number;
     distance?: number;
     mensaje: string;
-    red_social: { nombre: string; url: string }[]; // Añadimos red_social
+    red_social: { nombre: string; url: string }[];
   };
   isFirst?: boolean;
   onSwipe?: (direction: 'left' | 'right') => void;
@@ -38,41 +37,27 @@ const Card: React.FC<CardProps> = ({ card, isFirst, onSwipe, onLike, ...rest }) 
   const [modalVisible, setModalVisible] = useState(false);
 
   const renderHabilidades = (habilidades: { habilidad: string }[] | null | undefined) => {
-    if (!habilidades || habilidades.length === 0) {
-      return "Sin habilidades especificadas";
-    }
+    if (!habilidades || habilidades.length === 0) return "Sin habilidades especificadas";
     const habilidadesArray = habilidades.map(h => h.habilidad);
-    if (habilidadesArray.length <= 3) {
-      return habilidadesArray.join(', ');
-    } else {
-      const visibleHabilidades = habilidadesArray.slice(0, 3);
-      const extraHabilidades = habilidadesArray.length - 3;
-      return `${visibleHabilidades.join(', ')} y ${extraHabilidades} más`;
-    }
+    return habilidadesArray.length <= 3 ? habilidadesArray.join(', ') : `${habilidadesArray.slice(0, 3).join(', ')} y ${habilidadesArray.length - 3} más`;
   };
 
+
   const renderGeneros = (generos: { genero: string }[] | null | undefined) => {
-    if (!generos || generos.length === 0) {
-      return "Sin géneros especificados";
-    }
+    if (!generos || generos.length === 0) return "Sin géneros especificados";
     return generos.map(g => g.genero).join(', ');
   };
 
+
   const getRedSocialIcon = (nombre: string) => {
-    switch (nombre.toLowerCase()) {
-      case 'soundcloud':
-        return 'soundcloud';
-      case 'instagram':
-        return 'instagram';
-      case 'facebook':
-        return 'facebook';
-      case 'twitter':
-        return 'twitter';
-      case 'spotify':
-        return 'spotify';
-      default:
-        return 'link';
-    }
+    const iconMap = {
+      soundcloud: 'soundcloud',
+      instagram: 'instagram',
+      facebook: 'facebook',
+      twitter: 'twitter',
+      spotify: 'spotify'
+    };
+    return iconMap[nombre.toLowerCase()] || 'link';
   };
 
   const handleRedSocialPress = (url: string) => {
@@ -83,7 +68,7 @@ const Card: React.FC<CardProps> = ({ card, isFirst, onSwipe, onLike, ...rest }) 
     <Animated.View
       className={`absolute w-[85%] justify-start items-center h-[85%] bg-white rounded-xl shadow-lg ${
         isFirst ? 'z-10' : ''
-      } top-5 border-2 border-blue-500 shadow-blue-500`}
+      } top-5 border-2 border-primary-500 shadow-primary-500`}
       {...rest}
     >
       <View className="w-full px-4 py-2 bg-primary-600 rounded-t-xl">
@@ -116,21 +101,21 @@ const Card: React.FC<CardProps> = ({ card, isFirst, onSwipe, onLike, ...rest }) 
           <Text className="text-gray-500 mt-1">{card.distance.toFixed(1)} km de distancia</Text>
         )}
         <Text className="text-center mt-2 text-black">{card.biografia}</Text>
-        <Text className="text-center mt-2 text-blue-500 font-semibold">
+        <Text className="text-center mt-2 text-primary-500 font-semibold">
           {renderHabilidades(card.perfil_habilidad)}
         </Text>
         <TouchableOpacity 
-          className="bg-blue-500 rounded-full mt-4 p-2 w-1/2"
+          className="bg-primary-500 rounded-full mt-4 p-2 w-1/2"
           onPress={() => setModalVisible(true)}
         >
           <Text className="text-white font-bold text-center">Ver Perfil</Text>
         </TouchableOpacity>
         <View className="flex-row justify-between w-full mb-10" >
           <TouchableOpacity className="pb-10" onPress={() => onSwipe && onSwipe('left')}>
-            <FontAwesome name="times" size={34} color="red" />
+            <FontAwesome name="times" size={34} color="#00BFA5" />
           </TouchableOpacity>
           <TouchableOpacity className="pb-10" onPress={() => onLike && onLike(card.usuario_id)}>
-            <FontAwesome name="music" size={34} color="blue" />
+            <FontAwesome name="music" size={34} color="#6D29D2" />
           </TouchableOpacity>
         </View>
       </View>
@@ -162,7 +147,6 @@ const Card: React.FC<CardProps> = ({ card, isFirst, onSwipe, onLike, ...rest }) 
               <Text className="font-bold mb-2">Géneros favoritos:</Text>
               <Text className="mb-4">{renderGeneros(card.perfil_genero)}</Text>
               
-              {/* Añadimos la sección de redes sociales */}
               <Text className="font-bold mb-2">Redes Sociales:</Text>
               <View className="flex-row flex-wrap justify-center mb-4">
                 {card.red_social && card.red_social.length > 0 ? (
@@ -197,10 +181,22 @@ const Match = () => {
     outputRange: ['-10deg', '0deg', '10deg'],
     extrapolate: 'clamp',
   });
+  const likeOpacity = position.x.interpolate({
+    inputRange: [0, SWIPE_THRESHOLD],
+    outputRange: [0, 1],
+    extrapolate: 'clamp',
+  });
+  const nopeOpacity = position.x.interpolate({
+    inputRange: [-SWIPE_THRESHOLD, 0],
+    outputRange: [1, 0],
+    extrapolate: 'clamp',
+  });
   const router = useRouter();
   const [lastRefreshTime, setLastRefreshTime] = useState(Date.now());
   const [shownCards, setShownCards] = useState<Set<string>>(new Set());
   const [userLocation, setUserLocation] = useState<Location.LocationObject | null>(null);
+  const [showPopup, setShowPopup] = useState(false);
+  const [popupMessage, setPopupMessage] = useState('');
 
   useEffect(() => {
     getCurrentUser();
@@ -256,7 +252,6 @@ const Match = () => {
     try {
       setIsLoading(true);
 
-      // Obtenemos todas las conexiones del usuario actual
       const { data: connections, error: connectionsError } = await supabase
         .from('conexion')
         .select('usuario1_id, usuario2_id, estado')
@@ -264,25 +259,19 @@ const Match = () => {
 
       if (connectionsError) throw connectionsError;
 
-      // Creamos un conjunto de IDs de usuarios que el usuario actual ya no debe ver
       const excludedUserIds = new Set(
         connections.flatMap(conn => {
           if (conn.estado === true) {
-            // Si hay match, excluimos al otro usuario sin importar quién sea usuario1 o usuario2
             return [conn.usuario1_id === currentUserId ? conn.usuario2_id : conn.usuario1_id];
           } else if (conn.usuario1_id === currentUserId) {
-            // Si el usuario actual dio like pero no hay match aún, excluimos al otro usuario
             return [conn.usuario2_id];
           }
-          // No excluimos si el usuario actual recibió un like pero aún no ha respondido
           return [];
         })
       );
 
-      // Añadimos los IDs de las cartas ya mostradas a los excluidos
       shownCards.forEach(id => excludedUserIds.add(id));
 
-      // Obtenemos los perfiles excluyendo al usuario actual y a los usuarios excluidos
       const { data: profiles, error: profilesError } = await supabase
         .from('perfil')
         .select(`
@@ -305,19 +294,17 @@ const Match = () => {
 
       if (profilesError) throw profilesError;
 
-      // Procesamos los perfiles y calculamos la distancia
-      const processedProfiles = profiles.map(profile => {
-        let distance = undefined;
-        if (profile.latitud && profile.longitud) {
-          distance = calculateDistance(
-            userLocation.coords.latitude,
-            userLocation.coords.longitude,
-            profile.latitud,
-            profile.longitud
-          );
-        }
-        return { ...profile, distance };
-      });
+      const processedProfiles = profiles.map(profile => ({
+        ...profile,
+        distance: profile.latitud && profile.longitud
+          ? calculateDistance(
+              userLocation.coords.latitude,
+              userLocation.coords.longitude,
+              profile.latitud,
+              profile.longitud
+            )
+          : undefined
+      }));
 
       setCards(processedProfiles);
     } catch (error) {
@@ -329,7 +316,6 @@ const Match = () => {
 
   const saveConnection = async (userId1: string, userId2: string): Promise<boolean> => {
     try {
-      // Verificamos si ya existe una conexión en cualquier dirección
       const { data: existingConnections, error: selectError } = await supabase
         .from('conexion')
         .select()
@@ -338,10 +324,8 @@ const Match = () => {
       if (selectError) throw selectError;
 
       if (existingConnections && existingConnections.length > 0) {
-        // Si ya existe una conexión, verificamos si es un match
         const existingConnection = existingConnections[0];
         if (existingConnection.usuario1_id === userId2 && existingConnection.usuario2_id === userId1) {
-          // Es un match, actualizamos ambas conexiones
           await updateConnectionStatus(existingConnection.id, true);
           const { data: newConnection, error: insertError } = await supabase
             .from('conexion')
@@ -357,15 +341,13 @@ const Match = () => {
             await updateConnectionStatus(newConnection.id, true);
           }
           console.log('¡Es un match!');
-          showMatchAlert(userId2);
-          return true; // Indicamos que es un match
+          return true;
         } else {
           console.log('La conexión ya existe');
         }
-        return false; // No es un match
+        return false;
       }
 
-      // Si no existe, insertamos la nueva conexión
       const { error: insertError } = await supabase
         .from('conexion')
         .insert({ 
@@ -378,7 +360,7 @@ const Match = () => {
 
       console.log('Conexión guardada, esperando match');
 
-      return false; // No es un match todavía
+      return false;
     } catch (error) {
       console.error('Error al guardar la conexión:', error);
       return false;
@@ -425,7 +407,6 @@ const Match = () => {
       useNativeDriver: false,
     }).start(() => {
       console.log('no');
-      // Eliminamos la tarjeta actual y la añadimos a las mostradas
       setCards((prevCards) => {
         if (prevCards.length > 0) {
           setShownCards(prev => new Set(prev).add(prevCards[0].usuario_id));
@@ -440,18 +421,15 @@ const Match = () => {
     if (currentUserId) {
       const isMatch = await saveConnection(currentUserId, likedUserId);
       
-      // Eliminamos la tarjeta actual y la añadimos a las mostradas
       setCards((prevCards) => {
         setShownCards(prev => new Set(prev).add(likedUserId));
         return prevCards.slice(1);
       });
       
       if (isMatch) {
-        // Si es un match, mostramos la alerta
         showMatchAlert(likedUserId);
       }
       
-      // Pasamos a la siguiente tarjeta
       position.setValue({ x: 0, y: 0 });
     }
   };

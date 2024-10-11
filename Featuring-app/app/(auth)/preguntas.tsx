@@ -203,10 +203,10 @@ export default function Preguntas() {
       Alert.alert("Permiso denegado", "No se puede acceder a la ubicación");
       return;
     }
-
+  
     let location = await Location.getCurrentPositionAsync({});
     const { latitude, longitude } = location.coords;
-
+    
     try {
       const [placeDetails] = await Location.reverseGeocodeAsync({ latitude, longitude });
       if (placeDetails) {
@@ -262,7 +262,7 @@ export default function Preguntas() {
       }
       swiperRef.current?.scrollBy(1);
     }
-  }, [isLastSlide, activeIndex, username, telefono, genero, dia, mes, anio, habilidadesMusicalesSeleccionadas, generosMusicalesSeleccionados]);
+  }, [isLastSlide, activeIndex, username, telefono, genero, dia, mes, anio, habilidadesMusicalesSeleccionadas, generosMusicalesSeleccionados, descripcion,profileImage, location]);
 
   const handleBack = useCallback(() => {
     if (!isFirstSlide) {
@@ -310,8 +310,8 @@ export default function Preguntas() {
         edad,
         sexo: genero,
         ubicacion: location?.ubicacion || null,
-        latitud: location ? location.coords.latitude : null,
-        longitud: location ? location.coords.longitude : null,
+        latitud: location?.coords.latitude || null,
+        longitud: location?.coords.longitude || null,
         numtelefono: telefono || null,
       };
 
@@ -591,6 +591,11 @@ export default function Preguntas() {
                 >
                   <Text className="text-white">Permitir ubicación</Text>
                 </TouchableOpacity>
+                {location && (
+                  <Text className="text-center text-primary-700 mt-4">
+                    Ubicación: {location.ubicacion}
+                  </Text>
+                )}
               </View>
             </Swiper>
           </View>
