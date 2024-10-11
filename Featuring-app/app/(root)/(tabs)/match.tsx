@@ -73,7 +73,7 @@ const Card: React.FC<CardProps> = ({
   };
 
   const getRedSocialIcon = (nombre: string) => {
-    const iconMap = {
+    const iconMap: { [key: string]: string } = {
       soundcloud: "soundcloud",
       instagram: "instagram",
       facebook: "facebook",
@@ -507,7 +507,8 @@ const Match = () => {
           .insert({
             usuario_id: likedUserId,
             tipo_notificacion: 'like',
-            leido: false  // Cambiado de 'leida' a 'leido'
+            leido: false,
+            usuario_origen_id: currentUserId  // Añadimos el ID del usuario que dio el like
           })
           .select();
 

@@ -9,6 +9,11 @@ interface Notificacion {
   usuario_id: string;
   tipo_notificacion: string;
   created_at: string;
+  contenido_id: string | null;
+  usuario_origen_id: string | null;
+  perfil: {
+    username: string;
+  } | null;
 }
 
 const Notificaciones = () => {
@@ -21,7 +26,10 @@ const Notificaciones = () => {
     if (user) {
       const { data, error } = await supabase
         .from('notificacion')
-        .select('*')
+        .select(`
+          *,
+          perfil:usuario_origen_id (username)
+        `)
         .eq('usuario_id', user.id)
         .order('created_at', { ascending: false });
 
@@ -31,12 +39,11 @@ const Notificaciones = () => {
         console.log('Notificaciones obtenidas:', data);
         setNotificaciones(data);
 
-        // Marcar todas las notificaciones como leídas
         const { error: updateError } = await supabase
           .from('notificacion')
-          .update({ leido: true })  // Cambiado de 'leida' a 'leido'
+          .update({ leido: true })
           .eq('usuario_id', user.id)
-          .eq('leido', false);  // Cambiado de 'leida' a 'leido'
+          .eq('leido', false);
 
         if (updateError) {
           console.error('Error al marcar notificaciones como leídas:', updateError);
@@ -61,7 +68,11 @@ const Notificaciones = () => {
 
   const renderNotificacion = ({ item }: { item: Notificacion }) => (
     <View className="bg-gray-100 p-4 mb-2 rounded-lg">
-      <Text className="font-JakartaBold text-lg">{item.tipo_notificacion}</Text>
+      <Text className="font-JakartaBold text-lg">
+        {item.tipo_notificacion === 'like' && item.perfil
+          ? `${item.perfil.username} te ha dado like, ¡conecta!`
+          : item.tipo_notificacion}
+      </Text>
       <Text className="text-gray-400 mt-1 text-xs">
         {new Date(item.created_at).toLocaleString()}
       </Text>

@@ -723,3 +723,17 @@ export type PerfilHabilidad =
   Database["public"]["Tables"]["perfil_habilidad"]["Row"];
 export type PerfilGenero = Database["public"]["Tables"]["perfil_genero"]["Row"];
 export type Cancion = Database["public"]["Tables"]["cancion"]["Row"];
+
+export interface Comment {
+  id: string;
+  userId: string;
+  content: string;
+  createdAt: Date;
+  // ... otros campos relevantes
+}
+
+export interface User {
+  id: string;
+  username: string;
+  // ... otros campos
+}
