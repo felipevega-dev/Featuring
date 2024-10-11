@@ -24,7 +24,6 @@ interface Perfil {
   full_name: string;
   foto_perfil: string | null;
   sexo: string;
-  edad: number;
   ubicacion: string;
   biografia: string;
   generos: string[];
@@ -81,7 +80,6 @@ const EditarPerfil = () => {
           username,
           foto_perfil,
           sexo,
-          edad,
           ubicacion,
           biografia,
           perfil_genero (genero),
@@ -157,7 +155,6 @@ const EditarPerfil = () => {
           username: perfil.username,
           foto_perfil: fotoPerfil,
           sexo: perfil.sexo,
-          edad: perfil.edad,
           ubicacion: perfil.ubicacion,
           biografia: perfil.biografia,
           mensaje: perfil.mensaje
@@ -478,22 +475,6 @@ const EditarPerfil = () => {
               </Text>
             </TouchableOpacity>
           </View>
-        </StyledView>
-
-        <StyledView className="mb-2">
-          <StyledText className="text-lg font-bold mb-2 text-primary-700">Edad:</StyledText>
-          <StyledTextInput
-            className="border border-gray-300 p-2 rounded-md"
-            value={perfil.edad.toString()}
-            onChangeText={(text) => {
-              const age = parseInt(text) || 0;
-              if (age <= 100) {
-                setPerfil({...perfil, edad: age});
-              }
-            }}
-            keyboardType="numeric"
-            maxLength={3}
-          />
         </StyledView>
 
         <StyledView className="mb-2">

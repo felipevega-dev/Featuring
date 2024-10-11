@@ -241,9 +241,16 @@ export default function Preguntas() {
         Alert.alert("Error", "Por favor, selecciona tu género.");
         return;
       }
-      if (activeIndex === 2 && (!dia || !mes || !anio)) {
-        Alert.alert("Error", "Por favor, selecciona tu fecha de nacimiento completa.");
-        return;
+      if (activeIndex === 2) {
+        if (!dia || !mes || !anio) {
+          Alert.alert("Error", "Por favor, selecciona tu fecha de nacimiento completa.");
+          return;
+        }
+        const edad = calcularEdad(dia, mes, anio);
+        if (edad < 13 || edad >= 100) {
+          Alert.alert("Error", "Debes tener entre 13 y 99 años para usar esta aplicación.");
+          return;
+        }
       }
       if (activeIndex === 3 && habilidadesMusicalesSeleccionadas.length === 0) {
         Alert.alert("Error", "Por favor, selecciona al menos una habilidad musical.");
