@@ -24,7 +24,6 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         if (error) {
           console.error('Error detallado al obtener el conteo de notificaciones:', error);
         } else {
-          console.log('Conteo de notificaciones no leídas:', data?.length);
           setUnreadCount(data?.length || 0);
         }
       } else {

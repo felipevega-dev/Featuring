@@ -50,8 +50,6 @@ const TopBar = () => {
     return () => clearInterval(interval);
   }, []);
 
-  console.log('Unread count in TopBar:', unreadCount);
-
   return (
     <SafeAreaView className="bg-[#F6F8FA]">
       <View className="bg-[#F6F8FA] h-15 flex-row justify-between items-center px-5 mt-2 border-b-2 border-b-cyan-200">
