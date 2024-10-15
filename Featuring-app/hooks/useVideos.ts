@@ -26,5 +26,5 @@ export default function useVideos() {
     fetchVideos();
   }, []);
 
-  return { videos, isLoading, error, refetchVideos: fetchVideos };
+  return { videos, setVideos, isLoading, error, refetchVideos: fetchVideos };
 }

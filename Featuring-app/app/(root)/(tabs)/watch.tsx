@@ -15,7 +15,6 @@ import useVideos from "@/hooks/useVideos";
 import { supabase } from "@/lib/supabase";
 import { VideoProvider, useVideo } from "@/contexts/VideoContext";
 import { useFocusEffect } from "@react-navigation/native";
-import { Video } from "expo-av";
 
 const { width, height } = Dimensions.get("window");
 
@@ -126,6 +125,7 @@ const WatchContent = () => {
               onDeleteVideo={handleDeleteVideo}
               onUpdateVideo={handleUpdateVideo}
               setVideos={setVideos}
+              refetchVideos={refetchVideos}
             />
           )}
           keyExtractor={(item) => item.id.toString()}

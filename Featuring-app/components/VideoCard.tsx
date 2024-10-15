@@ -66,11 +66,9 @@ interface VideoCardProps {
   isActive: boolean;
   height: number;
   onDeleteVideo: (videoId: number) => void;
-  onUpdateVideo: (
-    videoId: number,
-    updatedData: { titulo: string; descripcion: string }
-  ) => void;
+  onUpdateVideo: (videoId: number, updatedData: { titulo: string; descripcion: string }) => void;
   setVideos: React.Dispatch<React.SetStateAction<Video[]>>;
+  refetchVideos: () => Promise<void>;
 }
 
 const VideoCard: React.FC<VideoCardProps> = ({
@@ -81,6 +79,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
   onDeleteVideo,
   onUpdateVideo,
   setVideos,
+  refetchVideos,
 }) => {
   const { currentPlayingId, setCurrentPlayingId } = useVideo();
   const [isPlaying, setIsPlaying] = useState(false);
@@ -339,9 +338,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
               if (deleteDbError) throw deleteDbError;
 
               onDeleteVideo(video.id);
-              setVideos((prevVideos) =>
-                prevVideos.filter((v) => v.id !== video.id)
-              );
+              await refetchVideos();
               Alert.alert("Éxito", "El video ha sido eliminado");
             } catch (error) {
               console.error("Error al eliminar el video:", error);
@@ -366,6 +363,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
         titulo: editTitle,
         descripcion: editDescripcion,
       });
+      await refetchVideos();
       setIsEditModalVisible(false);
       Alert.alert("Éxito", "El video ha sido actualizado");
     } catch (error) {
