@@ -623,13 +623,7 @@ const Match = () => {
     position.setValue({ x: 0, y: 0 });
   };
 
-  if (isLoading) {
-    return (
-      <View className="flex-1 justify-center items-center bg-primary-600">
-        <ActivityIndicator size="large" color="#ffffff" />
-      </View>
-    );
-  }
+
 
   return (
     <GestureHandlerRootView className="flex-1">
