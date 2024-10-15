@@ -7,6 +7,7 @@ import {
   ScrollView,
   Dimensions,
   Image,
+  Alert,
 } from "react-native";
 import Swiper from "react-native-swiper";
 import { router } from "expo-router";
@@ -37,33 +38,46 @@ export default function Preguntas() {
   const isFirstSlide = activeIndex === 0;
   const isLastSlide = activeIndex === 7;
 
+  const validateSlide = (index: number): boolean => {
+    switch (index) {
+      case 0:
+        return state.username.length > 0 && state.telefono.length > 0;
+      case 1:
+        return state.genero.length > 0;
+      case 2:
+        return state.fechaNacimiento.dia !== null && state.fechaNacimiento.mes !== null && state.fechaNacimiento.anio !== null;
+      case 3:
+        return state.habilidadesMusicales.length > 0;
+      case 4:
+        return state.generosMusicales.length > 0;
+      case 5:
+        return state.profileImage !== null;
+      case 6:
+        return state.descripcion.length > 0;
+      case 7:
+        return state.location !== null;
+      default:
+        return false;
+    }
+  };
+
   const handleNext = async () => {
     if (isLastSlide) {
       if (validateAllFields()) {
         await saveProfile(state);
         router.replace("/(root)/(tabs)/home");
       } else {
-        alert("Por favor, completa todos los campos antes de continuar.");
+        Alert.alert("Error", "Por favor, completa todos los campos antes de continuar.");
       }
-    } else {
+    } else if (validateSlide(activeIndex)) {
       swiperRef.current?.scrollBy(1);
+    } else {
+      Alert.alert("Error", "Por favor, completa correctamente este paso antes de continuar.");
     }
   };
 
   const validateAllFields = () => {
-    const { username, genero, fechaNacimiento, habilidadesMusicales, generosMusicales, descripcion, profileImage, location } = state;
-    return (
-      username &&
-      genero &&
-      fechaNacimiento.dia &&
-      fechaNacimiento.mes &&
-      fechaNacimiento.anio &&
-      habilidadesMusicales.length > 0 &&
-      generosMusicales.length > 0 &&
-      descripcion &&
-      profileImage &&
-      location
-    );
+    return Array.from({ length: 8 }, (_, i) => i).every(validateSlide);
   };
 
   const handleBack = () => {
