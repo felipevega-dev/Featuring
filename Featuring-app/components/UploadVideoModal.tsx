@@ -94,47 +94,19 @@ export default function UploadVideoModal({
 
   return (
     <Modal visible={isVisible} animationType="slide" transparent={true}>
-      <View
-        style={{
-          flex: 1,
-          justifyContent: "center",
-          alignItems: "center",
-          backgroundColor: "rgba(0,0,0,0.5)",
-        }}
-      >
-        <View
-          style={{
-            backgroundColor: "white",
-            padding: 20,
-            borderRadius: 10,
-            width: "80%",
-          }}
-        >
-          <Text style={{ fontSize: 18, fontWeight: "bold", marginBottom: 10 }}>
-            Subir Video
-          </Text>
+      <View className="flex-1 justify-center items-center bg-black bg-opacity-50">
+        <View className="bg-white p-5 rounded-lg w-5/6">
+          <Text className="text-xl font-JakartaBold text-primary-700 mb-4">Subir Video</Text>
 
           <TextInput
-            style={{
-              borderWidth: 1,
-              borderColor: "gray",
-              borderRadius: 5,
-              padding: 10,
-              marginBottom: 10,
-            }}
+            className="border border-general-300 rounded-md p-2 mb-2"
             placeholder="Título del video"
             value={title}
             onChangeText={setTitle}
           />
 
           <TextInput
-            style={{
-              borderWidth: 1,
-              borderColor: "gray",
-              borderRadius: 5,
-              padding: 10,
-              marginBottom: 10,
-            }}
+            className="border border-general-300 rounded-md p-2 mb-2"
             placeholder="Descripción del video"
             value={descripcion}
             onChangeText={setDescripcion}
@@ -143,45 +115,27 @@ export default function UploadVideoModal({
 
           <TouchableOpacity
             onPress={pickVideo}
-            style={{
-              backgroundColor: "blue",
-              padding: 10,
-              borderRadius: 5,
-              marginBottom: 10,
-            }}
+            className="bg-primary-500 p-2 rounded-md mb-2"
           >
-            <Text style={{ color: "white", textAlign: "center" }}>
-              Seleccionar Video
-            </Text>
+            <Text className="text-white text-center font-JakartaBold">Seleccionar Video</Text>
           </TouchableOpacity>
 
           {videoFileName && (
-            <Text style={{ marginBottom: 10 }}>
-              Video seleccionado: {videoFileName}
-            </Text>
+            <Text className="mb-2 text-general-200">Video seleccionado: {videoFileName}</Text>
           )}
 
           <TouchableOpacity
             onPress={uploadVideo}
-            style={{
-              backgroundColor: "green",
-              padding: 10,
-              borderRadius: 5,
-              marginBottom: 10,
-            }}
+            className="bg-secondary-500 p-2 rounded-md mb-2"
           >
-            <Text style={{ color: "white", textAlign: "center" }}>
-              Subir Video
-            </Text>
+            <Text className="text-white text-center font-JakartaBold">Subir Video</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             onPress={onClose}
-            style={{ backgroundColor: "red", padding: 10, borderRadius: 5 }}
+            className="bg-danger-500 p-2 rounded-md"
           >
-            <Text style={{ color: "white", textAlign: "center" }}>
-              Cancelar
-            </Text>
+            <Text className="text-white text-center font-JakartaBold">Cancelar</Text>
           </TouchableOpacity>
         </View>
       </View>

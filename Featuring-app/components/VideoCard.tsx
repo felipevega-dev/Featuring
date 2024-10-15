@@ -10,7 +10,7 @@ import {
   Alert,
   Animated,
 } from "react-native";
-import { Video, ResizeMode } from "expo-av";
+import { Video as ExpoVideo, ResizeMode } from "expo-av";
 import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "@/lib/supabase";
 import { Image } from "expo-image";
@@ -91,7 +91,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
     [key: number]: ComentarioLike[];
   }>({});
   const [nuevoComentario, setNuevoComentario] = useState("");
-  const videoRef = useRef<Video>(null);
+  const videoRef = useRef<ExpoVideo>(null);
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const [showPlayPauseIcon, setShowPlayPauseIcon] = useState(false);
   const [showOptionsModal, setShowOptionsModal] = useState(false);
@@ -391,12 +391,17 @@ const VideoCard: React.FC<VideoCardProps> = ({
     }
   };
 
+  const formatUploadDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' });
+  };
+
   return (
     <View style={{ width, height }}>
       <TouchableOpacity onPress={togglePlayPause} style={{ flex: 1 }}>
-        <Video
+        <ExpoVideo
           ref={videoRef}
-          source={{ uri: video.url }}
+          source={{ uri: video.url || "" }}
           resizeMode={ResizeMode.COVER}
           shouldPlay={isActive}
           isLooping
@@ -420,10 +425,21 @@ const VideoCard: React.FC<VideoCardProps> = ({
           </Animated.View>
         )}
       </TouchableOpacity>
-      <View className="absolute left-4 bottom-20">
-        <Text className="text-white font-bold text-lg">{video.titulo}</Text>
-        <Text className="text-white">{video.descripcion}</Text>
+
+      {/* Información del usuario y fecha de subida */}
+      <View className="absolute left-4 bottom-28 flex-row items-center">
+        <Image
+          source={{ uri: video.perfil?.foto_perfil || "https://via.placeholder.com/40" }}
+          className="w-10 h-10 rounded-full mr-2"
+        />
+        <View>
+          <Text className="text-white font-JakartaBold">{video.perfil?.username || "Usuario desconocido"}</Text>
+          <Text className="text-white text-xs">{formatUploadDate(video.created_at)}</Text>
+        </View>
       </View>
+        <View className="absolute left-4 bottom-20">
+          <Text className="text-white">{video.descripcion}</Text>
+        </View>
       <View className="absolute right-4 bottom-20">
         <TouchableOpacity onPress={handleLike} className="mb-4">
           <Ionicons
@@ -443,11 +459,15 @@ const VideoCard: React.FC<VideoCardProps> = ({
           <Ionicons name="chatbubble-outline" size={30} color="white" />
           <Text className="text-white text-center">{comentarios.length}</Text>
         </TouchableOpacity>
-        <TouchableOpacity>
-          <Ionicons name="share-outline" size={30} color="white" />
+        {/* Botón de tres puntos movido aquí */}
+        <TouchableOpacity
+          onPress={() => setShowOptionsModal(true)}
+        >
+          <Ionicons name="ellipsis-vertical" size={30} color="white" />
         </TouchableOpacity>
       </View>
 
+      {/* Modal de comentarios */}
       <Modal
         animationType="slide"
         transparent={true}
@@ -457,9 +477,9 @@ const VideoCard: React.FC<VideoCardProps> = ({
         <View className="flex-1 bg-black bg-opacity-50 justify-end">
           <View className="bg-white rounded-t-3xl p-4 h-3/4">
             <View className="flex-row justify-between items-center mb-4">
-              <Text className="text-xl font-JakartaBold">Comentarios</Text>
+              <Text className="text-xl font-JakartaBold text-primary-700">Comentarios</Text>
               <TouchableOpacity onPress={() => setShowComments(false)}>
-                <Ionicons name="close" size={24} color="black" />
+                <Ionicons name="close" size={24} color="#4A148C" />
               </TouchableOpacity>
             </View>
             <FlatList
@@ -469,19 +489,13 @@ const VideoCard: React.FC<VideoCardProps> = ({
                 <View className="flex-row mb-4">
                   <Image
                     source={{
-                      uri:
-                        item.perfil.foto_perfil ||
-                        "https://via.placeholder.com/50",
+                      uri: item.perfil.foto_perfil || "https://via.placeholder.com/50",
                     }}
                     className="w-10 h-10 rounded-full mr-3"
                   />
                   <View className="flex-1">
-                    <Text className="font-JakartaBold text-sm">
-                      {item.perfil.username}
-                    </Text>
-                    <Text className="text-sm text-general-200 mt-1">
-                      {item.comentario}
-                    </Text>
+                    <Text className="font-JakartaBold text-sm text-primary-700">{item.perfil.username}</Text>
+                    <Text className="text-sm text-general-200 mt-1">{item.comentario}</Text>
                     <View className="flex-row items-center mt-2">
                       <TouchableOpacity
                         onPress={() => handleCommentLike(item.id)}
@@ -490,25 +504,17 @@ const VideoCard: React.FC<VideoCardProps> = ({
                         <Ionicons
                           name={item.isLiked ? "heart" : "heart-outline"}
                           size={18}
-                          color={item.isLiked ? "red" : "black"}
+                          color={item.isLiked ? "#E53E3E" : "#4A148C"}
                         />
                       </TouchableOpacity>
-                      <Text className="text-xs text-general-200">
-                        {item.likes_count} likes
-                      </Text>
-                      <Text className="text-xs text-general-200 ml-4">
-                        {formatCommentDate(item.created_at)}
-                      </Text>
+                      <Text className="text-xs text-general-200">{item.likes_count} likes</Text>
+                      <Text className="text-xs text-general-200 ml-4">{formatCommentDate(item.created_at)}</Text>
                       {item.usuario_id === currentUserId && (
                         <TouchableOpacity
                           onPress={() => handleDeleteComment(item.id)}
                           className="ml-4"
                         >
-                          <Ionicons
-                            name="trash-outline"
-                            size={18}
-                            color="red"
-                          />
+                          <Ionicons name="trash-outline" size={18} color="#E53E3E" />
                         </TouchableOpacity>
                       )}
                     </View>
@@ -534,15 +540,6 @@ const VideoCard: React.FC<VideoCardProps> = ({
         </View>
       </Modal>
 
-      {video.usuario_id === currentUserId && (
-        <TouchableOpacity
-          onPress={() => setShowOptionsModal(true)}
-          style={{ position: "absolute", top: 10, right: 10, zIndex: 10 }}
-        >
-          <Ionicons name="ellipsis-vertical" size={24} color="white" />
-        </TouchableOpacity>
-      )}
-
       {/* Modal de opciones del video */}
       <Modal
         animationType="fade"
@@ -551,27 +548,22 @@ const VideoCard: React.FC<VideoCardProps> = ({
         onRequestClose={() => setShowOptionsModal(false)}
       >
         <TouchableOpacity
-          style={{
-            flex: 1,
-            justifyContent: "center",
-            alignItems: "center",
-            backgroundColor: "rgba(0,0,0,0.5)",
-          }}
+          className="flex-1 justify-center items-center bg-black bg-opacity-50"
           activeOpacity={1}
           onPress={() => setShowOptionsModal(false)}
         >
           <View className="bg-white rounded-lg p-4 w-3/4">
             <TouchableOpacity
-              className="py-3 border-b border-gray-200"
+              className="py-3 border-b border-general-300"
               onPress={() => {
                 setShowOptionsModal(false);
                 setIsEditModalVisible(true);
               }}
             >
-              <Text className="text-blue-500 font-semibold">Editar video</Text>
+              <Text className="text-primary-500 font-JakartaSemiBold">Editar video</Text>
             </TouchableOpacity>
             <TouchableOpacity className="py-3" onPress={handleDeleteVideo}>
-              <Text className="text-red-500 font-semibold">Eliminar video</Text>
+              <Text className="text-danger-600 font-JakartaSemiBold">Eliminar video</Text>
             </TouchableOpacity>
           </View>
         </TouchableOpacity>
@@ -586,17 +578,17 @@ const VideoCard: React.FC<VideoCardProps> = ({
       >
         <View className="flex-1 justify-center items-center bg-black bg-opacity-50">
           <View className="bg-white p-5 rounded-lg w-5/6">
-            <Text className="text-xl font-bold mb-4">Editar Video</Text>
+            <Text className="text-xl font-JakartaBold text-primary-700 mb-4">Editar Video</Text>
 
             <TextInput
-              className="border border-gray-300 rounded-md p-2 mb-2"
+              className="border border-general-300 rounded-md p-2 mb-2"
               placeholder="Título del video"
               value={editTitle}
               onChangeText={setEditTitle}
             />
 
             <TextInput
-              className="border border-gray-300 rounded-md p-2 mb-2"
+              className="border border-general-300 rounded-md p-2 mb-2"
               placeholder="Descripción del video"
               value={editDescripcion}
               onChangeText={setEditDescripcion}
@@ -605,16 +597,16 @@ const VideoCard: React.FC<VideoCardProps> = ({
 
             <TouchableOpacity
               onPress={handleEditVideo}
-              className="bg-blue-500 p-2 rounded-md mb-2"
+              className="bg-primary-500 p-2 rounded-md mb-2"
             >
-              <Text className="text-white text-center">Actualizar Video</Text>
+              <Text className="text-white text-center font-JakartaBold">Actualizar Video</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               onPress={() => setIsEditModalVisible(false)}
-              className="bg-red-500 p-2 rounded-md"
+              className="bg-danger-500 p-2 rounded-md"
             >
-              <Text className="text-white text-center">Cancelar</Text>
+              <Text className="text-white text-center font-JakartaBold">Cancelar</Text>
             </TouchableOpacity>
           </View>
         </View>

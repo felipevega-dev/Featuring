@@ -7,6 +7,7 @@ import {
   SafeAreaView,
   Platform,
   StatusBar,
+  ViewToken,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import VideoCard from "@/components/VideoCard";
@@ -18,8 +19,8 @@ import { useFocusEffect } from "@react-navigation/native";
 
 const { width, height } = Dimensions.get("window");
 
-const STATUSBAR_HEIGHT = Platform.OS === "ios" ? 20 : StatusBar.currentHeight;
-const BOTTOM_TAB_HEIGHT = 35; // Ajusta esto según la altura real de tu barra de pestañas inferior
+const STATUSBAR_HEIGHT = Platform.OS === "ios" ? 20 : StatusBar.currentHeight ?? 0;
+const BOTTOM_TAB_HEIGHT = 35; 
 
 const WatchContent = () => {
   const { videos, setVideos, isLoading, error, refetchVideos } = useVideos();
@@ -36,15 +37,10 @@ const WatchContent = () => {
   useFocusEffect(
     React.useCallback(() => {
       if (currentIndex >= 0 && videos[currentIndex]) {
-        setCurrentPlayingId(videos[currentIndex].id);
+        setCurrentPlayingId(videos[currentIndex].id); 
       }
       return () => {
-        setCurrentPlayingId(null);
-        videos.forEach((video) => {
-          if (video.ref && video.ref.current) {
-            video.ref.current.pauseAsync();
-          }
-        });
+        setCurrentPlayingId(null);  
       };
     }, [currentIndex, videos, setCurrentPlayingId])
   );
@@ -64,10 +60,10 @@ const WatchContent = () => {
   };
 
   const onViewableItemsChanged = React.useCallback(
-    ({ viewableItems }) => {
+    ({ viewableItems }: { viewableItems: ViewToken[] }) => {
       if (viewableItems.length > 0) {
-        setCurrentIndex(viewableItems[0].index);
-        setCurrentPlayingId(viewableItems[0].item.id);
+        setCurrentIndex(viewableItems[0].index || 0);
+        setCurrentPlayingId(viewableItems[0].item.id || 0);
       }
     },
     [setCurrentPlayingId]
@@ -99,20 +95,20 @@ const WatchContent = () => {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "black" }}>
       <View style={{ flex: 1 }}>
-        <View
-          style={{ position: "absolute", top: 620, right: 175, zIndex: 10 }}
+        <TouchableOpacity
+          onPress={() => setIsUploadModalVisible(true)}
+          style={{
+            position: "absolute",
+            top: 10,
+            right: 10,
+            zIndex: 10,
+            backgroundColor: "#66E7D5",
+            padding: 10,
+            borderRadius: 30,
+          }}
         >
-          <TouchableOpacity
-            onPress={() => setIsUploadModalVisible(true)}
-            style={{
-              backgroundColor: "#66E7D5",
-              padding: 10,
-              borderRadius: 30,
-            }}
-          >
-            <Ionicons name="add" size={24} color="white" />
-          </TouchableOpacity>
-        </View>
+          <Ionicons name="add" size={24} color="white" />
+        </TouchableOpacity>
         <FlatList
           ref={flatListRef}
           data={videos}

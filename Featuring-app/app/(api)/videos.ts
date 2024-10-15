@@ -6,7 +6,13 @@ type Video = Database["public"]["Tables"]["video"]["Row"];
 export async function getVideos(): Promise<Video[]> {
   const { data, error } = await supabase
     .from("video")
-    .select("*")
+    .select(`
+      *,
+      perfil:usuario_id (
+        username,
+        foto_perfil
+      )
+    `)
     .order("created_at", { ascending: false });
 
   if (error) {
