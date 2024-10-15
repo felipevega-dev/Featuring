@@ -8,6 +8,7 @@ export interface PreguntasState {
     dia: number | null;
     mes: number | null;
     anio: number | null;
+    edad?: number;
   };
   habilidadesMusicales: string[];
   generosMusicales: string[];

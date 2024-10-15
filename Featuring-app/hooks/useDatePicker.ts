@@ -4,6 +4,9 @@ export function useDatePicker() {
   const [diaOpen, setDiaOpen] = useState(false);
   const [mesOpen, setMesOpen] = useState(false);
   const [anioOpen, setAnioOpen] = useState(false);
+  const [dia, setDia] = useState<number | null>(null);
+  const [mes, setMes] = useState<number | null>(null);
+  const [anio, setAnio] = useState<number | null>(null);
 
   const dias = Array.from({ length: 31 }, (_, i) => ({
     label: `${i + 1}`,
@@ -30,6 +33,17 @@ export function useDatePicker() {
     value: 2023 - i,
   }));
 
+  const calcularEdad = (dia: number, mes: number, anio: number): number => {
+    const fechaNacimiento = new Date(anio, mes - 1, dia);
+    const hoy = new Date();
+    let edad = hoy.getFullYear() - fechaNacimiento.getFullYear();
+    const m = hoy.getMonth() - fechaNacimiento.getMonth();
+    if (m < 0 || (m === 0 && hoy.getDate() < fechaNacimiento.getDate())) {
+      edad--;
+    }
+    return edad;
+  };
+
   return {
     diaOpen,
     mesOpen,
@@ -37,8 +51,15 @@ export function useDatePicker() {
     setDiaOpen,
     setMesOpen,
     setAnioOpen,
+    dia,
+    mes,
+    anio,
+    setDia,
+    setMes,
+    setAnio,
     dias,
     meses,
     anios,
+    calcularEdad,
   };
 }

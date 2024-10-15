@@ -39,11 +39,31 @@ export default function Preguntas() {
 
   const handleNext = async () => {
     if (isLastSlide) {
-      await saveProfile(state);
-      router.replace("/(root)/(tabs)/home");
+      if (validateAllFields()) {
+        await saveProfile(state);
+        router.replace("/(root)/(tabs)/home");
+      } else {
+        alert("Por favor, completa todos los campos antes de continuar.");
+      }
     } else {
       swiperRef.current?.scrollBy(1);
     }
+  };
+
+  const validateAllFields = () => {
+    const { username, genero, fechaNacimiento, habilidadesMusicales, generosMusicales, descripcion, profileImage, location } = state;
+    return (
+      username &&
+      genero &&
+      fechaNacimiento.dia &&
+      fechaNacimiento.mes &&
+      fechaNacimiento.anio &&
+      habilidadesMusicales.length > 0 &&
+      generosMusicales.length > 0 &&
+      descripcion &&
+      profileImage &&
+      location
+    );
   };
 
   const handleBack = () => {

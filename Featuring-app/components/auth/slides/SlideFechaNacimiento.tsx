@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
 import DropDownPicker from 'react-native-dropdown-picker';
@@ -13,30 +13,48 @@ interface SlideFechaNacimientoProps {
 
 export function SlideFechaNacimiento({ state, dispatch }: SlideFechaNacimientoProps) {
   const { fechaNacimiento } = state;
-  const { diaOpen, mesOpen, anioOpen, setDiaOpen, setMesOpen, setAnioOpen, dias, meses, anios } = useDatePicker();
+  const {
+    diaOpen, mesOpen, anioOpen,
+    setDiaOpen, setMesOpen, setAnioOpen,
+    dia, mes, anio,
+    setDia, setMes, setAnio,
+    dias, meses, anios,
+    calcularEdad
+  } = useDatePicker();
 
-  const handleSetValue = (type: 'dia' | 'mes' | 'anio') => (value: number | null) => {
-    if (value !== null) {
-      dispatch({ type: 'SET_FECHA_NACIMIENTO', payload: { [type]: value } });
+  const [edadCalculada, setEdadCalculada] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (dia !== null && mes !== null && anio !== null) {
+      const edad = calcularEdad(dia, mes, anio);
+      setEdadCalculada(edad);
+      dispatch({ type: 'SET_FECHA_NACIMIENTO', payload: { dia, mes, anio, edad } });
+    } else {
+      setEdadCalculada(null);
     }
-  };
+  }, [dia, mes, anio]);
 
   return (
-    <View className="flex-1 justify-center items-center bg-white p-4">
-      <View className="mb-4">
+    <View className="flex-1 justify-center items-center bg-white p-4 mb-44">
+      <View className="mb-1 text-center  items-center"> 
         <FontAwesome name="birthday-cake" size={60} color="#6D29D2" />
+        {edadCalculada !== null && (
+        <Text className="text-lg text-secondary-600 font-JakartaBold mt-2">
+          Tienes {edadCalculada} años! 👌
+        </Text>
+      )}
       </View>
       <Text className={commonStyles.slideTitle}>
         Fecha de Nacimiento
       </Text>
-      <View className="flex-row justify-between w-full mb-36">
+      <View className="flex-row justify-between w-full mb-5">
         <View className="w-1/4">
           <DropDownPicker
             open={diaOpen}
-            value={fechaNacimiento.dia}
+            value={dia}
             items={dias}
             setOpen={setDiaOpen}
-            setValue={handleSetValue('dia')}
+            setValue={setDia}
             placeholder="Día"
             zIndex={3000}
             zIndexInverse={1000}
@@ -57,10 +75,10 @@ export function SlideFechaNacimiento({ state, dispatch }: SlideFechaNacimientoPr
         <View className="w-2/5">
           <DropDownPicker
             open={mesOpen}
-            value={fechaNacimiento.mes}
+            value={mes}
             items={meses}
             setOpen={setMesOpen}
-            setValue={handleSetValue('mes')}
+            setValue={setMes}
             placeholder="Mes"
             zIndex={2000}
             zIndexInverse={2000}
@@ -81,10 +99,10 @@ export function SlideFechaNacimiento({ state, dispatch }: SlideFechaNacimientoPr
         <View className="w-1/3">
           <DropDownPicker
             open={anioOpen}
-            value={fechaNacimiento.anio}
+            value={anio}
             items={anios}
             setOpen={setAnioOpen}
-            setValue={handleSetValue('anio')}
+            setValue={setAnio}
             placeholder="Año"
             zIndex={1000}
             zIndexInverse={3000}
