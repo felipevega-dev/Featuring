@@ -82,17 +82,18 @@ CREATE TABLE
   );
 
 -- Tabla cancion (modificada)
+-- Tabla cancion (modificada)
 CREATE TABLE cancion (
     id BIGSERIAL PRIMARY KEY,
     usuario_id UUID NOT NULL,
     titulo TEXT NOT NULL,
-    archivo_audio TEXT,
-    caratula TEXT,
-    contenido TEXT,
+    genero TEXT NOT NULL,
+    archivo_audio TEXT NOT NULL,
+    caratula TEXT NOT NULL,
+    contenido TEXT NOT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     CONSTRAINT fk_usuario_cancion FOREIGN KEY (usuario_id) REFERENCES perfil (usuario_id) ON DELETE CASCADE
   );
-
   
 -- Renombrar likes_publicacion a likes_cancion
 CREATE TABLE likes_cancion (

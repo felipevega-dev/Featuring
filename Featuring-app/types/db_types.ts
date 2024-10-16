@@ -180,6 +180,7 @@ export interface Database {
           archivo_audio: string | null;
           caratula: string | null;
           contenido: string;
+          genero: string; // Nuevo campo
           created_at: string;
         };
         Insert: {
@@ -189,6 +190,7 @@ export interface Database {
           archivo_audio?: string | null;
           caratula?: string | null;
           contenido: string;
+          genero: string; // Nuevo campo
           created_at?: string;
         };
         Update: {
@@ -198,6 +200,7 @@ export interface Database {
           archivo_audio?: string | null;
           caratula?: string | null;
           contenido?: string;
+          genero?: string; // Nuevo campo
           created_at?: string;
         };
         Relationships: [

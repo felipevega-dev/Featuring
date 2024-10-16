@@ -31,6 +31,7 @@ interface Cancion {
   archivo_audio: string | null;
   caratula: string | null;
   contenido: string;
+  genero: string; // Nuevo campo
   created_at: string;
   perfil: Perfil | null;
 }
@@ -106,7 +107,6 @@ const SongCard: React.FC<SongCardProps> = ({
   useEffect(() => {
     return sound
       ? () => {
-          console.log("Unloading Sound");
           sound.unloadAsync();
         }
       : undefined;
@@ -455,7 +455,8 @@ const SongCard: React.FC<SongCardProps> = ({
       <Text className="font-JakartaSemiBold text-lg mb-2 text-primary-700">
         {cancion.titulo}
       </Text>
-      <Text className="mb-3 text-general-200">{cancion.contenido}</Text>
+      <Text className="mb-1 text-general-200">{cancion.contenido}</Text>
+      <Text className="mb-3 text-secondary-500 italic">Género: {cancion.genero}</Text>
       {cancion.caratula && (
         <TouchableOpacity onPress={toggleImageModal}>
           <Image

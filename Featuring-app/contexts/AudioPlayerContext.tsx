@@ -58,7 +58,6 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({
   useEffect(() => {
     return sound
       ? () => {
-          console.log("Unloading Sound");
           sound.unloadAsync();
         }
       : undefined;
