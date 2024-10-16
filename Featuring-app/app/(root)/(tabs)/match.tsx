@@ -20,6 +20,7 @@ import { supabase } from "@/lib/supabase";
 import { icons } from "@/constants";
 import { useRouter } from "expo-router";
 import * as Location from "expo-location";
+import { useLocalSearchParams } from 'expo-router';
 
 const SWIPE_THRESHOLD = 120;
 
@@ -221,6 +222,7 @@ const Card: React.FC<CardProps> = ({
 };
 
 const Match = () => {
+  const { update } = useLocalSearchParams();
   const [cards, setCards] = useState<CardProps["card"][]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -254,10 +256,10 @@ const Match = () => {
   }, []);
 
   useEffect(() => {
-    if (currentUserId) {
+    if (currentUserId && userLocation) {
       fetchUsers();
     }
-  }, [currentUserId, lastRefreshTime]);
+  }, [currentUserId, userLocation, update]);
 
   const getCurrentUser = async () => {
     try {

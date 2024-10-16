@@ -6,7 +6,9 @@ import {
   TouchableOpacity,
   Alert,
   SafeAreaView,
-  Modal,
+  FlatList,
+  Dimensions,
+  Switch,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -32,13 +34,15 @@ const generosMusicales = [
   "Chillout", "Lo-fi"
 ];
 
+const { width } = Dimensions.get('window');
+const itemWidth = (width - 40) / 3; // 40 es el padding horizontal total
+
 export default function Preferencias() {
   const [distancia, setDistancia] = useState(10);
+  const [sinLimiteDistancia, setSinLimiteDistancia] = useState(false);
   const [generosPreferidos, setGenerosPreferidos] = useState<string[]>([]);
   const [habilidadesPreferidas, setHabilidadesPreferidas] = useState<string[]>([]);
-  const [modalVisible, setModalVisible] = useState(false);
-  const [modalType, setModalType] = useState<'generos' | 'habilidades'>('generos');
-  const [showAllOptions, setShowAllOptions] = useState(false);
+  const [currentSection, setCurrentSection] = useState<'distancia' | 'generos' | 'habilidades'>('distancia');
   const router = useRouter();
 
   useEffect(() => {
@@ -70,14 +74,24 @@ export default function Preferencias() {
         .update({
           preferencias_genero: generosPreferidos,
           preferencias_habilidad: habilidadesPreferidas,
-          preferencias_distancia: distancia
+          preferencias_distancia: sinLimiteDistancia ? null : distancia
         })
         .eq('usuario_id', user.id);
 
       if (error) {
         Alert.alert("Error", "No se pudieron guardar las preferencias");
       } else {
-        Alert.alert("Éxito", "Tus preferencias han sido guardadas");
+        Alert.alert("Éxito", "Tus preferencias han sido guardadas", [
+          {
+            text: "OK",
+            onPress: () => {
+              router.push({
+                pathname: "/(root)/(tabs)/match",
+                params: { update: Date.now() }
+              });
+            }
+          }
+        ]);
       }
     }
   };
@@ -90,115 +104,106 @@ export default function Preferencias() {
     );
   };
 
-  const renderOptionButtons = (options: string[], selectedValues: string[], setFunction: React.Dispatch<React.SetStateAction<string[]>>) => {
-    const initialOptionsToShow = 10;
-    const optionsToRender = showAllOptions ? options : options.slice(0, initialOptionsToShow);
-
-    return (
-      <>
-        {optionsToRender.map(option => (
-          <TouchableOpacity
-            key={option}
-            className={`bg-gray-600 py-2 px-4 rounded-full mr-2 mb-2 ${selectedValues.includes(option) ? 'bg-purple-600' : ''}`}
-            onPress={() => togglePreference(option, setFunction)}
-          >
-            <Text className={`text-white ${selectedValues.includes(option) ? 'font-bold' : ''}`}>
-              {option}
-            </Text>
-          </TouchableOpacity>
-        ))}
-        {!showAllOptions && options.length > initialOptionsToShow && (
-          <TouchableOpacity
-            className="bg-blue-500 py-2 px-4 rounded-full mr-2 mb-2"
-            onPress={() => setShowAllOptions(true)}
-          >
-            <Text className="text-white font-bold">Ver más</Text>
-          </TouchableOpacity>
-        )}
-      </>
-    );
-  };
-
-  const openModal = (type: 'generos' | 'habilidades') => {
-    setModalType(type);
-    setModalVisible(true);
-  };
+  const renderItem = ({ item }: { item: string }) => (
+    <TouchableOpacity
+      style={{ width: itemWidth, aspectRatio: 1 }}
+      className={`border border-gray-300 rounded-lg m-1 justify-center items-center ${
+        currentSection === 'generos'
+          ? generosPreferidos.includes(item) ? 'bg-purple-600' : 'bg-white'
+          : habilidadesPreferidas.includes(item) ? 'bg-purple-600' : 'bg-white'
+      }`}
+      onPress={() => 
+        currentSection === 'generos'
+          ? togglePreference(item, setGenerosPreferidos)
+          : togglePreference(item, setHabilidadesPreferidas)
+      }
+    >
+      <Text className={`text-center ${
+        currentSection === 'generos'
+          ? generosPreferidos.includes(item) ? 'text-white font-bold' : 'text-black'
+          : habilidadesPreferidas.includes(item) ? 'text-white font-bold' : 'text-black'
+      }`}>
+        {item}
+      </Text>
+    </TouchableOpacity>
+  );
 
   return (
-    <SafeAreaView className="flex-1 bg-blue-900">
+    <SafeAreaView className="flex-1 bg-white">
       <TouchableOpacity className="absolute top-10 left-4 z-10" onPress={() => router.back()}>
-        <Ionicons name="arrow-back" size={24} color="#ffffff" />
+        <Ionicons name="arrow-back" size={24} color="#000000" />
       </TouchableOpacity>
-      <Text className="text-white text-2xl font-bold text-center mt-20 mb-5">
+      <Text className="text-black text-2xl font-bold text-center mt-20 mb-5">
         Configuración de Preferencias
       </Text>
-      <ScrollView className="flex-1 px-4" contentContainerStyle={{justifyContent: 'center'}}>
-        <View className="mb-6">
-          <Text className="text-white text-lg mb-2">Preferencia de distancias</Text>
-          <Slider
-            style={{width: '100%', height: 40}}
-            minimumValue={1}
-            maximumValue={100}
-            step={1}
-            value={distancia}
-            onValueChange={setDistancia}
-            minimumTrackTintColor="#FFFFFF"
-            maximumTrackTintColor="#000000"
-          />
-          <Text className="text-white text-center">{distancia} km</Text>
+      <View className="flex-1">
+        <View className="flex-row justify-around mb-4">
+          <TouchableOpacity
+            className={`py-2 px-4 rounded-full ${currentSection === 'distancia' ? 'bg-purple-600' : 'bg-gray-200'}`}
+            onPress={() => setCurrentSection('distancia')}
+          >
+            <Text className={`font-bold ${currentSection === 'distancia' ? 'text-white' : 'text-black'}`}>Distancia</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            className={`py-2 px-4 rounded-full ${currentSection === 'generos' ? 'bg-purple-600' : 'bg-gray-200'}`}
+            onPress={() => setCurrentSection('generos')}
+          >
+            <Text className={`font-bold ${currentSection === 'generos' ? 'text-white' : 'text-black'}`}>Géneros</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            className={`py-2 px-4 rounded-full ${currentSection === 'habilidades' ? 'bg-purple-600' : 'bg-gray-200'}`}
+            onPress={() => setCurrentSection('habilidades')}
+          >
+            <Text className={`font-bold ${currentSection === 'habilidades' ? 'text-white' : 'text-black'}`}>Habilidades</Text>
+          </TouchableOpacity>
         </View>
 
-        <TouchableOpacity 
-          className="bg-purple-600 rounded-full py-3 px-6 items-center mt-5" 
-          onPress={() => openModal('generos')}
-        >
-          <Text className="text-white text-lg font-bold">Seleccionar Géneros Musicales</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          className="bg-purple-600 rounded-full py-3 px-6 items-center mt-5" 
-          onPress={() => openModal('habilidades')}
-        >
-          <Text className="text-white text-lg font-bold">Seleccionar Habilidades Musicales</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity className="bg-purple-600 rounded-full py-3 px-6 items-center mt-5" onPress={handleSave}>
-          <Text className="text-white text-lg font-bold">Guardar</Text>
-        </TouchableOpacity>
-      </ScrollView>
-
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={modalVisible}
-        onRequestClose={() => {
-          setModalVisible(false);
-          setShowAllOptions(false);
-        }}
-      >
-        <View className="flex-1 justify-center items-center bg-black bg-opacity-50">
-          <View className="bg-white rounded-xl p-5 w-[90%] max-h-[90%]">
-            <Text className="text-2xl font-bold mb-4">
-              {modalType === 'generos' ? 'Géneros Musicales' : 'Habilidades Musicales'}
-            </Text>
-            <ScrollView>
-              {modalType === 'generos' 
-                ? renderOptionButtons(generosMusicales, generosPreferidos, setGenerosPreferidos)
-                : renderOptionButtons(habilidadesMusicales, habilidadesPreferidas, setHabilidadesPreferidas)
-              }
-            </ScrollView>
-            <TouchableOpacity
-              className="bg-purple-600 rounded-full py-3 px-6 items-center mt-5"
-              onPress={() => {
-                setModalVisible(false);
-                setShowAllOptions(false);
-              }}
-            >
-              <Text className="text-white text-lg font-bold">Cerrar</Text>
-            </TouchableOpacity>
+        {currentSection === 'distancia' && (
+          <View className="px-4">
+            <Text className="text-black text-lg mb-2">Preferencia de distancias</Text>
+            <View className="flex-row items-center justify-between mb-4">
+              <Text className="text-black">Sin límite de distancia</Text>
+              <Switch
+                value={sinLimiteDistancia}
+                onValueChange={(value) => setSinLimiteDistancia(value)}
+              />
+            </View>
+            {!sinLimiteDistancia && (
+              <>
+                <Slider
+                  style={{width: '100%', height: 40}}
+                  minimumValue={1}
+                  maximumValue={100}
+                  step={1}
+                  value={distancia}
+                  onValueChange={setDistancia}
+                  minimumTrackTintColor="#8B5CF6"
+                  maximumTrackTintColor="#D1D5DB"
+                  disabled={sinLimiteDistancia}
+                />
+                <Text className="text-black text-center">{distancia} km</Text>
+              </>
+            )}
           </View>
-        </View>
-      </Modal>
+        )}
+
+        {(currentSection === 'generos' || currentSection === 'habilidades') && (
+          <FlatList
+            data={currentSection === 'generos' ? generosMusicales : habilidadesMusicales}
+            renderItem={renderItem}
+            keyExtractor={(item) => item}
+            numColumns={3}
+            contentContainerStyle={{paddingHorizontal: 10}}
+          />
+        )}
+      </View>
+
+      <TouchableOpacity 
+        className="bg-purple-600 rounded-full py-3 px-6 items-center mt-5 mx-4 mb-4" 
+        onPress={handleSave}
+      >
+        <Text className="text-white text-lg font-bold">Guardar</Text>
+      </TouchableOpacity>
     </SafeAreaView>
   );
 }
