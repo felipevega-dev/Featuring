@@ -115,27 +115,33 @@ const VideoCard: React.FC<VideoCardProps> = ({
     fetchComentarios();
   }, [video.id]);
 
-  const togglePlayPause = () => {
-    if (isPlaying) {
-      videoRef.current?.pauseAsync();
-      setCurrentPlayingId(null);
-    } else {
-      setCurrentPlayingId(video.id);
-    }
-    setIsPlaying(!isPlaying);
-    setShowPlayPauseIcon(true);
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 300,
-      useNativeDriver: true,
-    }).start(() => {
+  const togglePlayPause = async () => {
+    try {
+      if (isPlaying) {
+        await videoRef.current?.pauseAsync();
+        setCurrentPlayingId(null);
+        setIsPlaying(false);
+      } else {
+        await videoRef.current?.playAsync();
+        setCurrentPlayingId(video.id);
+        setIsPlaying(true);
+      }
+      setShowPlayPauseIcon(true);
       Animated.timing(fadeAnim, {
-        toValue: 0,
+        toValue: 1,
         duration: 300,
-        delay: 1000,
         useNativeDriver: true,
-      }).start();
-    });
+      }).start(() => {
+        Animated.timing(fadeAnim, {
+          toValue: 0,
+          duration: 300,
+          delay: 1000,
+          useNativeDriver: true,
+        }).start();
+      });
+    } catch (error) {
+      console.error("Error toggling play/pause:", error);
+    }
   };
 
   const checkIfLiked = async () => {
@@ -406,6 +412,11 @@ const VideoCard: React.FC<VideoCardProps> = ({
           shouldPlay={isActive}
           isLooping
           style={{ flex: 1 }}
+          onPlaybackStatusUpdate={(status) => {
+            if (status.isLoaded) {
+              setIsPlaying(status.isPlaying);
+            }
+          }}
         />
         {showPlayPauseIcon && (
           <Animated.View

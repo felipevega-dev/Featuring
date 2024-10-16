@@ -38,7 +38,7 @@ export default function UploadVideoModal({
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const asset = result.assets[0];
         setVideoFile(asset.uri);
-        setVideoFileName(asset.uri.split("/").pop());
+        setVideoFileName(asset.uri.split("/").pop() || null);
       }
     } catch (error) {
       console.error("Error picking video:", error);
@@ -64,7 +64,7 @@ export default function UploadVideoModal({
       const { error: uploadError } = await supabase.storage
         .from("videos")
         .upload(filePath, {
-          uri: videoFile,
+          uri: videoFile ,
           type: "video/mp4",
         });
 
