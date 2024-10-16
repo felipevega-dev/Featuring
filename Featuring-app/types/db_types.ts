@@ -330,7 +330,6 @@ export interface Database {
         Row: {
           id: number;
           usuario_id: string;
-          titulo: string;
           duracion: string | null;
           url: string | null;
           created_at: string | null;
@@ -338,7 +337,6 @@ export interface Database {
         Insert: {
           id?: number;
           usuario_id: string;
-          titulo: string;
           duracion?: string | null;
           url?: string | null;
           created_at?: string | null;
@@ -346,7 +344,6 @@ export interface Database {
         Update: {
           id?: number;
           usuario_id?: string;
-          titulo?: string;
           duracion?: string | null;
           url?: string | null;
           created_at?: string | null;

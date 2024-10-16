@@ -28,7 +28,6 @@ interface Perfil {
 interface Video {
   id: number;
   usuario_id: string;
-  titulo: string;
   descripcion: string;
   url: string | null;
   created_at: string;
@@ -66,7 +65,7 @@ interface VideoCardProps {
   isActive: boolean;
   height: number;
   onDeleteVideo: (videoId: number) => void;
-  onUpdateVideo: (videoId: number, updatedData: { titulo: string; descripcion: string }) => void;
+  onUpdateVideo: (videoId: number, updatedData: { descripcion: string }) => void;
   setVideos: React.Dispatch<React.SetStateAction<Video[]>>;
   refetchVideos: () => Promise<void>;
 }
@@ -96,7 +95,6 @@ const VideoCard: React.FC<VideoCardProps> = ({
   const [showPlayPauseIcon, setShowPlayPauseIcon] = useState(false);
   const [showOptionsModal, setShowOptionsModal] = useState(false);
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
-  const [editTitle, setEditTitle] = useState(video.titulo);
   const [editDescripcion, setEditDescripcion] = useState(video.descripcion);
 
   useEffect(() => {
@@ -360,13 +358,12 @@ const VideoCard: React.FC<VideoCardProps> = ({
     try {
       const { error } = await supabase
         .from("video")
-        .update({ titulo: editTitle, descripcion: editDescripcion })
+        .update({ descripcion: editDescripcion })
         .eq("id", video.id);
 
       if (error) throw error;
 
       onUpdateVideo(video.id, {
-        titulo: editTitle,
         descripcion: editDescripcion,
       });
       await refetchVideos();
@@ -590,14 +587,6 @@ const VideoCard: React.FC<VideoCardProps> = ({
         <View className="flex-1 justify-center items-center bg-black bg-opacity-50">
           <View className="bg-white p-5 rounded-lg w-5/6">
             <Text className="text-xl font-JakartaBold text-primary-700 mb-4">Editar Video</Text>
-
-            <TextInput
-              className="border border-general-300 rounded-md p-2 mb-2"
-              placeholder="Título del video"
-              value={editTitle}
-              onChangeText={setEditTitle}
-            />
-
             <TextInput
               className="border border-general-300 rounded-md p-2 mb-2"
               placeholder="Descripción del video"

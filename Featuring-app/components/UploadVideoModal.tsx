@@ -21,7 +21,6 @@ export default function UploadVideoModal({
   onClose,
   onUploadSuccess,
 }: UploadVideoModalProps) {
-  const [title, setTitle] = useState("");
   const [descripcion, setDescripcion] = useState("");
   const [videoFile, setVideoFile] = useState<string | null>(null);
   const [videoFileName, setVideoFileName] = useState<string | null>(null);
@@ -47,7 +46,7 @@ export default function UploadVideoModal({
   };
 
   const uploadVideo = async () => {
-    if (!title || !videoFile || !videoFileName || !descripcion) {
+    if (!videoFile || !videoFileName || !descripcion) {
       Alert.alert("Error", "Por favor, completa todos los campos");
       return;
     }
@@ -76,7 +75,6 @@ export default function UploadVideoModal({
 
       const { error: insertError } = await supabase.from("video").insert({
         usuario_id: user.id,
-        titulo: title,
         url: publicUrl,
         descripcion: descripcion,
       });
@@ -97,13 +95,6 @@ export default function UploadVideoModal({
       <View className="flex-1 justify-center items-center bg-black bg-opacity-50">
         <View className="bg-white p-5 rounded-lg w-5/6">
           <Text className="text-xl font-JakartaBold text-primary-700 mb-4">Subir Video</Text>
-
-          <TextInput
-            className="border border-general-300 rounded-md p-2 mb-2"
-            placeholder="Título del video"
-            value={title}
-            onChangeText={setTitle}
-          />
 
           <TextInput
             className="border border-general-300 rounded-md p-2 mb-2"
