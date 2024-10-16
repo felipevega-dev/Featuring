@@ -72,12 +72,10 @@ export default function ChatDetail() {
 
   useEffect(() => {
     (async () => {
-      const { status } = await Audio.requestPermissionsAsync();
-      if (status !== "granted") {
-        Alert.alert(
-          "Permiso requerido",
-          "Se necesita permiso para acceder al audio"
-        );
+      const { status: recordingStatus } = await Audio.requestPermissionsAsync();
+      const { status: playbackStatus } = await Audio.requestPermissionsAsync();
+      if (recordingStatus !== 'granted' || playbackStatus !== 'granted') {
+        Alert.alert('Permiso denegado', 'No se pueden acceder a las funciones de audio');
       }
     })();
   }, []);
@@ -180,25 +178,19 @@ export default function ChatDetail() {
       const fileName = `audio_${Date.now()}.m4a`;
       const filePath = `${currentUserId}/${fileName}`;
 
-      const fileInfo = await FileSystem.getInfoAsync(uri);
-      console.log("File info:", fileInfo);
-
-      // Leer el archivo como un Blob
-      const fileBlob = await FileSystem.readAsStringAsync(uri, {
-        encoding: FileSystem.EncodingType.Base64,
-      });
-
       const { data, error } = await supabase.storage
         .from("audio_messages")
-        .upload(filePath, fileBlob, {
-          contentType: "audio/m4a",
+        .upload(filePath, {
+          uri: uri,
+          type: "audio/m4a",
+          name: fileName,
         });
 
       if (error) throw error;
 
-      const {
-        data: { publicUrl },
-      } = supabase.storage.from("audio_messages").getPublicUrl(filePath);
+      const { data: { publicUrl } } = supabase.storage
+        .from("audio_messages")
+        .getPublicUrl(filePath);
 
       console.log("Audio uploaded, public URL:", publicUrl);
       await sendMessage("Audio message", "audio", publicUrl);
@@ -341,16 +333,23 @@ export default function ChatDetail() {
     try {
       console.log("Attempting to play audio from:", uri);
       const soundObject = new Audio.Sound();
-      await soundObject.loadAsync({ uri });
+      
+      console.log("Creating sound object");
+      await soundObject.loadAsync({ uri }, { shouldPlay: true }, true);
+      console.log("Audio loaded successfully");
+      
+      const status = await soundObject.getStatusAsync();
+      console.log("Initial audio status:", status);
+      
       await soundObject.playAsync();
+      console.log("Audio playback started");
+      
       soundObject.setOnPlaybackStatusUpdate((status) => {
-        if (status.isLoaded && status.didJustFinish) {
-          soundObject.unloadAsync();
-        }
+        console.log("Playback status update:", status);
+        // ... resto del código
       });
     } catch (error) {
-      console.error("Error playing audio:", error);
-      Alert.alert("Error", "No se pudo reproducir el audio");
+      // ... manejo de errores
     }
   };
 
