@@ -58,23 +58,32 @@ const Card: React.FC<CardProps> = ({
   const [modalVisible, setModalVisible] = useState(false);
 
   const renderHabilidades = (
-    habilidades: { habilidad: string }[] | null | undefined
+    habilidades: { habilidad: string }[] | null | undefined,
+    limit?: number
   ) => {
     if (!habilidades || habilidades.length === 0)
       return "Sin habilidades especificadas";
     const habilidadesArray = habilidades.map((h) => h.habilidad);
-    return habilidadesArray.length <= 3
-      ? habilidadesArray.join(", ")
-      : `${habilidadesArray.slice(0, 3).join(", ")} y ${habilidadesArray.length - 3} más`;
+    if (limit && habilidadesArray.length > limit) {
+      return `${habilidadesArray.slice(0, limit).join(", ")} y ${habilidadesArray.length - limit} más`;
+    }
+    return habilidadesArray.join(", ");
   };
 
-  const renderGeneros = (generos: { genero: string }[] | null | undefined) => {
+  const renderGeneros = (
+    generos: { genero: string }[] | null | undefined,
+    limit?: number
+  ) => {
     if (!generos || generos.length === 0) return "Sin géneros especificados";
-    return generos.map((g) => g.genero).join(", ");
+    const generosArray = generos.map((g) => g.genero);
+    if (limit && generosArray.length > limit) {
+      return `${generosArray.slice(0, limit).join(", ")} y ${generosArray.length - limit} más`;
+    }
+    return generosArray.join(", ");
   };
 
   const getRedSocialIcon = (nombre: string) => {
-    const iconMap: { [key: string]: string } = {
+    const iconMap: { [key: string]: any } = {
       soundcloud: "soundcloud",
       instagram: "instagram",
       facebook: "facebook",
@@ -132,7 +141,7 @@ const Card: React.FC<CardProps> = ({
         )}
         <Text className="text-center mt-2 text-black">{card.biografia}</Text>
         <Text className="text-center mt-2 text-primary-500 font-semibold">
-          {renderHabilidades(card.perfil_habilidad)}
+          {renderHabilidades(card.perfil_habilidad, 3)}
         </Text>
         <TouchableOpacity
           className="bg-primary-500 rounded-full mt-4 p-2 w-1/2"
