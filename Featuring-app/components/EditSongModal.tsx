@@ -14,6 +14,7 @@ import * as ImagePicker from "expo-image-picker";
 import * as DocumentPicker from "expo-document-picker";
 import { supabase } from "@/lib/supabase";
 import { generosMusicalesCompletos } from '@/constants/musicData';
+import { Cancion } from "@/types/db_types";
 
 interface EditSongModalProps {
   isVisible: boolean;

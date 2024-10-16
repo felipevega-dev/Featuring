@@ -9,7 +9,7 @@ import {
   Modal,
   ScrollView,
 } from "react-native";
-import { Audio } from "expo-av";
+import { Audio, AVPlaybackStatus } from "expo-av";
 import { supabase } from "@/lib/supabase";
 import { icons } from "@/constants/index";
 import * as Clipboard from "expo-clipboard";
@@ -76,6 +76,8 @@ const SongCard: React.FC<SongCardProps> = ({
 }) => {
   const [sound, setSound] = useState<Audio.Sound | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [duration, setDuration] = useState<number | null>(null);
+  const [position, setPosition] = useState<number | null>(null);
   const [likes, setLikes] = useState<Like[]>([]);
   const [comentarios, setComentarios] = useState<Comentario[]>([]);
   const [nuevoComentario, setNuevoComentario] = useState("");
@@ -90,11 +92,8 @@ const SongCard: React.FC<SongCardProps> = ({
     "newest"
   );
   const [showSortOptions, setShowSortOptions] = useState(false);
-  const [selectedCommentId, setSelectedCommentId] = useState<number | null>(
-    null
-  );
+  const [selectedCommentId, setSelectedCommentId] = useState<number | null>(null);
   const [commentOptionsVisible, setCommentOptionsVisible] = useState(false);
-  const [showOptions, setShowOptions] = useState(false);
   const [showOptionsModal, setShowOptionsModal] = useState(false);
   const {
     playSound,
@@ -103,7 +102,7 @@ const SongCard: React.FC<SongCardProps> = ({
     pauseSound,
   } = useAudioPlayer();
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
-
+  
   useEffect(() => {
     return sound
       ? () => {
@@ -128,10 +127,10 @@ const SongCard: React.FC<SongCardProps> = ({
     }
   };
 
-  const onPlaybackStatusUpdate = (status: Audio.PlaybackStatus) => {
+  const onPlaybackStatusUpdate = (status: AVPlaybackStatus) => {
     if (status.isLoaded) {
-      setDuration(status.durationMillis);
-      setPosition(status.positionMillis);
+      setDuration(status.durationMillis ?? null);
+      setPosition(status.positionMillis ?? null);
     }
   };
 
@@ -146,7 +145,7 @@ const SongCard: React.FC<SongCardProps> = ({
     } else {
       await loadAudio();
       if (sound) {
-        await sound.playAsync();
+        await playSound(sound);
         setIsPlaying(true);
       }
     }
@@ -245,6 +244,7 @@ const SongCard: React.FC<SongCardProps> = ({
             contenido,
             created_at,
             perfil (
+              usuario_id,
               username,
               foto_perfil
             )
@@ -255,7 +255,13 @@ const SongCard: React.FC<SongCardProps> = ({
         if (error) throw error;
 
         if (data) {
-          setComentarios([data as Comentario, ...comentarios]);
+          const newComentario: Comentario = {
+            ...data,
+            likes_count: 0, // Set an initial value for likes_count
+            perfil: data.perfil[0] as Perfil, // Assume perfil is the first item in the array
+            isLiked: false // Add this if it's part of your Comentario interface
+          };
+          setComentarios([newComentario, ...comentarios]);
           setNuevoComentario("");
         }
       } catch (error) {
@@ -504,7 +510,7 @@ const SongCard: React.FC<SongCardProps> = ({
           onPress={toggleImageModal}
         >
           <Image
-            source={{ uri: cancion.caratula }}
+            source={{ uri: cancion.caratula || "" }}
             className="w-11/12 h-5/6"
             resizeMode="contain"
           />

@@ -5,7 +5,7 @@ import React, {
   useEffect,
   useRef,
 } from "react";
-import { Audio } from "expo-av";
+import { Audio, AVPlaybackStatus } from "expo-av";
 
 interface AudioPlayerContextType {
   currentSong: {
@@ -121,10 +121,10 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
-  const onPlaybackStatusUpdate = (status: Audio.PlaybackStatus) => {
+  const onPlaybackStatusUpdate = (status: AVPlaybackStatus) => {
     if (status.isLoaded) {
-      setDuration(status.durationMillis);
-      setPosition(status.positionMillis);
+      setDuration(status.durationMillis ?? null);
+      setPosition(status.positionMillis ?? null);
       positionRef.current = status.positionMillis;
       setIsPlaying(status.isPlaying);
     }
