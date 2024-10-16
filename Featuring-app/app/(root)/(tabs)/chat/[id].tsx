@@ -17,6 +17,7 @@ import { supabase } from "@/lib/supabase";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { FontAwesome } from "@expo/vector-icons";
 import { Audio } from "expo-av";
+import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from "expo-file-system";
 import AudioPlayer from '@/components/AudioPlayer';
 
@@ -27,7 +28,7 @@ interface Message {
   emisor_id: string;
   receptor_id: string;
   contenido: string;
-  tipo_contenido: "texto" | "audio";
+  tipo_contenido: "texto" | "audio" | "imagen" | "video";
   url_contenido: string | null;
   fecha_envio: string;
 }
@@ -273,6 +274,51 @@ export default function ChatDetail() {
     }
   };
 
+  const pickImage = async () => {
+    let result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.All,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 1,
+    });
+
+    if (!result.canceled) {
+      const asset = result.assets[0];
+      await sendMediaMessage(asset.uri, asset.type === 'video' ? 'video' : 'imagen');
+    }
+  };
+
+  const sendMediaMessage = async (uri: string, tipo: 'imagen' | 'video') => {
+    try {
+      if (!currentUserId) {
+        throw new Error("Usuario no autenticado");
+      }
+
+      const fileName = `${tipo}_${Date.now()}.${uri.split('.').pop()}`;
+      const filePath = `${currentUserId}/${fileName}`;
+
+      const { data, error } = await supabase.storage
+        .from("chat_media")
+        .upload(filePath, {
+          uri: uri,
+          type: tipo === 'imagen' ? "image/jpeg" : "video/mp4",
+          name: fileName,
+        });
+
+      if (error) throw error;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from("chat_media")
+        .getPublicUrl(filePath);
+
+      console.log(`${tipo.charAt(0).toUpperCase() + tipo.slice(1)} uploaded, public URL:`, publicUrl);
+      await sendMessage(`${tipo.charAt(0).toUpperCase() + tipo.slice(1)} message`, tipo, publicUrl);
+    } catch (error) {
+      console.error(`Error sending ${tipo} message:`, error);
+      Alert.alert("Error", `No se pudo enviar el ${tipo}`);
+    }
+  };
+
   const renderMessage = ({ item }: { item: Message }) => {
     const isCurrentUser = item.emisor_id === currentUserId;
 
@@ -282,11 +328,11 @@ export default function ChatDetail() {
         className={`flex-row ${isCurrentUser ? 'justify-end' : 'justify-start'} mb-2`}
       >
         <View
-          className={`rounded-lg p-3 max-w-[80%] ${
+          className={`rounded-lg p-3 ${
             isCurrentUser ? 'bg-primary-500' : 'bg-primary-100'
-          }`}
+          } ${['audio', 'imagen', 'video'].includes(item.tipo_contenido) ? 'w-[80%]' : 'max-w-[80%]'}`}
         >
-          {item.tipo_contenido === 'texto' ? (
+          {item.tipo_contenido === 'texto' && (
             <Text
               className={`${
                 isCurrentUser ? 'text-white' : 'text-primary-700'
@@ -294,9 +340,25 @@ export default function ChatDetail() {
             >
               {item.contenido}
             </Text>
-          ) : item.tipo_contenido === 'audio' && item.url_contenido ? (
+          )}
+          {item.tipo_contenido === 'audio' && item.url_contenido && (
             <AudioPlayer uri={item.url_contenido} />
-          ) : null}
+          )}
+          {item.tipo_contenido === 'imagen' && item.url_contenido && (
+            <Image
+              source={{ uri: item.url_contenido }}
+              style={{ width: '100%', height: 200, borderRadius: 10 }}
+              resizeMode="cover"
+            />
+          )}
+          {item.tipo_contenido === 'video' && item.url_contenido && (
+            <View>
+              <Text className={`${isCurrentUser ? 'text-white' : 'text-primary-700'} font-JakartaMedium`}>
+                Video: Toca para reproducir
+              </Text>
+              {/* Aquí puedes agregar un componente de reproducción de video si lo deseas */}
+            </View>
+          )}
           <Text
             className={`text-xs mt-1 ${
               isCurrentUser ? 'text-primary-200' : 'text-primary-400'
