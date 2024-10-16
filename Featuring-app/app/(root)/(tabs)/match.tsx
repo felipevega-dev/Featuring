@@ -312,6 +312,15 @@ const Match = () => {
     try {
       setIsLoading(true);
 
+      // Obtener las preferencias del usuario actual
+      const { data: userPreferences, error: preferencesError } = await supabase
+        .from('perfil')
+        .select('preferencias_genero, preferencias_habilidad, preferencias_distancia')
+        .eq('usuario_id', currentUserId)
+        .single();
+
+      if (preferencesError) throw preferencesError;
+
       const { data: connections, error: connectionsError } = await supabase
         .from("conexion")
         .select("usuario1_id, usuario2_id, estado")
@@ -338,8 +347,7 @@ const Match = () => {
 
       const { data: profiles, error: profilesError } = await supabase
         .from("perfil")
-        .select(
-          `
+        .select(`
           usuario_id,
           username,
           biografia,
@@ -353,17 +361,16 @@ const Match = () => {
           longitud,
           mensaje,
           red_social (nombre, url)
-        `
-        )
+        `)
         .not("usuario_id", "in", `(${Array.from(excludedUserIds).join(",")})`)
         .neq("usuario_id", currentUserId);
 
       if (profilesError) throw profilesError;
 
-      const processedProfiles = profiles.map((profile) => ({
-        ...profile,
-        distance:
-          profile.latitud && profile.longitud
+      const processedProfiles = profiles
+        .map((profile) => ({
+          ...profile,
+          distance: profile.latitud && profile.longitud
             ? calculateDistance(
                 userLocation.coords.latitude,
                 userLocation.coords.longitude,
@@ -371,7 +378,24 @@ const Match = () => {
                 profile.longitud
               )
             : undefined,
-      }));
+        }))
+        .filter(profile => {
+          // Filtrar por distancia
+          if (profile.distance && profile.distance > userPreferences.preferencias_distancia) {
+            return false;
+          }
+          // Filtrar por género musical
+          if (userPreferences.preferencias_genero.length > 0 &&
+              !profile.perfil_genero.some(g => userPreferences.preferencias_genero.includes(g.genero))) {
+            return false;
+          }
+          // Filtrar por habilidad
+          if (userPreferences.preferencias_habilidad.length > 0 &&
+              !profile.perfil_habilidad.some(h => userPreferences.preferencias_habilidad.includes(h.habilidad))) {
+            return false;
+          }
+          return true;
+        });
 
       setCards(processedProfiles);
     } catch (error) {
