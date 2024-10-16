@@ -1,15 +1,15 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, FlatList } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { generosMusicalesCompletos } from '@/constants/musicData';
 
 interface SearchBarProps {
   isExpanded: boolean;
   onToggle: () => void;
   onSearch: (searchTerm: string, selectedGenre: string) => void;
+  sortedGenres: string[];
 }
 
-export default function SearchBar({ isExpanded, onToggle, onSearch }: SearchBarProps) {
+export default function SearchBar({ isExpanded, onToggle, onSearch, sortedGenres }: SearchBarProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedGenre, setSelectedGenre] = useState('');
 
@@ -46,7 +46,7 @@ export default function SearchBar({ isExpanded, onToggle, onSearch }: SearchBarP
         </TouchableOpacity>
       </View>
       <FlatList
-        data={generosMusicalesCompletos}
+        data={sortedGenres}
         horizontal
         showsHorizontalScrollIndicator={false}
         renderItem={({ item }) => (

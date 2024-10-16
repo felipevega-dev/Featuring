@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { View, Text, FlatList, TouchableOpacity, Alert } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import SongCard from "@/components/SongCard";
@@ -10,6 +10,7 @@ import UserSongsModal from "@/components/UserSongsModal";
 import SearchBar from "@/components/SearchBar";
 import GlobalAudioPlayer from "@/components/GlobalAudioPlayer";
 import { AudioPlayerProvider } from "@/contexts/AudioPlayerContext";
+import { generosMusicalesCompletos } from '@/constants/musicData';
 
 type CancionDB = Database["public"]["Tables"]["cancion"]["Row"];
 type PerfilDB = Database["public"]["Tables"]["perfil"]["Row"];
@@ -34,6 +35,7 @@ const Comunidad = () => {
   const [isUploadModalVisible, setIsUploadModalVisible] = useState(false);
   const [isUserSongsModalVisible, setIsUserSongsModalVisible] = useState(false);
   const [isSearchBarExpanded, setIsSearchBarExpanded] = useState(false);
+  const [sortedGenres, setSortedGenres] = useState<string[]>([]);
 
   useEffect(() => {
     fetchSongs();
@@ -65,6 +67,18 @@ const Comunidad = () => {
       }));
       setAllCanciones(cancionesFormateadas);
       setFilteredCanciones(cancionesFormateadas);
+      
+      // Contar la frecuencia de los géneros
+      const genreCount = cancionesFormateadas.reduce((acc, cancion) => {
+        acc[cancion.genero] = (acc[cancion.genero] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+
+      // Ordenar los géneros por frecuencia
+      const sorted = generosMusicalesCompletos.sort((a, b) => 
+        (genreCount[b] || 0) - (genreCount[a] || 0)
+      );
+      setSortedGenres(sorted);
     } catch (err) {
       setError("Error al cargar las canciones. Por favor, intenta de nuevo.");
       console.error(err);
@@ -222,6 +236,7 @@ const Comunidad = () => {
             isExpanded={isSearchBarExpanded}
             onToggle={() => setIsSearchBarExpanded(!isSearchBarExpanded)}
             onSearch={handleSearch}
+            sortedGenres={sortedGenres}
           />
         </View>
         {filteredCanciones.length > 0 ? (
