@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   View,
   FlatList,
@@ -28,21 +28,24 @@ const WatchContent = () => {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const flatListRef = useRef<FlatList>(null);
-  const { setCurrentPlayingId } = useVideo();
+  const { setCurrentPlayingId, setIsScreenFocused } = useVideo();
 
   useEffect(() => {
     getCurrentUser();
   }, []);
 
   useFocusEffect(
-    React.useCallback(() => {
+    useCallback(() => {
+      setIsScreenFocused(true);
       if (currentIndex >= 0 && videos[currentIndex]) {
-        setCurrentPlayingId(videos[currentIndex].id); 
+        setCurrentPlayingId(videos[currentIndex].id);
       }
+
       return () => {
-        setCurrentPlayingId(null);  
+        setIsScreenFocused(false);
+        setCurrentPlayingId(null);
       };
-    }, [currentIndex, videos, setCurrentPlayingId])
+    }, [currentIndex, videos, setCurrentPlayingId, setIsScreenFocused])
   );
 
   const getCurrentUser = async () => {
@@ -62,11 +65,12 @@ const WatchContent = () => {
   const onViewableItemsChanged = React.useCallback(
     ({ viewableItems }: { viewableItems: ViewToken[] }) => {
       if (viewableItems.length > 0) {
-        setCurrentIndex(viewableItems[0].index || 0);
-        setCurrentPlayingId(viewableItems[0].item.id || 0);
+        const newIndex = viewableItems[0].index || 0;
+        setCurrentIndex(newIndex);
+        setCurrentPlayingId(videos[newIndex].id);
       }
     },
-    [setCurrentPlayingId]
+    [setCurrentPlayingId, videos]
   );
 
   const viewabilityConfig = {
@@ -79,7 +83,7 @@ const WatchContent = () => {
 
   const handleUpdateVideo = (
     videoId: number,
-    updatedData: { titulo: string; descripcion: string }
+    updatedData: { descripcion: string }
   ) => {
     setVideos((prevVideos) =>
       prevVideos.map((v) => (v.id === videoId ? { ...v, ...updatedData } : v))

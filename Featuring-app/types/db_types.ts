@@ -330,21 +330,21 @@ export interface Database {
         Row: {
           id: number;
           usuario_id: string;
-          duracion: string | null;
+          descripcion: string | null;
           url: string | null;
           created_at: string | null;
         };
         Insert: {
           id?: number;
           usuario_id: string;
-          duracion?: string | null;
+          descripcion?: string | null;
           url?: string | null;
           created_at?: string | null;
         };
         Update: {
           id?: number;
           usuario_id?: string;
-          duracion?: string | null;
+          descripcion?: string | null;
           url?: string | null;
           created_at?: string | null;
         };

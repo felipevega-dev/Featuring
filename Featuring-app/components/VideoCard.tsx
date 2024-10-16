@@ -80,7 +80,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
   setVideos,
   refetchVideos,
 }) => {
-  const { currentPlayingId, setCurrentPlayingId } = useVideo();
+  const { currentPlayingId, isScreenFocused, setCurrentPlayingId } = useVideo();
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLiked, setIsLiked] = useState(false);
   const [likesCount, setLikesCount] = useState(0);
@@ -98,14 +98,14 @@ const VideoCard: React.FC<VideoCardProps> = ({
   const [editDescripcion, setEditDescripcion] = useState(video.descripcion);
 
   useEffect(() => {
-    if (isActive) {
+    if (isActive && isScreenFocused && currentPlayingId === video.id) {
       videoRef.current?.playAsync();
       setIsPlaying(true);
     } else {
       videoRef.current?.pauseAsync();
       setIsPlaying(false);
     }
-  }, [isActive]);
+  }, [isActive, isScreenFocused, currentPlayingId, video.id]);
 
   useEffect(() => {
     checkIfLiked();
@@ -118,12 +118,11 @@ const VideoCard: React.FC<VideoCardProps> = ({
       if (isPlaying) {
         await videoRef.current?.pauseAsync();
         setCurrentPlayingId(null);
-        setIsPlaying(false);
       } else {
         await videoRef.current?.playAsync();
         setCurrentPlayingId(video.id);
-        setIsPlaying(true);
       }
+      setIsPlaying(!isPlaying);
       setShowPlayPauseIcon(true);
       Animated.timing(fadeAnim, {
         toValue: 1,
@@ -406,7 +405,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
           ref={videoRef}
           source={{ uri: video.url || "" }}
           resizeMode={ResizeMode.COVER}
-          shouldPlay={isActive}
+          shouldPlay={isActive && isScreenFocused && currentPlayingId === video.id}
           isLooping
           style={{ flex: 1 }}
           onPlaybackStatusUpdate={(status) => {
