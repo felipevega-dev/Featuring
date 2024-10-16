@@ -382,8 +382,10 @@ const Match = () => {
             : undefined,
         }))
         .filter(profile => {
-          // Filtrar por distancia
-          if (profile.distance && profile.distance > userPreferences.preferencias_distancia) {
+          // Filtrar por distancia solo si no está en "Sin límite"
+          if (userPreferences.preferencias_distancia !== null && 
+              profile.distance && 
+              profile.distance > userPreferences.preferencias_distancia) {
             return false;
           }
           // Filtrar por género musical

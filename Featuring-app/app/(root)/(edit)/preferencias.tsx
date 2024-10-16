@@ -61,7 +61,13 @@ export default function Preferencias() {
       if (data && !error) {
         setGenerosPreferidos(data.preferencias_genero || []);
         setHabilidadesPreferidas(data.preferencias_habilidad || []);
-        setDistancia(data.preferencias_distancia || 10);
+        if (data.preferencias_distancia === null) {
+          setSinLimiteDistancia(true);
+          setDistancia(100); // Valor por defecto cuando está en "Sin límite"
+        } else {
+          setSinLimiteDistancia(false);
+          setDistancia(data.preferencias_distancia || 10);
+        }
       }
     }
   };
@@ -165,7 +171,12 @@ export default function Preferencias() {
               <Text className="text-black">Sin límite de distancia</Text>
               <Switch
                 value={sinLimiteDistancia}
-                onValueChange={(value) => setSinLimiteDistancia(value)}
+                onValueChange={(value) => {
+                  setSinLimiteDistancia(value);
+                  if (value) {
+                    setDistancia(100); // Establecer un valor máximo cuando se activa "Sin límite"
+                  }
+                }}
               />
             </View>
             {!sinLimiteDistancia && (
@@ -179,7 +190,6 @@ export default function Preferencias() {
                   onValueChange={setDistancia}
                   minimumTrackTintColor="#8B5CF6"
                   maximumTrackTintColor="#D1D5DB"
-                  disabled={sinLimiteDistancia}
                 />
                 <Text className="text-black text-center">{distancia} km</Text>
               </>
