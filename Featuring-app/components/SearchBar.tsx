@@ -13,8 +13,10 @@ export default function SearchBar({ isExpanded, onToggle, onSearch }: SearchBarP
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedGenre, setSelectedGenre] = useState('');
 
-  const handleSearch = () => {
-    onSearch(searchTerm, selectedGenre);
+  const handleSearch = (newSearchTerm: string, newGenre: string) => {
+    setSearchTerm(newSearchTerm);
+    setSelectedGenre(newGenre);
+    onSearch(newSearchTerm, newGenre);
   };
 
   if (!isExpanded) {
@@ -30,18 +32,12 @@ export default function SearchBar({ isExpanded, onToggle, onSearch }: SearchBarP
             placeholder="Buscar por título"
             placeholderTextColor="#666"
             value={searchTerm}
-            onChangeText={(text) => {
-              setSearchTerm(text);
-              handleSearch();
-            }}
+            onChangeText={(text) => handleSearch(text, selectedGenre)}
           />
           <Ionicons name="search" size={24} color="#666" style={{ marginRight: 10 }} />
         </View>
         <TouchableOpacity
-          onPress={() => {
-            setSelectedGenre('');
-            handleSearch();
-          }}
+          onPress={() => handleSearch(searchTerm, '')}
           className="bg-secondary-500 p-2 rounded-r-full justify-end items-center ml-2"
         >
           <Text className="text-white">
@@ -49,25 +45,22 @@ export default function SearchBar({ isExpanded, onToggle, onSearch }: SearchBarP
           </Text>
         </TouchableOpacity>
       </View>
-      {selectedGenre === '' && (
-        <FlatList
-          data={generosMusicalesCompletos}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              onPress={() => {
-                setSelectedGenre(item);
-                handleSearch();
-              }}
-              className="bg-primary-700 px-3 py-1 rounded-full mr-2 mt-2"
-            >
-              <Text className="text-white">{item}</Text>
-            </TouchableOpacity>
-          )}
-          keyExtractor={(item) => item}
-        />
-      )}
+      <FlatList
+        data={generosMusicalesCompletos}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        renderItem={({ item }) => (
+          <TouchableOpacity
+            onPress={() => handleSearch(searchTerm, item)}
+            className={`px-3 py-1 rounded-full mr-2 mt-2 ${
+              selectedGenre === item ? 'bg-secondary-500' : 'bg-primary-700'
+            }`}
+          >
+            <Text className="text-white">{item}</Text>
+          </TouchableOpacity>
+        )}
+        keyExtractor={(item) => item}
+      />
     </View>
   );
 }

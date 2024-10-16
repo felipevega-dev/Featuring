@@ -156,14 +156,14 @@ const Comunidad = () => {
   const handleSearch = (searchTerm: string, selectedGenre: string) => {
     let filtered = allCanciones;
 
+    if (selectedGenre) {
+      filtered = filtered.filter(cancion => cancion.genero === selectedGenre);
+    }
+
     if (searchTerm) {
       filtered = filtered.filter(cancion => 
         cancion.titulo.toLowerCase().includes(searchTerm.toLowerCase())
       );
-    }
-
-    if (selectedGenre) {
-      filtered = filtered.filter(cancion => cancion.genero === selectedGenre);
     }
 
     setFilteredCanciones(filtered);
