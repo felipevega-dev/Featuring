@@ -18,6 +18,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { FontAwesome } from "@expo/vector-icons";
 import { Audio } from "expo-av";
 import * as FileSystem from "expo-file-system";
+import AudioPlayer from '@/components/AudioPlayer';
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -272,85 +273,40 @@ export default function ChatDetail() {
     }
   };
 
-  const renderMessage = ({ item }: { item: Message }) => (
-    <View
-      className={`flex-row items-center mb-2 ${
-        item.emisor_id === currentUserId ? "justify-end" : "justify-start"
-      }`}
-    >
-      {item.emisor_id !== currentUserId && otherUserAvatar && (
-        <Image
-          source={{ uri: otherUserAvatar }}
-          className="w-8 h-8 rounded-full mr-2"
-        />
-      )}
+  const renderMessage = ({ item }: { item: Message }) => {
+    const isCurrentUser = item.emisor_id === currentUserId;
+
+    return (
       <TouchableOpacity
-        onLongPress={() => handleLongPress(item)}
-        delayLongPress={500}
-        activeOpacity={1}
+        onLongPress={() => setSelectedMessage(item)}
+        className={`flex-row ${isCurrentUser ? 'justify-end' : 'justify-start'} mb-2`}
       >
         <View
-          className={`p-2 rounded-lg ${
-            item.emisor_id === currentUserId ? "bg-primary-500" : "bg-gray-300"
-          } ${selectedMessage?.id === item.id ? "opacity-70" : "opacity-100"}`}
-          style={{ maxWidth: SCREEN_WIDTH * 0.7 }}
+          className={`rounded-lg p-3 max-w-[80%] ${
+            isCurrentUser ? 'bg-primary-500' : 'bg-primary-100'
+          }`}
         >
-          {item.tipo_contenido === "audio" ? (
-            <TouchableOpacity onPress={() => playAudio(item.url_contenido!)}>
-              <FontAwesome
-                name="play-circle"
-                size={24}
-                color={item.emisor_id === currentUserId ? "white" : "black"}
-              />
-              <Text
-                className={
-                  item.emisor_id === currentUserId ? "text-white" : "text-black"
-                }
-              >
-                Audio message
-              </Text>
-            </TouchableOpacity>
-          ) : (
+          {item.tipo_contenido === 'texto' ? (
             <Text
-              className={
-                item.emisor_id === currentUserId ? "text-white" : "text-black"
-              }
+              className={`${
+                isCurrentUser ? 'text-white' : 'text-primary-700'
+              } font-JakartaMedium`}
             >
               {item.contenido}
             </Text>
-          )}
+          ) : item.tipo_contenido === 'audio' && item.url_contenido ? (
+            <AudioPlayer uri={item.url_contenido} />
+          ) : null}
           <Text
-            className={`text-xs ${item.emisor_id === currentUserId ? "text-primary-200" : "text-gray-600"}`}
+            className={`text-xs mt-1 ${
+              isCurrentUser ? 'text-primary-200' : 'text-primary-400'
+            }`}
           >
             {new Date(item.fecha_envio).toLocaleTimeString()}
           </Text>
         </View>
       </TouchableOpacity>
-    </View>
-  );
-
-  const playAudio = async (uri: string) => {
-    try {
-      console.log("Attempting to play audio from:", uri);
-      const soundObject = new Audio.Sound();
-      
-      console.log("Creating sound object");
-      await soundObject.loadAsync({ uri }, { shouldPlay: true }, true);
-      console.log("Audio loaded successfully");
-      
-      const status = await soundObject.getStatusAsync();
-      console.log("Initial audio status:", status);
-      
-      await soundObject.playAsync();
-      console.log("Audio playback started");
-      
-      soundObject.setOnPlaybackStatusUpdate((status) => {
-        console.log("Playback status update:", status);
-        // ... resto del código
-      });
-    } catch (error) {
-      // ... manejo de errores
-    }
+    );
   };
 
   if (isLoading) {
