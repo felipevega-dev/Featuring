@@ -9,7 +9,6 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { icons, images } from "@/constants";
-import { supabase } from "@/lib/supabase";
 import { NotificationProvider } from '@/contexts/NotificationContext';
 import { useNotification } from '@/contexts/NotificationContext';
 

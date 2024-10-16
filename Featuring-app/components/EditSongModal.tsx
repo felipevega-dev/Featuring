@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -9,12 +9,12 @@ import {
   Alert,
   ScrollView,
 } from "react-native";
-import { Picker } from '@react-native-picker/picker';
 import * as ImagePicker from "expo-image-picker";
 import * as DocumentPicker from "expo-document-picker";
 import { supabase } from "@/lib/supabase";
-import { generosMusicalesCompletos } from '@/constants/musicData';
+import { Ionicons } from '@expo/vector-icons';
 import { Cancion } from "@/types/db_types";
+import GenreSelectionModal from './GenreSelectionModal';
 
 interface EditSongModalProps {
   isVisible: boolean;
@@ -36,6 +36,7 @@ export default function EditSongModal({
   const [audioFileName, setAudioFileName] = useState<string | null>(null);
   const [coverImage, setCoverImage] = useState<string | null>(cancion.caratula);
   const [coverImageName, setCoverImageName] = useState<string | null>(null);
+  const [isGenreModalVisible, setIsGenreModalVisible] = useState(false);
 
   const sanitizeFileName = (fileName: string): string => {
     return fileName.replace(/[^a-z0-9]/gi, "_").toLowerCase();
@@ -205,84 +206,83 @@ export default function EditSongModal({
   };
 
   return (
-    <Modal visible={isVisible} animationType="slide" transparent={true}>
-      <View className="flex-1 justify-center items-center bg-black bg-opacity-50">
-        <View className="bg-white p-5 rounded-lg w-5/6 max-h-5/6">
-          <ScrollView>
-            <Text className="text-xl font-bold mb-4">Editar Canción</Text>
+    <Modal visible={isVisible} animationType="slide" transparent={false}>
+      <View className="flex-1 bg-primary-900">
+        <ScrollView className="flex-1">
+          <View className="p-4">
+            <View className="flex-row justify-between items-center mb-4">
+              <TouchableOpacity onPress={onClose}>
+                <Ionicons name="arrow-back" size={24} color="white" />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={updateSong}>
+                <Text className="text-white font-bold text-lg">Guardar</Text>
+              </TouchableOpacity>
+            </View>
 
+            <TouchableOpacity onPress={pickImage} className="items-center mb-6">
+              {coverImage ? (
+                <View className="relative w-40 h-40">
+                  <Image
+                    source={{ uri: coverImage }}
+                    className="w-full h-full rounded-lg"
+                  />
+                  <View className="absolute inset-0 bg-black bg-opacity-50 rounded-lg items-center justify-center">
+                    <Ionicons name="camera" size={40} color="white" />
+                  </View>
+                </View>
+              ) : (
+                <View className="w-40 h-40 bg-primary-700 rounded-lg items-center justify-center">
+                  <Ionicons name="camera" size={40} color="white" />
+                </View>
+              )}
+            </TouchableOpacity>
+
+            <Text className="text-primary-300 text-sm mb-1">Título</Text>
             <TextInput
-              className="border border-gray-300 rounded-md p-2 mb-2"
+              className="border-b border-primary-700 text-white p-2 mb-4"
               placeholder="Título de la canción"
+              placeholderTextColor="#666"
               value={title}
               onChangeText={setTitle}
             />
 
+            <Text className="text-primary-300 text-sm mb-1">Género</Text>
+            <TouchableOpacity 
+              onPress={() => setIsGenreModalVisible(true)}
+              className="border-b border-primary-700 p-2 mb-4"
+            >
+              <Text className="text-white">{genre || "Elige un género"}</Text>
+            </TouchableOpacity>
+
+            <Text className="text-primary-300 text-sm mb-1">Descripción</Text>
             <TextInput
-              className="border border-gray-300 rounded-md p-2 mb-2"
-              placeholder="Descripción de la canción"
+              className="border-b border-primary-700 text-white p-2 mb-4"
+              placeholder="Describe tu pista"
+              placeholderTextColor="#666"
               value={contenido}
               onChangeText={setContenido}
               multiline
             />
 
-            <Text className="mb-2">Género musical:</Text>
-            <Picker
-              selectedValue={genre}
-              onValueChange={(itemValue) => setGenre(itemValue)}
-              className="border border-gray-300 rounded-md mb-4"
-            >
-              {generosMusicalesCompletos.map((genero) => (
-                <Picker.Item key={genero} label={genero} value={genero} />
-              ))}
-            </Picker>
-
             <TouchableOpacity
               onPress={pickAudio}
-              className="bg-blue-500 p-2 rounded-md mb-2"
+              className="bg-secondary-500 p-3 rounded-full mb-4"
             >
               <Text className="text-white text-center">Cambiar Audio</Text>
             </TouchableOpacity>
-            {audioFileName && (
-              <Text className="mb-2">
-                Nuevo audio seleccionado: {audioFileName}
-              </Text>
-            )}
-
-            <TouchableOpacity
-              onPress={pickImage}
-              className="bg-green-500 p-2 rounded-md mb-2"
-            >
-              <Text className="text-white text-center">Cambiar Portada</Text>
-            </TouchableOpacity>
-            {coverImage && (
-              <View>
-                <Image
-                  source={{ uri: coverImage }}
-                  style={{ width: 100, height: 100, marginBottom: 10 }}
-                />
-                <Text className="mb-2">
-                  Nueva imagen seleccionada: {coverImageName}
-                </Text>
-              </View>
-            )}
-
-            <TouchableOpacity
-              onPress={updateSong}
-              className="bg-purple-500 p-2 rounded-md mb-2"
-            >
-              <Text className="text-white text-center">Actualizar Canción</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={onClose}
-              className="bg-red-500 p-2 rounded-md"
-            >
-              <Text className="text-white text-center">Cancelar</Text>
-            </TouchableOpacity>
-          </ScrollView>
-        </View>
+          </View>
+        </ScrollView>
       </View>
+
+      <GenreSelectionModal
+        isVisible={isGenreModalVisible}
+        onClose={() => setIsGenreModalVisible(false)}
+        selectedGenre={genre}
+        onSelectGenre={(selectedGenre) => {
+          setGenre(selectedGenre);
+          setIsGenreModalVisible(false);
+        }}
+      />
     </Modal>
   );
 }

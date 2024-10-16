@@ -6,6 +6,8 @@ import { getSongs } from "@/app/(api)/comunidad";
 import { supabase } from "@/lib/supabase";
 import { Database } from "@/types/db_types";
 import UploadSongModal from "@/components/UploadSongModal";
+import UserSongsModal from "@/components/UserSongsModal";
+import SearchBar from "@/components/SearchBar";
 import GlobalAudioPlayer from "@/components/GlobalAudioPlayer";
 import { AudioPlayerProvider } from "@/contexts/AudioPlayerContext";
 
@@ -29,6 +31,8 @@ const Comunidad = () => {
   const [error, setError] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [isUploadModalVisible, setIsUploadModalVisible] = useState(false);
+  const [isUserSongsModalVisible, setIsUserSongsModalVisible] = useState(false);
+  const [isSearchBarExpanded, setIsSearchBarExpanded] = useState(false);
 
   useEffect(() => {
     fetchSongs();
@@ -143,14 +147,19 @@ const Comunidad = () => {
     await fetchSongs();
   };
 
-    const renderItem = ({ item }: { item: Cancion }) => (
-      <SongCard
-        cancion={item}
-        currentUserId={currentUserId || ""}
-        onDeleteSong={handleDeleteSong}
-        onUpdateSong={handleUpdateSong}
-      />
-    );
+  const handleSongSelect = (song: Cancion) => {
+    // Implementa la lógica para reproducir la canción seleccionada
+    console.log("Canción seleccionada:", song);
+  };
+
+  const renderItem = ({ item }: { item: Cancion }) => (
+    <SongCard
+      cancion={item}
+      currentUserId={currentUserId || ""}
+      onDeleteSong={handleDeleteSong}
+      onUpdateSong={handleUpdateSong}
+    />
+  );
 
   if (isLoading) {
     return (
@@ -171,13 +180,33 @@ const Comunidad = () => {
   return (
     <AudioPlayerProvider>
       <View className="flex-1 bg-gray-100">
-        <Text className="text-xl font-bold text-center py-4">Comunidad</Text>
-        <TouchableOpacity
-          onPress={() => setIsUploadModalVisible(true)}
-          className="bg-white p-3 rounded-md mx-4 mb-4"
-        >
-          <Ionicons name="add" size={24} color="black" />
-        </TouchableOpacity>
+        <View className="bg-primary-500">
+          <View className="h-14 flex-row items-center border-b-2 border-b-secondary-200">
+            <TouchableOpacity
+              onPress={() => setIsSearchBarExpanded(!isSearchBarExpanded)}
+              className="bg-white rounded-md mx-4 w-8 h-8 items-center justify-center"
+            >
+              <Ionicons name="search" size={24} color="#00BFA5" />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setIsUserSongsModalVisible(true)}
+              className="bg-white rounded-md mx-4 w-8 h-8 items-center justify-center"
+            >
+              <Ionicons name="library" size={24} color="#00BFA5" />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setIsUploadModalVisible(true)}
+              className="bg-white rounded-md mx-4 w-8 h-8 items-center justify-center"
+            >
+              <Ionicons name="cloud-upload-outline" size={24} color="#00BFA5" />
+            </TouchableOpacity>
+          </View>
+          <SearchBar
+            isExpanded={isSearchBarExpanded}
+            onToggle={() => setIsSearchBarExpanded(!isSearchBarExpanded)}
+            onSongSelect={handleSongSelect}
+          />
+        </View>
         {canciones.length > 0 ? (
           <FlatList
             data={canciones}
@@ -200,6 +229,13 @@ const Comunidad = () => {
           onClose={() => setIsUploadModalVisible(false)}
           onUploadSuccess={handleUploadSuccess}
         />
+        {currentUserId && (
+          <UserSongsModal
+            isVisible={isUserSongsModalVisible}
+            onClose={() => setIsUserSongsModalVisible(false)}
+            userId={currentUserId}
+          />
+        )}
         <GlobalAudioPlayer />
       </View>
     </AudioPlayerProvider>
