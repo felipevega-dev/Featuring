@@ -26,7 +26,8 @@ interface Cancion extends Omit<CancionDB, "perfil"> {
 }
 
 const Comunidad = () => {
-  const [canciones, setCanciones] = useState<Cancion[]>([]);
+  const [allCanciones, setAllCanciones] = useState<Cancion[]>([]);
+  const [filteredCanciones, setFilteredCanciones] = useState<Cancion[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -59,11 +60,11 @@ const Comunidad = () => {
               usuario_id: cancion.perfil.usuario_id,
               username: cancion.perfil.username || "Usuario desconocido",
               foto_perfil: cancion.perfil.foto_perfil,
-              // Mapea otras propiedades necesarias
             }
           : null,
       }));
-      setCanciones(cancionesFormateadas);
+      setAllCanciones(cancionesFormateadas);
+      setFilteredCanciones(cancionesFormateadas);
     } catch (err) {
       setError("Error al cargar las canciones. Por favor, intenta de nuevo.");
       console.error(err);
@@ -131,7 +132,7 @@ const Comunidad = () => {
         if (deleteCancionError) throw deleteCancionError;
 
         // Actualizar la lista de canciones
-        setCanciones((prevCanciones) =>
+        setAllCanciones((prevCanciones) =>
           prevCanciones.filter((cancion) => cancion.id !== cancionId)
         );
         Alert.alert("Éxito", "La canción ha sido eliminada completamente");
@@ -150,6 +151,22 @@ const Comunidad = () => {
   const handleSongSelect = (song: Cancion) => {
     // Implementa la lógica para reproducir la canción seleccionada
     console.log("Canción seleccionada:", song);
+  };
+
+  const handleSearch = (searchTerm: string, selectedGenre: string) => {
+    let filtered = allCanciones;
+
+    if (searchTerm) {
+      filtered = filtered.filter(cancion => 
+        cancion.titulo.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    if (selectedGenre) {
+      filtered = filtered.filter(cancion => cancion.genero === selectedGenre);
+    }
+
+    setFilteredCanciones(filtered);
   };
 
   const renderItem = ({ item }: { item: Cancion }) => (
@@ -180,7 +197,7 @@ const Comunidad = () => {
   return (
     <AudioPlayerProvider>
       <View className="flex-1 bg-gray-100">
-        <View className="bg-primary-500">
+        <View className="bg-primary-500 mb-2">
           <View className="h-14 flex-row items-center border-b-2 border-b-secondary-200">
             <TouchableOpacity
               onPress={() => setIsSearchBarExpanded(!isSearchBarExpanded)}
@@ -204,12 +221,12 @@ const Comunidad = () => {
           <SearchBar
             isExpanded={isSearchBarExpanded}
             onToggle={() => setIsSearchBarExpanded(!isSearchBarExpanded)}
-            onSongSelect={handleSongSelect}
+            onSearch={handleSearch}
           />
         </View>
-        {canciones.length > 0 ? (
+        {filteredCanciones.length > 0 ? (
           <FlatList
-            data={canciones}
+            data={filteredCanciones}
             renderItem={renderItem}
             keyExtractor={(item) => item.id.toString()}
             contentContainerStyle={{
