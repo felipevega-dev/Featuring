@@ -44,6 +44,12 @@ export default function AudioPlayer({ uri }: AudioPlayerProps) {
       setDuration(status.durationMillis || 0);
       setPosition(status.positionMillis || 0);
       setIsPlaying(status.isPlaying);
+      
+      // Cuando el audio termina, reinicia la posición
+      if (status.didJustFinish) {
+        setPosition(0);
+        setIsPlaying(false);
+      }
     }
   };
 
@@ -52,6 +58,10 @@ export default function AudioPlayer({ uri }: AudioPlayerProps) {
       if (isPlaying) {
         await sound.pauseAsync();
       } else {
+        // Si el audio ha terminado, reinicia desde el principio
+        if (position === duration) {
+          await sound.setPositionAsync(0);
+        }
         await sound.playAsync();
       }
     }
