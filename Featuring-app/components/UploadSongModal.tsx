@@ -9,12 +9,12 @@ import {
   Alert,
   ScrollView,
 } from "react-native";
-import { Picker } from '@react-native-picker/picker';
 import * as ImagePicker from "expo-image-picker";
 import * as DocumentPicker from "expo-document-picker";
 import { supabase } from "@/lib/supabase";
 import { generosMusicalesCompletos } from '@/constants/musicData';
 import { Ionicons } from '@expo/vector-icons';
+import GenreSelectionModal from './GenreSelectionModal';
 
 interface UploadSongModalProps {
   isVisible: boolean;
@@ -29,12 +29,12 @@ export default function UploadSongModal({
 }: UploadSongModalProps) {
   const [title, setTitle] = useState("");
   const [contenido, setContenido] = useState("");
-  const [genre, setGenre] = useState(generosMusicalesCompletos[0]);
+  const [genre, setGenre] = useState("");
   const [audioFile, setAudioFile] = useState<string | null>(null);
   const [audioFileName, setAudioFileName] = useState<string | null>(null);
   const [coverImage, setCoverImage] = useState<string | null>(null);
   const [coverImageName, setCoverImageName] = useState<string | null>(null);
-  const [isGenrePickerVisible, setIsGenrePickerVisible] = useState(false);
+  const [isGenreModalVisible, setIsGenreModalVisible] = useState(false);
 
   const sanitizeFileName = (fileName: string): string => {
     return fileName.replace(/[^a-z0-9]/gi, "_").toLowerCase();
@@ -214,7 +214,7 @@ export default function UploadSongModal({
 
             <Text className="text-primary-300 text-sm mb-1">Género</Text>
             <TouchableOpacity 
-              onPress={() => setIsGenrePickerVisible(true)}
+              onPress={() => setIsGenreModalVisible(true)}
               className="border-b border-primary-700 p-2 mb-4"
             >
               <Text className="text-white">{genre || "Elige un género"}</Text>
@@ -240,30 +240,15 @@ export default function UploadSongModal({
         </ScrollView>
       </View>
 
-      <Modal visible={isGenrePickerVisible} transparent={true} animationType="slide">
-        <View className="flex-1 justify-end bg-black bg-opacity-50">
-          <View className="bg-primary-800 rounded-t-lg">
-            <TouchableOpacity 
-              onPress={() => setIsGenrePickerVisible(false)}
-              className="p-4 self-end"
-            >
-              <Text className="text-secondary-500">Cerrar</Text>
-            </TouchableOpacity>
-            <Picker
-              selectedValue={genre}
-              onValueChange={(itemValue) => {
-                setGenre(itemValue);
-                setIsGenrePickerVisible(false);
-              }}
-              style={{ color: 'white' }}
-            >
-              {generosMusicalesCompletos.map((genero) => (
-                <Picker.Item key={genero} label={genero} value={genero} />
-              ))}
-            </Picker>
-          </View>
-        </View>
-      </Modal>
+      <GenreSelectionModal
+        isVisible={isGenreModalVisible}
+        onClose={() => setIsGenreModalVisible(false)}
+        selectedGenre={genre}
+        onSelectGenre={(selectedGenre) => {
+          setGenre(selectedGenre);
+          setIsGenreModalVisible(false);
+        }}
+      />
     </Modal>
   );
 }
