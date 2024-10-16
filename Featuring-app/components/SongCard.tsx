@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { router } from "expo-router";
 import {
   View,
   Text,
@@ -438,11 +439,15 @@ const SongCard: React.FC<SongCardProps> = ({
     return `${minutes}:${(Number(seconds) < 10 ? "0" : "") + seconds}`;
   };
 
+  const handleProfilePress = () => {
+    router.push(`/public-profile/${cancion.usuario_id}`);
+  };
+
   return (
     <View className="bg-white rounded-lg shadow-md mb-4 p-4">
       {/* Cabecera con nombre de usuario y opciones */}
       <View className="flex-row justify-between items-center mb-2">
-            <View className="flex-row items-center">
+            <TouchableOpacity onPress={handleProfilePress}  className="flex-row items-center">
               <Image
                 source={{
                   uri: cancion.perfil?.foto_perfil || "https://via.placeholder.com/30",
@@ -452,7 +457,7 @@ const SongCard: React.FC<SongCardProps> = ({
               <Text className="text-sm font-bold text-gray-700">
                 {cancion.perfil?.username || "Usuario desconocido"}
               </Text>
-            </View>
+            </TouchableOpacity>
             {cancion.usuario_id === currentUserId && (
               <TouchableOpacity onPress={() => setShowOptionsModal(true)}>
                 <Ionicons name="ellipsis-vertical" size={20} color="#666" />

@@ -22,7 +22,7 @@ const { width, height } = Dimensions.get("window");
 const STATUSBAR_HEIGHT = Platform.OS === "ios" ? 20 : StatusBar.currentHeight ?? 0;
 const BOTTOM_TAB_HEIGHT = 35; 
 
-const WatchContent = () => {
+export const WatchContent = () => {
   const { videos, setVideos, isLoading, error, refetchVideos } = useVideos();
   const [isUploadModalVisible, setIsUploadModalVisible] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);

@@ -19,6 +19,10 @@ export default function SearchBar({ isExpanded, onToggle, onSearch, sortedGenres
     onSearch(newSearchTerm, newGenre);
   };
 
+  const handleGenreDeselect = () => {
+    handleSearch(searchTerm, '');
+  };
+
   if (!isExpanded) {
     return null;
   }
@@ -37,12 +41,17 @@ export default function SearchBar({ isExpanded, onToggle, onSearch, sortedGenres
           <Ionicons name="search" size={24} color="#666" style={{ marginRight: 10 }} />
         </View>
         <TouchableOpacity
-          onPress={() => handleSearch(searchTerm, '')}
+          onPress={handleGenreDeselect}
           className="bg-secondary-500 p-2 rounded-r-full justify-end items-center ml-2"
         >
-          <Text className="text-white">
-            {selectedGenre || "Género"}
-          </Text>
+          <View className="flex-row items-center">
+            <Text className="text-white mr-2">
+              {selectedGenre || "Género"}
+            </Text>
+            {selectedGenre && (
+              <Ionicons name="close-circle" size={16} color="white" />
+            )}
+          </View>
         </TouchableOpacity>
       </View>
       <FlatList
