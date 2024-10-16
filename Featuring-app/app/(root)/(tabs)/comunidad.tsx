@@ -143,14 +143,14 @@ const Comunidad = () => {
     await fetchSongs();
   };
 
-  const renderItem = ({ item }: { item: Cancion }) => (
-    <SongCard
-      cancion={item}
-      currentUserId={currentUserId || ""}
-      onDeleteSong={handleDeleteSong}
-      onUpdateSong={handleUpdateSong}
-    />
-  );
+    const renderItem = ({ item }: { item: Cancion }) => (
+      <SongCard
+        cancion={item}
+        currentUserId={currentUserId || ""}
+        onDeleteSong={handleDeleteSong}
+        onUpdateSong={handleUpdateSong}
+      />
+    );
 
   if (isLoading) {
     return (
@@ -185,7 +185,7 @@ const Comunidad = () => {
             keyExtractor={(item) => item.id.toString()}
             contentContainerStyle={{
               paddingHorizontal: 16,
-              paddingBottom: 100,
+              paddingBottom: 120,
             }}
           />
         ) : (

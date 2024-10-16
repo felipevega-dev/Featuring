@@ -102,6 +102,7 @@ const SongCard: React.FC<SongCardProps> = ({
     pauseSound,
   } = useAudioPlayer();
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
+  const [isImageModalVisible, setIsImageModalVisible] = useState(false);
   
   useEffect(() => {
     return sound
@@ -149,13 +150,6 @@ const SongCard: React.FC<SongCardProps> = ({
         setIsPlaying(true);
       }
     }
-  };
-
-  const formatTime = (millis: number | null) => {
-    if (millis === null) return "0:00";
-    const minutes = Math.floor(millis / 60000);
-    const seconds = ((millis % 60000) / 1000).toFixed(0);
-    return `${minutes}:${Number(seconds) < 10 ? "0" : ""}${seconds}`;
   };
 
   const fetchLikesAndComments = async () => {
@@ -332,7 +326,7 @@ const SongCard: React.FC<SongCardProps> = ({
   };
 
   const toggleImageModal = () => {
-    setModalVisible(!modalVisible);
+    setIsImageModalVisible(!isImageModalVisible);
   };
 
   const toggleCommentsModal = () => {
@@ -437,71 +431,89 @@ const SongCard: React.FC<SongCardProps> = ({
     }
   };
 
+  const formatDuration = (durationMillis: number | null) => {
+    if (durationMillis === null) return "";
+    const minutes = Math.floor(durationMillis / 60000);
+    const seconds = ((durationMillis % 60000) / 1000).toFixed(0);
+    return `${minutes}:${(Number(seconds) < 10 ? "0" : "") + seconds}`;
+  };
+
   return (
-    <View className="bg-white p-4 mb-6 rounded-lg shadow-md">
+    <View className="bg-white rounded-lg shadow-md mb-4 p-4">
+      {/* Cabecera con nombre de usuario y opciones */}
       <View className="flex-row justify-between items-center mb-2">
-        <View className="flex-row items-center">
-          <Image
-            source={{
-              uri:
-                cancion.perfil?.foto_perfil || "https://via.placeholder.com/50",
-            }}
-            className="w-10 h-10 rounded-full mr-2"
-          />
-          <Text className="font-bold">
-            {cancion.perfil?.username || "Usuario desconocido"}
-          </Text>
-        </View>
-        {cancion.usuario_id === currentUserId && (
-          <TouchableOpacity onPress={() => setShowOptionsModal(true)}>
-            <Ionicons name="ellipsis-vertical" size={24} color="black" />
+            <View className="flex-row items-center">
+              <Image
+                source={{
+                  uri: cancion.perfil?.foto_perfil || "https://via.placeholder.com/30",
+                }}
+                className="w-6 h-6 rounded-full mr-2"
+              />
+              <Text className="text-sm font-bold text-gray-700">
+                {cancion.perfil?.username || "Usuario desconocido"}
+              </Text>
+            </View>
+            {cancion.usuario_id === currentUserId && (
+              <TouchableOpacity onPress={() => setShowOptionsModal(true)}>
+                <Ionicons name="ellipsis-vertical" size={20} color="#666" />
+              </TouchableOpacity>
+            )}
+          </View>
+      <View className="flex-row">
+        {/* Imagen de portada */}
+        <View>
+          <TouchableOpacity onPress={toggleImageModal}>
+            <Image
+              source={{ uri: cancion.caratula || "https://via.placeholder.com/100" }}
+              className="w-20 h-20 rounded-lg"
+            />
           </TouchableOpacity>
-        )}
+        </View>
+        
+        {/* Contenido principal */}
+        <View className="flex-1 ml-4">
+          {/* Título, género y descripción */}
+          <Text className="font-JakartaSemiBold text-md mb-1 text-primary-700">{cancion.titulo}</Text>
+          <Text className="text-xs mb-1 text-secondary-500">{cancion.genero}</Text>
+          <Text className="text-xs text-general-200 mb-2" numberOfLines={2}>{cancion.contenido}</Text>
+          
+          {/* Controles, estadísticas y fecha */}
+          <View className="flex-row justify-between items-center mt-2">
+            {/* Fecha de creación */}
+            <Text className="text-xs text-general-200">
+              {new Date(cancion.created_at).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })}
+            </Text>
+            
+            <View className="flex-row items-center">
+              <TouchableOpacity onPress={handleLike} className="flex-row items-center mr-4">
+                <Image
+                  source={isLiked ? icons.hearto : icons.heart}
+                  className="w-5 h-5 mr-1"
+                  style={{ tintColor: isLiked ? "#6D29D2" : undefined }}
+                />
+                <Text className="text-xs text-primary-500">{likes.length}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={toggleCommentsModal} className="flex-row items-center mr-4">
+                <Image source={icons.comentario} className="w-5 h-5 mr-1" />
+                <Text className="text-xs">{comentarios.length}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={handlePlayPause}>
+                <Ionicons
+                  name={currentSong?.id === cancion.id && globalIsPlaying ? "pause" : "play"}
+                  size={20}
+                  color="#6D29D2"
+                />
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
       </View>
-      <Text className="font-JakartaSemiBold text-lg mb-2 text-primary-700">
-        {cancion.titulo}
-      </Text>
-      <Text className="mb-1 text-general-200">{cancion.contenido}</Text>
-      <Text className="mb-3 text-secondary-500 italic">Género: {cancion.genero}</Text>
-      {cancion.caratula && (
-        <TouchableOpacity onPress={toggleImageModal}>
-          <Image
-            source={{ uri: cancion.caratula }}
-            className="w-full h-48 rounded-lg mb-3"
-          />
-        </TouchableOpacity>
-      )}
-      <View className="flex-row items-center mt-2">
-        <TouchableOpacity
-          onPress={handleLike}
-          className="flex-row items-center mr-4"
-        >
-          <Image
-            source={isLiked ? icons.hearto : icons.heart}
-            className="w-6 h-6 mr-1"
-            style={{ tintColor: isLiked ? "#6D29D2" : undefined }}
-          />
-          <Text className="font-JakartaBold text-sm text-primary-500">
-            {likes.length}
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={toggleCommentsModal}
-          className="flex-row items-center"
-        >
-          <Image source={icons.comentario} className="w-6 h-6 mr-1" />
-          <Text className="font-JakartaBold text-sm">{comentarios.length}</Text>
-        </TouchableOpacity>
-      </View>
-      <Text className="text-xs text-general-200 mt-2">
-        {formatCommentDate(cancion.created_at)}
-      </Text>
 
       {/* Modal para imagen de portada */}
       <Modal
         animationType="fade"
         transparent={true}
-        visible={modalVisible}
+        visible={isImageModalVisible}
         onRequestClose={toggleImageModal}
       >
         <TouchableOpacity
@@ -510,7 +522,7 @@ const SongCard: React.FC<SongCardProps> = ({
           onPress={toggleImageModal}
         >
           <Image
-            source={{ uri: cancion.caratula || "" }}
+            source={{ uri: cancion.caratula || "https://via.placeholder.com/300" }}
             className="w-11/12 h-5/6"
             resizeMode="contain"
           />
@@ -553,14 +565,22 @@ const SongCard: React.FC<SongCardProps> = ({
                   className="mr-4"
                 >
                   <Text
-                    className={`text-sm ${commentSortOrder === "newest" ? "text-secondary-500 font-bold" : "text-gray-500"}`}
+                    className={`text-sm ${
+                      commentSortOrder === "newest"
+                        ? "text-secondary-500 font-bold"
+                        : "text-gray-500"
+                    }`}
                   >
                     Más nuevos
                   </Text>
                 </TouchableOpacity>
                 <TouchableOpacity onPress={() => sortComments("oldest")}>
                   <Text
-                    className={`text-sm ${commentSortOrder === "oldest" ? "text-secondary-500 font-bold" : "text-gray-500"}`}
+                    className={`text-sm ${
+                      commentSortOrder === "oldest"
+                        ? "text-secondary-500 font-bold"
+                        : "text-gray-500"
+                    }`}
                   >
                     Más antiguos
                   </Text>
@@ -642,43 +662,6 @@ const SongCard: React.FC<SongCardProps> = ({
         </View>
       </Modal>
 
-      {/* Modal para opciones de comentario */}
-      <Modal
-        animationType="fade"
-        transparent={true}
-        visible={commentOptionsVisible}
-        onRequestClose={() => setCommentOptionsVisible(false)}
-      >
-        <TouchableOpacity
-          className="flex-1 justify-center items-center bg-black/50"
-          activeOpacity={1}
-          onPress={() => setCommentOptionsVisible(false)}
-        >
-          <View className="bg-white rounded-lg p-4 w-3/4">
-            <TouchableOpacity
-              className="py-3 border-b border-gray-200"
-              onPress={handleCopyComment}
-            >
-              <Text className="text-primary-500 font-JakartaMedium">
-                Copiar contenido
-              </Text>
-            </TouchableOpacity>
-            {selectedCommentId &&
-              comentarios.find((c) => c.id === selectedCommentId)
-                ?.usuario_id === currentUserId && (
-                <TouchableOpacity
-                  className="py-3"
-                  onPress={handleDeleteComment}
-                >
-                  <Text className="text-red-500 font-JakartaMedium">
-                    Eliminar comentario
-                  </Text>
-                </TouchableOpacity>
-              )}
-          </View>
-        </TouchableOpacity>
-      </Modal>
-
       {/* Modal para opciones de canción */}
       <Modal
         animationType="fade"
@@ -687,12 +670,7 @@ const SongCard: React.FC<SongCardProps> = ({
         onRequestClose={() => setShowOptionsModal(false)}
       >
         <TouchableOpacity
-          style={{
-            flex: 1,
-            justifyContent: "center",
-            alignItems: "center",
-            backgroundColor: "rgba(0,0,0,0.5)",
-          }}
+          className="flex-1 justify-center items-center bg-black bg-opacity-50"
           activeOpacity={1}
           onPress={() => setShowOptionsModal(false)}
         >
@@ -701,12 +679,12 @@ const SongCard: React.FC<SongCardProps> = ({
               className="py-3 border-b border-gray-200"
               onPress={handleEdit}
             >
-              <Text className="text-blue-500 font-semibold">
+              <Text className="text-primary-500 font-JakartaMedium">
                 Editar canción
               </Text>
             </TouchableOpacity>
             <TouchableOpacity className="py-3" onPress={handleDelete}>
-              <Text className="text-red-500 font-semibold">
+              <Text className="text-red-500 font-JakartaMedium">
                 Eliminar canción
               </Text>
             </TouchableOpacity>
@@ -721,23 +699,6 @@ const SongCard: React.FC<SongCardProps> = ({
         onEditSuccess={handleEditSuccess}
         cancion={cancion}
       />
-
-      {cancion.archivo_audio && (
-        <TouchableOpacity
-          onPress={handlePlayPause}
-          className="absolute bottom-4 right-4 bg-primary-500 rounded-full p-2"
-        >
-          <Ionicons
-            name={
-              currentSong?.id === cancion.id && globalIsPlaying
-                ? "pause"
-                : "play"
-            }
-            size={24}
-            color="white"
-          />
-        </TouchableOpacity>
-      )}
     </View>
   );
 };
