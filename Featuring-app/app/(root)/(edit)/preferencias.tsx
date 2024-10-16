@@ -26,7 +26,7 @@ const habilidadesMusicales = [
 ];
 
 const generosMusicales = [
-  "Pop", "Rock", "Hip Hop", "R&B", "Jazz", "Clásica", "Electrónica", "Reggaeton",
+  "Pop", "Rock", "Hip Hop", "R&B", "Jazz", "Cl��sica", "Electrónica", "Reggaeton",
   "Country", "Folk", "Blues", "Metal", "Punk", "Indie", "Salsa", "Reggae", "Trap",
   "House", "Techno", "Dubstep", "Gospel", "Soul", "Funk", "Bossa Nova", "Flamenco",
   "Cumbia", "Bachata", "Merengue", "Tango", "Grunge", "Progressive Rock", "Disco",
@@ -36,6 +36,8 @@ const generosMusicales = [
 
 const { width } = Dimensions.get('window');
 const itemWidth = (width - 40) / 3; // 40 es el padding horizontal total
+
+const MAX_SELECTIONS = 3;
 
 export default function Preferencias() {
   const [distancia, setDistancia] = useState(10);
@@ -103,11 +105,16 @@ export default function Preferencias() {
   };
 
   const togglePreference = (preference: string, setFunction: React.Dispatch<React.SetStateAction<string[]>>) => {
-    setFunction(prev =>
-      prev.includes(preference)
-        ? prev.filter(p => p !== preference)
-        : [...prev, preference]
-    );
+    setFunction(prev => {
+      if (prev.includes(preference)) {
+        return prev.filter(p => p !== preference);
+      } else if (prev.length < MAX_SELECTIONS) {
+        return [...prev, preference];
+      } else {
+        Alert.alert("Límite alcanzado", `Solo puedes seleccionar un máximo de ${MAX_SELECTIONS} opciones.`);
+        return prev;
+      }
+    });
   };
 
   const renderItem = ({ item }: { item: string }) => (
