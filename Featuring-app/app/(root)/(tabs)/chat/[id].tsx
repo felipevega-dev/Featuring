@@ -17,7 +17,9 @@ import { supabase } from "@/lib/supabase";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { FontAwesome } from "@expo/vector-icons";
 import { Audio } from "expo-av";
+import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from "expo-file-system";
+import AudioPlayer from '@/components/AudioPlayer';
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -26,7 +28,7 @@ interface Message {
   emisor_id: string;
   receptor_id: string;
   contenido: string;
-  tipo_contenido: "texto" | "audio";
+  tipo_contenido: "texto" | "audio" | "imagen" | "video";
   url_contenido: string | null;
   fecha_envio: string;
 }
@@ -72,12 +74,10 @@ export default function ChatDetail() {
 
   useEffect(() => {
     (async () => {
-      const { status } = await Audio.requestPermissionsAsync();
-      if (status !== "granted") {
-        Alert.alert(
-          "Permiso requerido",
-          "Se necesita permiso para acceder al audio"
-        );
+      const { status: recordingStatus } = await Audio.requestPermissionsAsync();
+      const { status: playbackStatus } = await Audio.requestPermissionsAsync();
+      if (recordingStatus !== 'granted' || playbackStatus !== 'granted') {
+        Alert.alert('Permiso denegado', 'No se pueden acceder a las funciones de audio');
       }
     })();
   }, []);
@@ -180,25 +180,19 @@ export default function ChatDetail() {
       const fileName = `audio_${Date.now()}.m4a`;
       const filePath = `${currentUserId}/${fileName}`;
 
-      const fileInfo = await FileSystem.getInfoAsync(uri);
-      console.log("File info:", fileInfo);
-
-      // Leer el archivo como un Blob
-      const fileBlob = await FileSystem.readAsStringAsync(uri, {
-        encoding: FileSystem.EncodingType.Base64,
-      });
-
       const { data, error } = await supabase.storage
         .from("audio_messages")
-        .upload(filePath, fileBlob, {
-          contentType: "audio/m4a",
+        .upload(filePath, {
+          uri: uri,
+          type: "audio/m4a",
+          name: fileName,
         });
 
       if (error) throw error;
 
-      const {
-        data: { publicUrl },
-      } = supabase.storage.from("audio_messages").getPublicUrl(filePath);
+      const { data: { publicUrl } } = supabase.storage
+        .from("audio_messages")
+        .getPublicUrl(filePath);
 
       console.log("Audio uploaded, public URL:", publicUrl);
       await sendMessage("Audio message", "audio", publicUrl);
@@ -280,78 +274,101 @@ export default function ChatDetail() {
     }
   };
 
-  const renderMessage = ({ item }: { item: Message }) => (
-    <View
-      className={`flex-row items-center mb-2 ${
-        item.emisor_id === currentUserId ? "justify-end" : "justify-start"
-      }`}
-    >
-      {item.emisor_id !== currentUserId && otherUserAvatar && (
-        <Image
-          source={{ uri: otherUserAvatar }}
-          className="w-8 h-8 rounded-full mr-2"
-        />
-      )}
+  const pickImage = async () => {
+    let result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.All,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 1,
+    });
+
+    if (!result.canceled) {
+      const asset = result.assets[0];
+      await sendMediaMessage(asset.uri, asset.type === 'video' ? 'video' : 'imagen');
+    }
+  };
+
+  const sendMediaMessage = async (uri: string, tipo: 'imagen' | 'video') => {
+    try {
+      if (!currentUserId) {
+        throw new Error("Usuario no autenticado");
+      }
+
+      const fileName = `${tipo}_${Date.now()}.${uri.split('.').pop()}`;
+      const filePath = `${currentUserId}/${fileName}`;
+
+      const { data, error } = await supabase.storage
+        .from("chat_media")
+        .upload(filePath, {
+          uri: uri,
+          type: tipo === 'imagen' ? "image/jpeg" : "video/mp4",
+          name: fileName,
+        });
+
+      if (error) throw error;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from("chat_media")
+        .getPublicUrl(filePath);
+
+      console.log(`${tipo.charAt(0).toUpperCase() + tipo.slice(1)} uploaded, public URL:`, publicUrl);
+      await sendMessage(`${tipo.charAt(0).toUpperCase() + tipo.slice(1)} message`, tipo, publicUrl);
+    } catch (error) {
+      console.error(`Error sending ${tipo} message:`, error);
+      Alert.alert("Error", `No se pudo enviar el ${tipo}`);
+    }
+  };
+
+  const renderMessage = ({ item }: { item: Message }) => {
+    const isCurrentUser = item.emisor_id === currentUserId;
+
+    return (
       <TouchableOpacity
-        onLongPress={() => handleLongPress(item)}
-        delayLongPress={500}
-        activeOpacity={1}
+        onLongPress={() => setSelectedMessage(item)}
+        className={`flex-row ${isCurrentUser ? 'justify-end' : 'justify-start'} mb-2`}
       >
         <View
-          className={`p-2 rounded-lg ${
-            item.emisor_id === currentUserId ? "bg-primary-500" : "bg-gray-300"
-          } ${selectedMessage?.id === item.id ? "opacity-70" : "opacity-100"}`}
-          style={{ maxWidth: SCREEN_WIDTH * 0.7 }}
+          className={`rounded-lg p-3 ${
+            isCurrentUser ? 'bg-primary-500' : 'bg-primary-100'
+          } ${['audio', 'imagen', 'video'].includes(item.tipo_contenido) ? 'w-[80%]' : 'max-w-[80%]'}`}
         >
-          {item.tipo_contenido === "audio" ? (
-            <TouchableOpacity onPress={() => playAudio(item.url_contenido!)}>
-              <FontAwesome
-                name="play-circle"
-                size={24}
-                color={item.emisor_id === currentUserId ? "white" : "black"}
-              />
-              <Text
-                className={
-                  item.emisor_id === currentUserId ? "text-white" : "text-black"
-                }
-              >
-                Audio message
-              </Text>
-            </TouchableOpacity>
-          ) : (
+          {item.tipo_contenido === 'texto' && (
             <Text
-              className={
-                item.emisor_id === currentUserId ? "text-white" : "text-black"
-              }
+              className={`${
+                isCurrentUser ? 'text-white' : 'text-primary-700'
+              } font-JakartaMedium`}
             >
               {item.contenido}
             </Text>
           )}
+          {item.tipo_contenido === 'audio' && item.url_contenido && (
+            <AudioPlayer uri={item.url_contenido} />
+          )}
+          {item.tipo_contenido === 'imagen' && item.url_contenido && (
+            <Image
+              source={{ uri: item.url_contenido }}
+              style={{ width: '100%', height: 200, borderRadius: 10 }}
+              resizeMode="cover"
+            />
+          )}
+          {item.tipo_contenido === 'video' && item.url_contenido && (
+            <View>
+              <Text className={`${isCurrentUser ? 'text-white' : 'text-primary-700'} font-JakartaMedium`}>
+                Video: Toca para reproducir
+              </Text>
+              {/* Aquí puedes agregar un componente de reproducción de video si lo deseas */}
+            </View>
+          )}
           <Text
-            className={`text-xs ${item.emisor_id === currentUserId ? "text-primary-200" : "text-gray-600"}`}
+            className={`text-xs mt-1 ${
+              isCurrentUser ? 'text-primary-200' : 'text-primary-400'
+            }`}
           >
             {new Date(item.fecha_envio).toLocaleTimeString()}
           </Text>
         </View>
       </TouchableOpacity>
-    </View>
-  );
-
-  const playAudio = async (uri: string) => {
-    try {
-      console.log("Attempting to play audio from:", uri);
-      const soundObject = new Audio.Sound();
-      await soundObject.loadAsync({ uri });
-      await soundObject.playAsync();
-      soundObject.setOnPlaybackStatusUpdate((status) => {
-        if (status.isLoaded && status.didJustFinish) {
-          soundObject.unloadAsync();
-        }
-      });
-    } catch (error) {
-      console.error("Error playing audio:", error);
-      Alert.alert("Error", "No se pudo reproducir el audio");
-    }
+    );
   };
 
   if (isLoading) {
