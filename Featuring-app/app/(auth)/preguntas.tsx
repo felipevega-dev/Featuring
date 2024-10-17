@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import {
   SafeAreaView,
   View,
@@ -26,6 +26,7 @@ import {
   SlideDescripcion,
   SlideUbicacion,
 } from "@/components/auth/slides";
+import { phoneNumberMaxLength } from '@/utils/countryCodes';
 
 const { width, height } = Dimensions.get("window");
 
@@ -41,7 +42,12 @@ export default function Preguntas() {
   const validateSlide = (index: number): boolean => {
     switch (index) {
       case 0:
-        return state.username.length > 0 && state.telefono.length > 0;
+        return (
+          state.username.length > 0 &&
+          state.telefono.length > 0 &&
+          state.nacionalidad !== undefined &&
+          state.telefono.length === phoneNumberMaxLength[state.nacionalidad]
+        );
       case 1:
         return state.genero.length > 0;
       case 2:
@@ -85,6 +91,13 @@ export default function Preguntas() {
       swiperRef.current?.scrollBy(-1);
     }
   };
+
+  // Asegúrate de que el estado inicial incluya una nacionalidad por defecto
+  useEffect(() => {
+    if (!state.nacionalidad) {
+      dispatch({ type: 'SET_NACIONALIDAD', payload: 'Chile' });
+    }
+  }, []);
 
   return (
     <SafeAreaView className="flex-1 bg-white">

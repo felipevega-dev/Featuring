@@ -47,6 +47,7 @@ export interface Database {
           latitud: number | null;
           longitud: number | null;
           created_at: string;
+          nacionalidad: string | null;
         };
         Insert: {
           usuario_id: string;
@@ -61,6 +62,7 @@ export interface Database {
           latitud?: number | null;
           longitud?: number | null;
           created_at?: string;
+          nacionalidad?: string | null;
         };
         Update: {
           usuario_id?: string;
@@ -75,6 +77,7 @@ export interface Database {
           latitud?: number | null;
           longitud?: number | null;
           created_at?: string;
+          nacionalidad?: string | null;
         };
         Relationships: [
           {
@@ -716,9 +719,18 @@ export interface Database {
   };
 }
 
-export type Perfil = Database["public"]["Tables"]["perfil"]["Row"];
-export type PerfilInsert = Database["public"]["Tables"]["perfil"]["Insert"];
-export type PerfilUpdate = Database["public"]["Tables"]["perfil"]["Update"];
+export type Perfil = Database["public"]["Tables"]["perfil"]["Row"] & {
+  nacionalidad: string | null;
+};
+
+export type PerfilInsert = Database["public"]["Tables"]["perfil"]["Insert"] & {
+  nacionalidad?: string | null;
+};
+
+export type PerfilUpdate = Database["public"]["Tables"]["perfil"]["Update"] & {
+  nacionalidad?: string | null;
+};
+
 export type PerfilHabilidad =
   Database["public"]["Tables"]["perfil_habilidad"]["Row"];
 export type PerfilGenero = Database["public"]["Tables"]["perfil_genero"]["Row"];

@@ -1,9 +1,11 @@
 import { useReducer } from 'react';
 import { PreguntasState, PreguntasAction } from '@/types/preguntas';
+import { HispanicCountry } from '@/utils/countryCodes';
 
 const initialState: PreguntasState = {
   username: '',
   telefono: '',
+  nacionalidad: 'Chile' as HispanicCountry, // Establecemos Chile como valor por defecto
   genero: '',
   fechaNacimiento: { dia: null, mes: null, anio: null },
   habilidadesMusicales: [],
@@ -19,6 +21,8 @@ function preguntasReducer(state: PreguntasState, action: PreguntasAction): Pregu
       return { ...state, username: action.payload };
     case 'SET_TELEFONO':
       return { ...state, telefono: action.payload };
+    case 'SET_NACIONALIDAD':
+      return { ...state, nacionalidad: action.payload };
     case 'SET_GENERO':
       return { ...state, genero: action.payload };
     case 'SET_FECHA_NACIMIENTO':

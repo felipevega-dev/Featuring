@@ -1,8 +1,10 @@
 import { LocationObject } from 'expo-location';
+import { HispanicCountry } from '../utils/countryCodes';
 
 export interface PreguntasState {
   username: string;
   telefono: string;
+  nacionalidad: HispanicCountry;
   genero: string;
   fechaNacimiento: {
     dia: number | null;
@@ -20,6 +22,7 @@ export interface PreguntasState {
 export type PreguntasAction =
   | { type: 'SET_USERNAME'; payload: string }
   | { type: 'SET_TELEFONO'; payload: string }
+  | { type: 'SET_NACIONALIDAD'; payload: HispanicCountry }
   | { type: 'SET_GENERO'; payload: string }
   | { type: 'SET_FECHA_NACIMIENTO'; payload: Partial<PreguntasState['fechaNacimiento']> }
   | { type: 'SET_HABILIDADES_MUSICALES'; payload: string[] }

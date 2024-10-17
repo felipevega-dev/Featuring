@@ -47,6 +47,10 @@ CREATE TABLE
     ubicacion TEXT,
     latitud DOUBLE PRECISION,
     longitud DOUBLE PRECISION,
+    preferencias_genero TEXT array DEFAULT '{}',
+    preferencias_habilidad TEXT array DEFAULT '{}',
+    preferencias_distancia INT DEFAULT 10,
+    nacionalidad TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW()
   );
 
@@ -82,7 +86,6 @@ CREATE TABLE
   );
 
 -- Tabla cancion (modificada)
--- Tabla cancion (modificada)
 CREATE TABLE cancion (
     id BIGSERIAL PRIMARY KEY,
     usuario_id UUID NOT NULL,
@@ -94,6 +97,7 @@ CREATE TABLE cancion (
     created_at TIMESTAMPTZ DEFAULT NOW(),
     CONSTRAINT fk_usuario_cancion FOREIGN KEY (usuario_id) REFERENCES perfil (usuario_id) ON DELETE CASCADE
   );
+
   
 -- Renombrar likes_publicacion a likes_cancion
 CREATE TABLE likes_cancion (
@@ -180,8 +184,7 @@ CREATE TABLE
   video (
     id BIGSERIAL PRIMARY KEY,
     usuario_id UUID NOT NULL,
-    titulo TEXT NOT NULL,
-    duracion TEXT,
+    descripcion TEXT,
     url TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     CONSTRAINT fk_usuario_video FOREIGN KEY (usuario_id) REFERENCES auth.users (id) ON DELETE CASCADE
@@ -311,3 +314,17 @@ CREATE INDEX idx_cancion_usuario ON cancion (usuario_id);
 CREATE INDEX idx_likes_cancion_usuario ON likes_cancion (usuario_id, cancion_id);
 CREATE INDEX idx_comentario_cancion_usuario ON comentario_cancion (usuario_id, cancion_id);
 CREATE INDEX idx_comentario_cancion_created_at ON comentario_cancion (created_at);
+
+CREATE INDEX idx_perfil_preferencias_genero ON perfil (preferencias_genero);
+CREATE INDEX idx_perfil_preferencias_habilidad ON perfil (preferencias_habilidad);
+CREATE INDEX idx_perfil_preferencias_distancia ON perfil (preferencias_distancia);
+CREATE INDEX idx_perfil_sexo ON perfil (sexo);
+CREATE INDEX idx_perfil_edad ON perfil (edad);
+CREATE INDEX idx_perfil_ubicacion ON perfil (ubicacion);
+CREATE INDEX idx_perfil_latitud ON perfil (latitud);
+CREATE INDEX idx_perfil_longitud ON perfil (longitud);
+CREATE INDEX idx_perfil_numTelefono ON perfil (numTelefono);
+CREATE INDEX idx_perfil_username ON perfil (username);
+CREATE INDEX idx_perfil_fecha_nacimiento ON perfil (fecha_nacimiento);
+-- Crear un índice para mejorar las búsquedas por nacionalidad
+CREATE INDEX idx_perfil_nacionalidad ON perfil (nacionalidad);
