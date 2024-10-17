@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useEffect } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { PreguntasState, PreguntasAction } from '@/types/preguntas';
 import { habilidadesMusicalesCompletas } from '@/constants/musicData';
@@ -7,15 +7,27 @@ import { habilidadesMusicalesCompletas } from '@/constants/musicData';
 interface SlideHabilidadesMusicalesProps {
   state: PreguntasState;
   dispatch: React.Dispatch<PreguntasAction>;
+  onValidationComplete: (isValid: boolean) => void;
 }
 
-export function SlideHabilidadesMusicales({ state, dispatch }: SlideHabilidadesMusicalesProps) {
+export function SlideHabilidadesMusicales({ state, dispatch, onValidationComplete }: SlideHabilidadesMusicalesProps) {
   const { habilidadesMusicales } = state;
 
+  useEffect(() => {
+    onValidationComplete(habilidadesMusicales.length > 0);
+  }, [habilidadesMusicales]);
+
   const toggleHabilidadMusical = (habilidad: string) => {
-    const updatedHabilidades = habilidadesMusicales.includes(habilidad)
-      ? habilidadesMusicales.filter(item => item !== habilidad)
-      : [...habilidadesMusicales, habilidad].slice(0, 5);
+    let updatedHabilidades;
+    if (habilidadesMusicales.includes(habilidad)) {
+      updatedHabilidades = habilidadesMusicales.filter(item => item !== habilidad);
+    } else {
+      if (habilidadesMusicales.length >= 5) {
+        Alert.alert("Límite alcanzado", "Puedes seleccionar un máximo de 5 habilidades musicales.");
+        return;
+      }
+      updatedHabilidades = [...habilidadesMusicales, habilidad];
+    }
     dispatch({ type: 'SET_HABILIDADES_MUSICALES', payload: updatedHabilidades });
   };
 
@@ -49,6 +61,11 @@ export function SlideHabilidadesMusicales({ state, dispatch }: SlideHabilidadesM
           ))}
         </View>
       </ScrollView>
+      {habilidadesMusicales.length === 0 && (
+        <Text className="text-danger-600 mt-2">
+          Por favor, selecciona al menos una habilidad musical.
+        </Text>
+      )}
       <View className="mt-5">
         <MaterialCommunityIcons name="music-clef-treble" size={60} color="#00BFA5" />
       </View>

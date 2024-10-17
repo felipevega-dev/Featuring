@@ -4,9 +4,9 @@ import { Alert } from 'react-native';
 
 export async function saveProfile(state: PreguntasState) {
   try {
-    const { username, telefono, genero, fechaNacimiento, descripcion, profileImage, location } = state;
+    const { username, telefono, genero, fechaNacimiento, descripcion, profileImage, location, nacionalidad } = state;
     
-    if (!username || !telefono || !fechaNacimiento.dia || !fechaNacimiento.mes || !fechaNacimiento.anio || !genero) {
+    if (!username || !telefono || !fechaNacimiento.dia || !fechaNacimiento.mes || !fechaNacimiento.anio || !genero || !nacionalidad) {
       throw new Error("Faltan campos obligatorios");
     }
 
@@ -30,6 +30,7 @@ export async function saveProfile(state: PreguntasState) {
       latitud: location?.coords.latitude || null,
       longitud: location?.coords.longitude || null,
       numtelefono: telefono || null,
+      nacionalidad,
     };
 
     const { data, error } = await supabase
@@ -78,5 +79,53 @@ async function insertarHabilidadesYGeneros(perfilId: string, habilidades: string
     await supabase
       .from("perfil_genero")
       .upsert({ perfil_id: perfilId, genero });
+  }
+}
+
+export async function checkPhoneNumberExists(phoneNumber: string): Promise<boolean> {
+  try {
+    const { data, error } = await supabase
+      .from('perfil')
+      .select('numtelefono')
+      .eq('numtelefono', phoneNumber)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') {
+        // Este error significa que no se encontraron filas, lo cual es lo que queremos
+        return false;
+      }
+      console.error('Error checking phone number:', error);
+      throw error;
+    }
+
+    return !!data;
+  } catch (error) {
+    console.error('Error checking phone number:', error);
+    throw error;
+  }
+}
+
+export async function checkUsernameExists(username: string): Promise<boolean> {
+  try {
+    const { data, error } = await supabase
+      .from('perfil')
+      .select('username')
+      .eq('username', username)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') {
+        // Este error significa que no se encontraron filas, lo cual es lo que queremos
+        return false;
+      }
+      console.error('Error checking username:', error);
+      throw error;
+    }
+
+    return !!data;
+  } catch (error) {
+    console.error('Error checking username:', error);
+    throw error;
   }
 }

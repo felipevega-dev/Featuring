@@ -25,6 +25,7 @@ interface Perfil {
   generos: string[];
   habilidades: string[];
   redes_sociales: { nombre: string; url: string }[];
+  nacionalidad: string;
 }
 
 export default function Profile() {
@@ -247,6 +248,7 @@ export default function Profile() {
               <ProfileItem label="Ubicación" value={perfil.ubicacion} />
               <ProfileItem label="Género" value={perfil.sexo} />
               <ProfileItem label="Edad" value={perfil.edad.toString()} />
+              <ProfileItem label="Nacionalidad" value={perfil.nacionalidad} />
             </ProfileSection>
 
             <ProfileSection icon={icons.biografia} title="Biografía">

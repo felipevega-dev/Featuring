@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
 import { PreguntasState, PreguntasAction } from '@/types/preguntas';
@@ -6,10 +6,20 @@ import { PreguntasState, PreguntasAction } from '@/types/preguntas';
 interface SlideGeneroProps {
   state: PreguntasState;
   dispatch: React.Dispatch<PreguntasAction>;
+  onValidationComplete: (isValid: boolean) => void;
 }
 
-export function SlideGenero({ state, dispatch }: SlideGeneroProps) {
+export function SlideGenero({ state, dispatch, onValidationComplete }: SlideGeneroProps) {
   const { genero } = state;
+
+  useEffect(() => {
+    onValidationComplete(!!genero);
+  }, [genero]);
+
+  const handleGeneroSelect = (selectedGenero: string) => {
+    dispatch({ type: 'SET_GENERO', payload: selectedGenero });
+    onValidationComplete(true);
+  };
 
   return (
     <View className="flex-1 justify-center items-center mb-10 p-4">
@@ -26,7 +36,7 @@ export function SlideGenero({ state, dispatch }: SlideGeneroProps) {
               ? "bg-primary-500 border-primary-700"
               : "bg-primary-200 border-primary-400"
           }`}
-          onPress={() => dispatch({ type: 'SET_GENERO', payload: "Masculino" })}
+          onPress={() => handleGeneroSelect("Masculino")}
         >
           <Text
             className={`${
@@ -44,7 +54,7 @@ export function SlideGenero({ state, dispatch }: SlideGeneroProps) {
               ? "bg-secondary-500 border-secondary-700"
               : "bg-primary-200 border-primary-400"
           }`}
-          onPress={() => dispatch({ type: 'SET_GENERO', payload: "Femenino" })}
+          onPress={() => handleGeneroSelect("Femenino")}
         >
           <Text
             className={`${
@@ -62,7 +72,7 @@ export function SlideGenero({ state, dispatch }: SlideGeneroProps) {
               ? "bg-general-200 border-general-400"
               : "bg-primary-200 border-primary-400"
           }`}
-          onPress={() => dispatch({ type: 'SET_GENERO', payload: "Otro" })}
+          onPress={() => handleGeneroSelect("Otro")}
         >
           <Text
             className={`${

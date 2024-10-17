@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, TouchableOpacity, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { PreguntasState, PreguntasAction } from '@/types/preguntas';
@@ -8,11 +8,16 @@ import { commonStyles } from '@/styles/commonStyles';
 interface SlideFotoPerfilProps {
   state: PreguntasState;
   dispatch: React.Dispatch<PreguntasAction>;
+  onValidationComplete: (isValid: boolean) => void;
 }
 
-export function SlideFotoPerfil({ state, dispatch }: SlideFotoPerfilProps) {
+export function SlideFotoPerfil({ state, dispatch, onValidationComplete }: SlideFotoPerfilProps) {
   const { profileImage } = state;
   const { pickImage } = useImagePicker();
+
+  useEffect(() => {
+    onValidationComplete(true); // Siempre es válido, ya que la foto de perfil es opcional
+  }, []);
 
   const handlePickImage = async () => {
     const image = await pickImage();

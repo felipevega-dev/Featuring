@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text } from 'react-native';
+import { View, Text, Alert } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
 import DropDownPicker from 'react-native-dropdown-picker';
 import { PreguntasState, PreguntasAction } from '@/types/preguntas';
@@ -9,9 +9,10 @@ import { commonStyles } from '@/styles/commonStyles';
 interface SlideFechaNacimientoProps {
   state: PreguntasState;
   dispatch: React.Dispatch<PreguntasAction>;
+  onValidationComplete: (isValid: boolean) => void;
 }
 
-export function SlideFechaNacimiento({ state, dispatch }: SlideFechaNacimientoProps) {
+export function SlideFechaNacimiento({ state, dispatch, onValidationComplete }: SlideFechaNacimientoProps) {
   const { fechaNacimiento } = state;
   const {
     diaOpen, mesOpen, anioOpen,
@@ -23,26 +24,41 @@ export function SlideFechaNacimiento({ state, dispatch }: SlideFechaNacimientoPr
   } = useDatePicker();
 
   const [edadCalculada, setEdadCalculada] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (dia !== null && mes !== null && anio !== null) {
       const edad = calcularEdad(dia, mes, anio);
       setEdadCalculada(edad);
-      dispatch({ type: 'SET_FECHA_NACIMIENTO', payload: { dia, mes, anio, edad } });
+      if (edad < 13) {
+        setError("Lo sentimos, tienes que tener mínimo 13 años para utilizar Featuring 🙁.");
+        onValidationComplete(false);
+      } else {
+        setError(null);
+        dispatch({ type: 'SET_FECHA_NACIMIENTO', payload: { dia, mes, anio, edad } });
+        onValidationComplete(true);
+      }
     } else {
       setEdadCalculada(null);
+      setError("Por favor, selecciona un valor válido para día, mes y año.");
+      onValidationComplete(false);
     }
   }, [dia, mes, anio]);
 
   return (
     <View className="flex-1 justify-center items-center bg-white p-4 mb-44">
-      <View className="mb-1 text-center  items-center"> 
+      <View className="mb-1 text-center items-center"> 
         <FontAwesome name="birthday-cake" size={60} color="#6D29D2" />
-        {edadCalculada !== null && (
-        <Text className="text-lg text-secondary-600 font-JakartaBold mt-2">
-          Tienes {edadCalculada} años! 👌
-        </Text>
-      )}
+        {edadCalculada !== null && edadCalculada >= 13 && (
+          <Text className="text-lg text-secondary-600 font-JakartaBold mt-2">
+            Tienes {edadCalculada} años! 👌
+          </Text>
+        )}
+        {error && (
+          <Text className="text-lg text-danger-600 font-JakartaBold mt-2">
+            {error}
+          </Text>
+        )}
       </View>
       <Text className={commonStyles.slideTitle}>
         Fecha de Nacimiento

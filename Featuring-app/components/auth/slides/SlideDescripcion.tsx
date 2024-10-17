@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, TextInput } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { PreguntasState, PreguntasAction } from '@/types/preguntas';
@@ -6,10 +6,15 @@ import { PreguntasState, PreguntasAction } from '@/types/preguntas';
 interface SlideDescripcionProps {
   state: PreguntasState;
   dispatch: React.Dispatch<PreguntasAction>;
+  onValidationComplete: (isValid: boolean) => void;
 }
 
-export function SlideDescripcion({ state, dispatch }: SlideDescripcionProps) {
+export function SlideDescripcion({ state, dispatch, onValidationComplete }: SlideDescripcionProps) {
   const { descripcion } = state;
+
+  useEffect(() => {
+    onValidationComplete(true); // Siempre es válido, ya que la descripción es opcional
+  }, []);
 
   return (
     <View className="flex-1 justify-center items-center mb-10 pb-10 p-4">

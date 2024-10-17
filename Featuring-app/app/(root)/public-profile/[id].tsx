@@ -30,6 +30,7 @@ interface Perfil {
   generos: string[];
   habilidades: string[];
   redes_sociales: { nombre: string; url: string }[];
+  nacionalidad: string; // Añadir esta línea
 }
 
 interface Cancion {
@@ -74,6 +75,7 @@ export default function PublicProfile() {
           sexo,
           edad,
           biografia,
+          nacionalidad,
           perfil_genero (genero),
           perfil_habilidad (habilidad),
           red_social (nombre, url)
@@ -90,6 +92,7 @@ export default function PublicProfile() {
           generos: data.perfil_genero.map((g) => g.genero),
           habilidades: data.perfil_habilidad.map((h) => h.habilidad),
           redes_sociales: data.red_social,
+          nacionalidad: data.nacionalidad,
         };
         setPerfil(perfilData);
       }
@@ -221,6 +224,7 @@ export default function PublicProfile() {
                     <ProfileItem label="Ubicación" value={perfil.ubicacion} />
                     <ProfileItem label="Género" value={perfil.sexo} />
                     <ProfileItem label="Edad" value={perfil.edad.toString()} />
+                    <ProfileItem label="Nacionalidad" value={perfil.nacionalidad} />
                     </ProfileSection>
 
                     <ProfileSection icon={icons.biografia} title="Biografía">

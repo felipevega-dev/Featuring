@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { PreguntasState, PreguntasAction } from '@/types/preguntas';
 import { useLocation } from '@/hooks/useLocation';
@@ -6,11 +6,16 @@ import { useLocation } from '@/hooks/useLocation';
 interface SlideUbicacionProps {
   state: PreguntasState;
   dispatch: React.Dispatch<PreguntasAction>;
+  onValidationComplete: (isValid: boolean) => void;
 }
 
-export function SlideUbicacion({ state, dispatch }: SlideUbicacionProps) {
+export function SlideUbicacion({ state, dispatch, onValidationComplete }: SlideUbicacionProps) {
   const { location } = state;
   const { requestLocationPermission } = useLocation();
+
+  useEffect(() => {
+    onValidationComplete(true); // Siempre es válido, ya que la ubicación es opcional
+  }, []);
 
   const handleRequestLocation = async () => {
     const newLocation = await requestLocationPermission();

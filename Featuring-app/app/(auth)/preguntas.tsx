@@ -27,6 +27,7 @@ import {
   SlideUbicacion,
 } from "@/components/auth/slides";
 import { phoneNumberMaxLength } from '@/utils/countryCodes';
+import { checkPhoneNumberExists, checkUsernameExists } from '@/utils/profileUtils';
 
 const { width, height } = Dimensions.get("window");
 
@@ -35,36 +36,17 @@ export default function Preguntas() {
   const [activeIndex, setActiveIndex] = useState(0);
   const keyboardVisible = useKeyboardVisibility();
   const { state, dispatch } = usePreguntasState();
+  const [slideValidations, setSlideValidations] = useState<boolean[]>(new Array(8).fill(false));
 
   const isFirstSlide = activeIndex === 0;
   const isLastSlide = activeIndex === 7;
 
-  const validateSlide = (index: number): boolean => {
-    switch (index) {
-      case 0:
-        return (
-          state.username.length > 0 &&
-          state.telefono.length > 0 &&
-          state.nacionalidad !== undefined &&
-          state.telefono.length === phoneNumberMaxLength[state.nacionalidad]
-        );
-      case 1:
-        return state.genero.length > 0;
-      case 2:
-        return state.fechaNacimiento.dia !== null && state.fechaNacimiento.mes !== null && state.fechaNacimiento.anio !== null;
-      case 3:
-        return state.habilidadesMusicales.length > 0;
-      case 4:
-        return state.generosMusicales.length > 0;
-      case 5:
-        return state.profileImage !== null;
-      case 6:
-        return state.descripcion.length > 0;
-      case 7:
-        return state.location !== null;
-      default:
-        return false;
-    }
+  const updateSlideValidation = (index: number, isValid: boolean) => {
+    setSlideValidations(prev => {
+      const newValidations = [...prev];
+      newValidations[index] = isValid;
+      return newValidations;
+    });
   };
 
   const handleNext = async () => {
@@ -75,15 +57,15 @@ export default function Preguntas() {
       } else {
         Alert.alert("Error", "Por favor, completa todos los campos antes de continuar.");
       }
-    } else if (validateSlide(activeIndex)) {
+    } else if (slideValidations[activeIndex]) {
       swiperRef.current?.scrollBy(1);
     } else {
-      Alert.alert("Error", "Por favor, completa correctamente este paso antes de continuar.");
+      // Aquí podrías mostrar una alerta específica para cada slide si lo deseas
     }
   };
 
   const validateAllFields = () => {
-    return Array.from({ length: 8 }, (_, i) => i).every(validateSlide);
+    return slideValidations.every(isValid => isValid);
   };
 
   const handleBack = () => {
@@ -92,7 +74,6 @@ export default function Preguntas() {
     }
   };
 
-  // Asegúrate de que el estado inicial incluya una nacionalidad por defecto
   useEffect(() => {
     if (!state.nacionalidad) {
       dispatch({ type: 'SET_NACIONALIDAD', payload: 'Chile' });
@@ -126,14 +107,46 @@ export default function Preguntas() {
               paginationStyle={{ top: 10, bottom: undefined }}
               style={{ height: height - 250 }}
             >
-              <SlideUsername state={state} dispatch={dispatch} />
-              <SlideGenero state={state} dispatch={dispatch} />
-              <SlideFechaNacimiento state={state} dispatch={dispatch} />
-              <SlideHabilidadesMusicales state={state} dispatch={dispatch} />
-              <SlideGenerosMusicales state={state} dispatch={dispatch} />
-              <SlideFotoPerfil state={state} dispatch={dispatch} />
-              <SlideDescripcion state={state} dispatch={dispatch} />
-              <SlideUbicacion state={state} dispatch={dispatch} />
+              <SlideUsername 
+                state={state} 
+                dispatch={dispatch} 
+                onValidationComplete={(isValid) => updateSlideValidation(0, isValid)}
+              />
+              <SlideGenero 
+                state={state} 
+                dispatch={dispatch} 
+                onValidationComplete={(isValid) => updateSlideValidation(1, isValid)}
+              />
+              <SlideFechaNacimiento 
+                state={state} 
+                dispatch={dispatch} 
+                onValidationComplete={(isValid) => updateSlideValidation(2, isValid)}
+              />
+              <SlideHabilidadesMusicales 
+                state={state} 
+                dispatch={dispatch} 
+                onValidationComplete={(isValid) => updateSlideValidation(3, isValid)}
+              />
+              <SlideGenerosMusicales 
+                state={state} 
+                dispatch={dispatch} 
+                onValidationComplete={(isValid) => updateSlideValidation(4, isValid)}
+              />
+              <SlideFotoPerfil 
+                state={state} 
+                dispatch={dispatch} 
+                onValidationComplete={(isValid) => updateSlideValidation(5, isValid)}
+              />
+              <SlideDescripcion 
+                state={state} 
+                dispatch={dispatch} 
+                onValidationComplete={(isValid) => updateSlideValidation(6, isValid)}
+              />
+              <SlideUbicacion 
+                state={state} 
+                dispatch={dispatch} 
+                onValidationComplete={(isValid) => updateSlideValidation(7, isValid)}
+              />
             </Swiper>
           </View>
         </ScrollView>
