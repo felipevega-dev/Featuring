@@ -56,6 +56,7 @@ export default function Profile() {
           username,
           foto_perfil,
           ubicacion,
+          nacionalidad,
           sexo,
           edad,
           biografia,
