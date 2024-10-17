@@ -5,7 +5,7 @@ import { useValidateUsername } from '@/hooks/useValidateUsername';
 import { PreguntasState, PreguntasAction } from '@/types/preguntas';
 import { hispanicCountryCodes, HispanicCountry, phoneNumberMaxLength } from '../../../utils/countryCodes';
 import { Picker } from '@react-native-picker/picker';
-import { checkPhoneNumberExists, checkUsernameExists } from '@/utils/profileUtils';
+import { checkPhoneNumberExists } from '@/utils/profileUtils';
 
 interface SlideUsernameProps {
   state: PreguntasState;
@@ -68,32 +68,28 @@ export function SlideUsername({ state, dispatch, onValidationComplete }: SlideUs
         }
       } else {
         onValidationComplete(false);
-        if (number.length > 0) {
-          setPhoneError('Por favor, escribe un número válido');
-        }
       }
     }
   };
 
-  const validateForm = (username: string, phoneNumber: string) => {
-    if (username.length < 4 || username.length > 15) {
-      Alert.alert('Error', 'El nombre de usuario debe tener entre 4 y 15 caracteres');
+  const validateForm = async (username: string, phoneNumber: string) => {
+    const isUsernameValid = await validateUsername(username);
+    if (!isUsernameValid) {
       onValidationComplete(false);
-    } else if (phoneNumber.length === 0) {
+      return;
+    }
+
+    if (phoneNumber.length === 0) {
+      Alert.alert('Error', 'El número de teléfono es obligatorio');
       onValidationComplete(false);
     } else {
       onValidationComplete(true);
     }
   };
 
-  const handleUsernameChange = (text: string) => {
+  const handleUsernameChange = async (text: string) => {
     dispatch({ type: 'SET_USERNAME', payload: text });
-    validateUsername(text);
-    if (text.length >= 4 && text.length <= 15) {
-      validateForm(text, telefono);
-    } else if (!phoneNumber) {
-      onValidationComplete(false);
-    }
+    await validateUsername(text);
   };
 
   return (
