@@ -37,7 +37,10 @@ export function SlideUsername({ state, dispatch, onValidationComplete }: SlideUs
 
   const validatePhoneNumber = async (number: string) => {
     const maxLength = phoneNumberMaxLength[nacionalidad as HispanicCountry] - countryCode.length;
-    if (number.length > maxLength) {
+    if (number.length === 0) {
+      setPhoneError('El número de teléfono es obligatorio');
+      onValidationComplete(false);
+    } else if (number.length > maxLength) {
       setPhoneError(`El número debe tener máximo ${maxLength} dígitos para ${nacionalidad}`);
       onValidationComplete(false);
     } else {
@@ -54,7 +57,7 @@ export function SlideUsername({ state, dispatch, onValidationComplete }: SlideUs
             setPhoneError('Este número de teléfono ya está registrado');
             onValidationComplete(false);
           } else {
-            onValidationComplete(true);
+            validateForm(username, fullNumber);
           }
         } catch (error) {
           console.error('Error al validar el número de teléfono:', error);
@@ -72,35 +75,25 @@ export function SlideUsername({ state, dispatch, onValidationComplete }: SlideUs
     }
   };
 
-  const validateUsernameAndPhone = async () => {
-    if (username && phoneNumber) {
-      setIsValidating(true);
-      try {
-        const [usernameExists, phoneExists] = await Promise.all([
-          checkUsernameExists(username),
-          checkPhoneNumberExists(`${countryCode}${phoneNumber}`)
-        ]);
-
-        if (usernameExists) {
-          Alert.alert('Error', 'Este nombre de usuario ya está en uso. Por favor, elige otro.');
-          return false;
-        }
-
-        if (phoneExists) {
-          Alert.alert('Error', 'Este número de teléfono ya está registrado.');
-          return false;
-        }
-
-        return true;
-      } catch (error) {
-        console.error('Error al validar username y teléfono:', error);
-        Alert.alert('Error', 'Hubo un problema al validar tus datos. Por favor, inténtalo de nuevo.');
-        return false;
-      } finally {
-        setIsValidating(false);
-      }
+  const validateForm = (username: string, phoneNumber: string) => {
+    if (username.length < 4 || username.length > 15) {
+      Alert.alert('Error', 'El nombre de usuario debe tener entre 4 y 15 caracteres');
+      onValidationComplete(false);
+    } else if (phoneNumber.length === 0) {
+      onValidationComplete(false);
+    } else {
+      onValidationComplete(true);
     }
-    return false;
+  };
+
+  const handleUsernameChange = (text: string) => {
+    dispatch({ type: 'SET_USERNAME', payload: text });
+    validateUsername(text);
+    if (text.length >= 4 && text.length <= 15) {
+      validateForm(text, telefono);
+    } else if (!phoneNumber) {
+      onValidationComplete(false);
+    }
   };
 
   return (
@@ -110,12 +103,10 @@ export function SlideUsername({ state, dispatch, onValidationComplete }: SlideUs
       </Text>
       <TextInput
         className="border-2 rounded-full bg-primary-200 border-primary-500 p-4 w-full mb-4"
-        placeholder="Tu nombre artístico (username)"
+        placeholder="Tu nombre artístico (4-15 caracteres)"
         value={username}
-        onChangeText={(text) => {
-          dispatch({ type: 'SET_USERNAME', payload: text });
-          validateUsername(text);
-        }}
+        onChangeText={handleUsernameChange}
+        maxLength={15}
       />
       {usernameError ? (
         <Text className="text-danger-600 mt-2 mb-4">{usernameError}</Text>
