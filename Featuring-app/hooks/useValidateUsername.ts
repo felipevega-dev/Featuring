@@ -7,7 +7,7 @@ const PROHIBITED_WORDS = [
   'mierda', 'culo', 'polla', 'coño', 'pene', 'vagina', 'gilipollas', 'capullo',
   'maricón', 'chingar','verga', 'culero', 'mamón', 'cabrona', 'hijueputa', 'malparido', 'concha',
   'pelotudo', 'chinga', 'follar', 'pinga','maricon','maraco','maraca','weco','hueco','putita','putito'
-  ,'maricona','featuring','marico','marica'
+  ,'maricona','featuring','marico','marica','pajero','pajera','masturbador','pedofilo','pederasta'
 ];
 
 export function useValidateUsername() {
