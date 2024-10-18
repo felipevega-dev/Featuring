@@ -303,21 +303,22 @@ export default function WatchReports() {
       {/* Modal for expanded report details */}
       {expandedReporte && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50" id="my-modal">
-          <div className="relative mt-5 mx-auto mb-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-white">
+          <div className="relative mt-5 mb-5 mx-auto p-5 border w-10/12 max-w-6xl shadow-lg rounded-md bg-white">
             <div className="mt-3">
               <h3 className="text-2xl leading-6 font-bold text-primary-700 text-center mb-6">Detalles del Reporte</h3>
               <div className="mt-2 px-4 py-5 max-h-[70vh] overflow-y-auto">
                 {(() => {
                   const reporte = reportes.find(r => r.id === expandedReporte);
                   if (!reporte) return <p className="text-lg">No se encontraron detalles del reporte.</p>;
+                  console.log('Renderizando detalles del reporte:', reporte);
                   return (
                     <div className="flex flex-col md:flex-row">
                       {contentDetails && reporte.tipo_contenido === 'video' && (
                         <div className="md:w-1/2 pr-4">
-                          <div className="aspect-w-16 aspect-h-9 border-4 border-primary-500 rounded-lg overflow-hidden">
+                          <div className="aspect-w-16 aspect-h-9 border-4 border-primary-500 rounded-lg overflow-hidden max-w-md mx-auto">
                             <video 
                               controls 
-                              className="w-full h-full object-cover" // Cambiado a object-cover para ajustar mejor
+                              className="w-full h-full object-contain"
                               onError={(e) => {
                                 console.error('Error loading video:', e);
                                 console.log('Video source:', contentDetails.url);
@@ -349,7 +350,7 @@ export default function WatchReports() {
                         <p className="whitespace-pre-wrap">{reporte.contenido}</p>
                         
                         {contentDetails && (
-                          <div className="mt-2">
+                          <div className="mt-4">
                             <h4 className="text-lg font-semibold mb-2 text-secondary-600">Detalles del Video</h4>
                             <p><strong>Descripción:</strong> {contentDetails.descripcion}</p>
                           </div>
@@ -359,9 +360,9 @@ export default function WatchReports() {
                   );
                 })()}
               </div>
-              <div className="items-center px-4 py-3 mt-1">
+              <div className="items-center px-4 py-3 mt-6">
                 <button
-                  className="px-6 py-3 bg-secondary-500 text-white text-lg font-medium rounded-md w-full shadow-sm hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-300 transition duration-300"
+                  className="px-6 py-3 bg-primary-500 text-white text-lg font-medium rounded-md w-full shadow-sm hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-300 transition duration-300"
                   onClick={() => {
                     setExpandedReporte(null);
                     setContentDetails(null);
