@@ -1,179 +1,129 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { useState, useEffect, Fragment } from 'react'
+import { supabaseAdmin } from '../../lib/supabase'
 import Link from 'next/link'
 import Image from 'next/image'
+import { Menu, Transition } from '@headlessui/react'
+import { ChevronDownIcon } from '@heroicons/react/20/solid'
 
-interface Report {
-  id: number;
+interface Reporte {
+  id: string;
+  contenido: string;
+  created_at: string; // Cambiado de 'fecha' a 'created_at'
+  estado: string;
   usuario_reportante_id: string;
   usuario_reportado_id: string;
-  contenido_id: number;
-  tipo_contenido: string;
+  usuario_reportante: { username: string | null };
+  usuario_reportado: { username: string | null };
   razon: string;
-  estado: string;
-  created_at: string;
+  tipo_contenido: string;
+  contenido_id: string | null;
 }
 
 interface ContentDetails {
   id: number;
-  usuario_id: string;
   titulo: string;
-  archivo_audio: string | null;
-  caratula: string | null;
-  contenido: string;
-  genero: string;
-  created_at: string;
+  artista: string;
+  caratula: string;
+  archivo_audio: string;
+  usuario_id: string;
 }
 
-const REPORTS_PER_PAGE = 10
+const REPORTES_PER_PAGE = 20
 
-export default function Reports() {
-  const [reports, setReports] = useState<Report[]>([])
+export default function ReportManagement() {
+  const [reportes, setReportes] = useState<Reporte[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [selectedReport, setSelectedReport] = useState<Report | null>(null)
-  const [contentDetails, setContentDetails] = useState<ContentDetails | null>(null)
-  const [isModalOpen, setIsModalOpen] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
-  const [totalReports, setTotalReports] = useState(0)
-  const supabase = createClientComponentClient()
+  const [totalReportes, setTotalReportes] = useState(0)
+  const [expandedReporte, setExpandedReporte] = useState<string | null>(null)
+  const [contentDetails, setContentDetails] = useState<ContentDetails | null>(null)
 
   useEffect(() => {
-    fetchReports()
+    fetchReportes()
   }, [currentPage])
 
-  async function fetchReports() {
+  async function fetchReportes() {
     setLoading(true)
+    setError(null)
     try {
-      const { count } = await supabase
+      const { count } = await supabaseAdmin
         .from('reporte')
         .select('*', { count: 'exact', head: true })
 
-      setTotalReports(count || 0)
+      setTotalReportes(count || 0)
 
-      const { data, error } = await supabase
-        .from('reporte')
-        .select('*')
+      const { data: reportes, error: reportesError } = await supabaseAdmin
+        .from("reporte")
+        .select(`
+          *,
+          usuario_reportante:perfil!usuario_reportante_id (username),
+          usuario_reportado:perfil!usuario_reportado_id (username)
+        `)
+        .range((currentPage - 1) * REPORTES_PER_PAGE, currentPage * REPORTES_PER_PAGE - 1)
         .order('created_at', { ascending: false })
-        .range((currentPage - 1) * REPORTS_PER_PAGE, currentPage * REPORTS_PER_PAGE - 1)
 
-      if (error) throw error
+      if (reportesError) throw reportesError
 
-      console.log('Fetched reports:', data)
-
-      if (data) {
-        setReports(data)
-      }
+      setReportes(reportes)
     } catch (error) {
-      console.error('Error fetching reports:', error)
+      console.error('Error al obtener los reportes:', error)
       setError('No se pudieron cargar los reportes')
     } finally {
       setLoading(false)
     }
   }
 
-  async function fetchContentDetails(reportId: number, contentId: number, contentType: string) {
-    try {
-      let { data, error } = await supabase
-        .from(contentType === 'cancion' ? 'cancion' : 'otro_tipo_contenido')
-        .select('*')
-        .eq('id', contentId)
-        .single()
+  const handleExpandReporte = async (reporteId: string) => {
+    const reporte = reportes.find(r => r.id === reporteId);
+    if (!reporte) return;
 
-      if (error) throw error
+    if (reporte.tipo_contenido === 'cancion') {
+      try {
+        const { data, error } = await supabaseAdmin
+          .from('cancion')
+          .select('*')
+          .eq('id', reporte.contenido_id)
+          .single();
 
-      console.log('Fetched content details:', data)
-      setContentDetails(data)
-      setSelectedReport(reports.find(r => r.id === reportId) || null)
-      setIsModalOpen(true)
-    } catch (error) {
-      console.error('Error fetching content details:', error)
-    }
-  }
+        if (error) throw error;
 
-  async function handleReportAction(action: 'delete' | 'safe') {
-    if (!selectedReport || !contentDetails) return
-
-    try {
-      if (action === 'delete') {
-        const { error } = await supabase
-          .from(selectedReport.tipo_contenido === 'cancion' ? 'cancion' : 'otro_tipo_contenido')
-          .delete()
-          .eq('id', contentDetails.id)
-        
-        if (error) throw error
+        if (data) {
+          setContentDetails({
+            ...data,
+            caratulas: data.caratulas || "",
+            archivo_audio: data.archivo_audio || "",
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching song details:', error);
       }
-
-      const { error } = await supabase
-        .from('reporte')
-        .update({ estado: action === 'delete' ? 'resuelto' : 'descartado' })
-        .eq('id', selectedReport.id)
-
-      if (error) throw error
-
-      setIsModalOpen(false)
-      fetchReports()
-    } catch (error) {
-      console.error(`Error updating report:`, error)
     }
+
+    setExpandedReporte(expandedReporte === reporteId ? null : reporteId);
   }
 
   const handlePageChange = (newPage: number) => {
     setCurrentPage(newPage)
   }
 
-  const totalPages = Math.ceil(totalReports / REPORTS_PER_PAGE)
-
-  const ContentModal = () => {
-    if (!selectedReport || !contentDetails) return null;
-
-    return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-        <div className="bg-white rounded-lg p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-          <h2 className="text-2xl font-bold mb-4">Contenido Reportado</h2>
-          {selectedReport.tipo_contenido === 'cancion' && (
-            <>
-              <Image 
-                src={contentDetails.caratula || "https://via.placeholder.com/200"}
-                alt="Caratula" 
-                width={200} 
-                height={200} 
-                className="mb-4 mx-auto"
-              />
-              <h3 className="text-xl font-semibold">{contentDetails.titulo}</h3>
-              <p className="text-gray-600 mb-4">{contentDetails.genero}</p>
-              <audio controls className="w-full mb-4">
-                <source src={contentDetails.archivo_audio || ""} type="audio/mpeg" />
-                Tu navegador no soporta el elemento de audio.
-              </audio>
-            </>
-          )}
-          <div className="flex justify-end space-x-4">
-            <button
-              onClick={() => handleReportAction('safe')}
-              className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 transition duration-300"
-            >
-              Contenido Seguro
-            </button>
-            <button
-              onClick={() => handleReportAction('delete')}
-              className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 transition duration-300"
-            >
-              Eliminar Contenido
-            </button>
-            <button
-              onClick={() => setIsModalOpen(false)}
-              className="bg-gray-300 text-gray-800 px-4 py-2 rounded hover:bg-gray-400 transition duration-300"
-            >
-              Cerrar
-            </button>
-          </div>
-        </div>
-      </div>
-    )
+  const handleReporteAction = async (reporteId: string, action: 'resolve' | 'dismiss') => {
+    try {
+      await supabaseAdmin
+        .from('reportes')
+        .update({ estado: action === 'resolve' ? 'resuelto' : 'desestimado' })
+        .eq('id', reporteId)
+      // Refresh the report list after action
+      fetchReportes()
+    } catch (error) {
+      console.error(`Error ${action === 'resolve' ? 'resolviendo' : 'desestimando'} reporte:`, error)
+      setError(`No se pudo ${action === 'resolve' ? 'resolver' : 'desestimar'} el reporte. Por favor, intente de nuevo.`)
+    }
   }
+
+  const totalPages = Math.ceil(totalReportes / REPORTES_PER_PAGE)
 
   return (
     <div className="container mx-auto px-2 py-4 sm:px-4 sm:py-8">
@@ -186,62 +136,94 @@ export default function Reports() {
 
       {loading && <div className="text-center text-lg sm:text-xl">Cargando reportes...</div>}
       {error && <div className="text-center text-lg sm:text-xl text-danger-600">Error: {error}</div>}
-
-      {!loading && !error && reports.length > 0 && (
+      
+      {!loading && !error && reportes.length > 0 && (
         <>
           <div className="bg-white shadow-md rounded-lg overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reportante ID</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reportado ID</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contenido</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Razón</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {reports.map((report) => (
-                    <tr key={report.id}>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{report.id}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{report.usuario_reportante_id}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{report.usuario_reportado_id}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {report.tipo_contenido} (ID: {report.contenido_id})
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-500">{report.razon}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                          report.estado === 'resuelto' ? 'bg-green-100 text-green-800' :
-                          report.estado === 'descartado' ? 'bg-gray-100 text-gray-800' :
-                          'bg-yellow-100 text-yellow-800'
-                        }`}>
-                          {report.estado}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {new Date(report.created_at).toLocaleString()}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <button
-                          onClick={() => fetchContentDetails(report.id, report.contenido_id, report.tipo_contenido)}
-                          className="text-primary-600 hover:text-primary-900"
-                          disabled={report.estado !== 'pendiente'}
+            <ul className="divide-y divide-gray-200">
+              {reportes.map((reporte) => (
+                <li key={reporte.id} className="p-4 sm:p-6">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between">
+                    <div>
+                      <div className="text-base sm:text-lg font-medium text-gray-900">
+                        Reporte de {reporte.usuario_reportante.username || 'Usuario desconocido'}
+                      </div>
+                      <div className="text-sm sm:text-base text-gray-500">
+                        Contra {reporte.usuario_reportado.username || 'Usuario desconocido'}
+                      </div>
+                      <div className="text-sm text-gray-500">
+                        Fecha: {new Date(reporte.created_at).toLocaleString('es-ES', {
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </div>
+                      <div className="text-sm text-red-500">Razón: {reporte.razon}</div>
+                      <div className="text-sm text-gray-500">Tipo de contenido: {reporte.tipo_contenido}</div>
+                    </div>
+                    <div className="flex items-center justify-end space-x-3 mt-2 sm:mt-0">
+                      <button
+                        onClick={() => handleExpandReporte(reporte.id)}
+                        className="text-primary-600 hover:text-secondary-500 text-base sm:text-lg font-medium"
+                      >
+                        -> Ver detalles
+                      </button>
+                      <Menu as="div" className="relative inline-block text-left">
+                        <div>
+                          <Menu.Button className="inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-3 py-2 bg-white text-sm sm:text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-100 focus:ring-primary-500">
+                            Acciones
+                            <ChevronDownIcon className="-mr-1 ml-2 h-5 w-5" aria-hidden="true" />
+                          </Menu.Button>
+                        </div>
+                        <Transition
+                          as={Fragment}
+                          enter="transition ease-out duration-100"
+                          enterFrom="transform opacity-0 scale-95"
+                          enterTo="transform opacity-100 scale-100"
+                          leave="transition ease-in duration-75"
+                          leaveFrom="transform opacity-100 scale-100"
+                          leaveTo="transform opacity-0 scale-95"
                         >
-                          Ver Contenido
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                          <Menu.Items className="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none">
+                            <div className="py-1">
+                              <Menu.Item>
+                                {({ active }) => (
+                                  <button
+                                    onClick={() => handleReporteAction(reporte.id, 'resolve')}
+                                    className={`${
+                                      active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
+                                    } block w-full text-left px-4 py-2 text-sm sm:text-base`}
+                                  >
+                                    Resolver
+                                  </button>
+                                )}
+                              </Menu.Item>
+                              <Menu.Item>
+                                {({ active }) => (
+                                  <button
+                                    onClick={() => handleReporteAction(reporte.id, 'dismiss')}
+                                    className={`${
+                                      active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
+                                    } block w-full text-left px-4 py-2 text-sm sm:text-base`}
+                                  >
+                                    Desestimar
+                                  </button>
+                                )}
+                              </Menu.Item>
+                            </div>
+                          </Menu.Items>
+                        </Transition>
+                      </Menu>
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
           </div>
 
+          {/* Controles de paginación */}
           <div className="mt-6 flex justify-between items-center bg-white p-4 rounded-lg shadow">
             <button
               onClick={() => handlePageChange(currentPage - 1)}
@@ -263,7 +245,80 @@ export default function Reports() {
           </div>
         </>
       )}
-      {isModalOpen && <ContentModal />}
+
+      {/* Modal for expanded report details */}
+      {expandedReporte && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50" id="my-modal">
+          <div className="relative top-10 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <h3 className="text-2xl leading-6 font-bold text-primary-700 text-center mb-6">Detalles del Reporte</h3>
+              <div className="mt-2 px-4 py-5 max-h-[70vh] overflow-y-auto">
+                {(() => {
+                  const reporte = reportes.find(r => r.id === expandedReporte);
+                  if (!reporte) return <p className="text-lg">No se encontraron detalles del reporte.</p>;
+                  return (
+                    <div className="flex flex-col md:flex-row">
+                      <div className="md:w-1/2 space-y-4 text-base">
+                        <p><strong>Reportante:</strong> {reporte.usuario_reportante.username || 'Usuario desconocido'}</p>
+                        <p><strong>Reportado:</strong> {reporte.usuario_reportado.username || 'Usuario desconocido'}</p>
+                        <p><strong>Fecha:</strong> {new Date(reporte.created_at).toLocaleString('es-ES', {
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}</p>
+                        <p><strong>Estado:</strong> {reporte.estado}</p>
+                        <p><strong>Razón:</strong> {reporte.razon}</p>
+                        <p><strong>Tipo de contenido:</strong> {reporte.tipo_contenido}</p>
+                        <p><strong>ID del contenido:</strong> {reporte.contenido_id || 'No especificado'}</p>
+                        <p><strong>Contenido del reporte:</strong></p>
+                        <p className="whitespace-pre-wrap">{reporte.contenido}</p>
+                      </div>
+                      
+                      {contentDetails && reporte.tipo_contenido === 'cancion' && (
+                        <div className="md:w-1/2 mt-6 md:mt-0 md:ml-6">
+                          <h4 className="text-xl font-semibold mb-4">Detalles de la Canción</h4>
+                          <div className="flex flex-col items-center">
+                            <Image 
+                              src={contentDetails.caratula || "https://via.placeholder.com/200"}
+                              alt="Carátula"
+                              width={200}
+                              height={200}
+                              className="rounded-md mb-4"
+                            />
+                            <div className="text-center">
+                              <p><strong>Título:</strong> {contentDetails.titulo}</p>
+                              <p><strong>Artista:</strong> {reporte.usuario_reportado.username}</p>
+                            </div>
+                            <div className="mt-4 w-full">
+                              <audio controls className="w-full mb-4">
+                                <source src={contentDetails.archivo_audio || ""} type="audio/mpeg" />
+                                Tu navegador no soporta el elemento de audio.
+                              </audio>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+              </div>
+              <div className="items-center px-4 py-3 mt-6">
+                <button
+                  className="px-6 py-3 bg-primary-500 text-white text-lg font-medium rounded-md w-full shadow-sm hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-300 transition duration-300"
+                  onClick={() => {
+                    setExpandedReporte(null);
+                    setContentDetails(null);
+                  }}
+                >
+                  Cerrar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

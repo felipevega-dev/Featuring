@@ -108,6 +108,7 @@ const SongCard: React.FC<SongCardProps> = ({
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
   const [isImageModalVisible, setIsImageModalVisible] = useState(false);
   const [isReportConfirmationVisible, setIsReportConfirmationVisible] = useState(false);
+  const [userReportCount, setUserReportCount] = useState(0);
   
   useEffect(() => {
     return sound
@@ -497,7 +498,10 @@ const SongCard: React.FC<SongCardProps> = ({
         throw recentReportsError;
       }
 
-      if (recentReports && recentReports.length >= 3) {
+      const reportCount = recentReports ? recentReports.length : 0;
+      setUserReportCount(reportCount);
+
+      if (reportCount >= 3) {
         Alert.alert('Límite alcanzado', 'Has alcanzado el límite de 3 reportes en las últimas 12 horas.');
         return false;
       }
@@ -537,9 +541,17 @@ const SongCard: React.FC<SongCardProps> = ({
 
       if (userReportError) throw userReportError;
 
-      setShowReportConfirmation(true);
+      setShowReportConfirmation(false);
       setShowReportModal(false);
       setIsReportConfirmationVisible(false);
+      
+      // Mostrar alerta de éxito
+      Alert.alert(
+        "Reporte Enviado",
+        "Tu reporte ha sido enviado correctamente.",
+        [{ text: "OK", style: "default" }],
+        { cancelable: false }
+      );
     } catch (error) {
       console.error('Error al enviar el reporte:', error);
       Alert.alert('Error', 'No se pudo enviar el reporte. Por favor, intenta de nuevo.');
@@ -882,10 +894,16 @@ const SongCard: React.FC<SongCardProps> = ({
         onRequestClose={() => setIsReportConfirmationVisible(false)}
       >
         <View className="flex-1 justify-center items-center bg-black bg-opacity-50">
-          <View className="bg-white rounded-lg p-4 w-3/4">
+          <View className="bg-white rounded-lg p-4 w-5/6">
             <Text className="text-lg font-bold mb-4">Confirmar reporte</Text>
             <Text className="mb-4">
-              ¿Estás seguro que quieres enviar este reporte? Recuerda que solo puedes enviar un total de 3 reportes (1 por contenido) cada 12 horas.
+              ¿Estás seguro que quieres enviar este reporte? 
+            </Text>
+            <Text className="mb-4 font-semibold text-primary-600">
+              {userReportCount} de 3 reportes comunicados
+            </Text>
+            <Text className="mb-4 text-sm text-gray-600">
+              Recuerda que solo puedes enviar un total de 3 reportes cada 12 horas.
             </Text>
             <View className="flex-row justify-end">
               <TouchableOpacity

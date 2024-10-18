@@ -5,6 +5,6 @@ module.exports = {
     SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
   },
   images: {
-    domains: ['tnxwvxvvvvxqwqjjlbqx.supabase.co', 'ahumzpthjgmtosbgsuil.supabase.co'],
+    domains: ['ahumzpthjgmtosbgsuil.supabase.co'],
   },
 }
