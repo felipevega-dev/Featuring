@@ -96,6 +96,9 @@ const SongCard: React.FC<SongCardProps> = ({
   const [selectedCommentId, setSelectedCommentId] = useState<number | null>(null);
   const [commentOptionsVisible, setCommentOptionsVisible] = useState(false);
   const [showOptionsModal, setShowOptionsModal] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [showReportConfirmation, setShowReportConfirmation] = useState(false);
+  const [selectedReportReason, setSelectedReportReason] = useState<string | null>(null);
   const {
     playSound,
     currentSong,
@@ -104,6 +107,7 @@ const SongCard: React.FC<SongCardProps> = ({
   } = useAudioPlayer();
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
   const [isImageModalVisible, setIsImageModalVisible] = useState(false);
+  const [isReportConfirmationVisible, setIsReportConfirmationVisible] = useState(false);
   
   useEffect(() => {
     return sound
@@ -443,6 +447,121 @@ const SongCard: React.FC<SongCardProps> = ({
     router.push(`/public-profile/${cancion.usuario_id}`);
   };
 
+  const handleOptionsPress = () => {
+    setShowOptionsModal(true);
+  };
+
+  const handleReportPress = () => {
+    setShowOptionsModal(false);
+    setShowReportModal(true);
+  };
+
+  const handleReportConfirm = async () => {
+    if (selectedReportReason) {
+      const canReport = await checkReportEligibility();
+      if (canReport) {
+        setIsReportConfirmationVisible(true);
+      }
+    }
+  };
+
+  const checkReportEligibility = async () => {
+    try {
+      // Verificar si el usuario ya ha reportado este contenido
+      const { data: existingReport, error: existingReportError } = await supabase
+        .from('reporte_usuario')
+        .select('id')
+        .eq('usuario_id', currentUserId)
+        .eq('contenido_id', cancion.id)
+        .eq('tipo_contenido', 'cancion')
+        .single();
+
+      if (existingReportError && existingReportError.code !== 'PGRST116') {
+        throw existingReportError;
+      }
+
+      if (existingReport) {
+        Alert.alert('Error', 'Ya has reportado este contenido anteriormente.');
+        return false;
+      }
+
+      // Verificar el número de reportes en las últimas 12 horas
+      const twelveHoursAgo = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString();
+      const { data: recentReports, error: recentReportsError } = await supabase
+        .from('reporte_usuario')
+        .select('id')
+        .eq('usuario_id', currentUserId)
+        .gte('created_at', twelveHoursAgo);
+
+      if (recentReportsError) {
+        throw recentReportsError;
+      }
+
+      if (recentReports && recentReports.length >= 3) {
+        Alert.alert('Límite alcanzado', 'Has alcanzado el límite de 3 reportes en las últimas 12 horas.');
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Error al verificar elegibilidad para reportar:', error);
+      Alert.alert('Error', 'No se pudo verificar tu elegibilidad para reportar. Por favor, intenta de nuevo más tarde.');
+      return false;
+    }
+  };
+
+  const sendReport = async () => {
+    try {
+      const { data: reportData, error: reportError } = await supabase
+        .from('reporte')
+        .insert({
+          usuario_reportante_id: currentUserId,
+          usuario_reportado_id: cancion.usuario_id,
+          contenido_id: cancion.id,
+          tipo_contenido: 'cancion',
+          razon: selectedReportReason,
+          estado: 'pendiente'
+        })
+        .select()
+        .single();
+
+      if (reportError) throw reportError;
+
+      const { error: userReportError } = await supabase
+        .from('reporte_usuario')
+        .insert({
+          usuario_id: currentUserId,
+          contenido_id: cancion.id,
+          tipo_contenido: 'cancion'
+        });
+
+      if (userReportError) throw userReportError;
+
+      setShowReportConfirmation(true);
+      setShowReportModal(false);
+      setIsReportConfirmationVisible(false);
+    } catch (error) {
+      console.error('Error al enviar el reporte:', error);
+      Alert.alert('Error', 'No se pudo enviar el reporte. Por favor, intenta de nuevo.');
+    }
+  };
+
+  const handleCloseReportConfirmation = () => {
+    setShowReportConfirmation(false);
+    // Asegurarse de que la modal de opciones también se cierre
+    setShowOptionsModal(false);
+    // Resetear el motivo del reporte seleccionado
+    setSelectedReportReason(null);
+  };
+
+  const reportReasons = [
+    'Contenido inapropiado',
+    'Audio con índole sexual',
+    'Carátula obscena/perturbadora',
+    'Violación de derechos de autor',
+    'Spam o contenido engañoso'
+  ];
+
   return (
     <View className="bg-white rounded-lg shadow-md mb-4 p-4">
       {/* Cabecera con nombre de usuario y opciones */}
@@ -458,11 +577,9 @@ const SongCard: React.FC<SongCardProps> = ({
                 {cancion.perfil?.username || "Usuario desconocido"}
               </Text>
             </TouchableOpacity>
-            {cancion.usuario_id === currentUserId && (
-              <TouchableOpacity onPress={() => setShowOptionsModal(true)}>
-                <Ionicons name="ellipsis-vertical" size={20} color="#666" />
-              </TouchableOpacity>
-            )}
+            <TouchableOpacity onPress={handleOptionsPress} className="absolute top-2 right-2">
+              <Ionicons name="ellipsis-vertical" size={20} color="#666" />
+            </TouchableOpacity>
           </View>
       <View className="flex-row">
         {/* Imagen de portada */}
@@ -680,19 +797,29 @@ const SongCard: React.FC<SongCardProps> = ({
           onPress={() => setShowOptionsModal(false)}
         >
           <View className="bg-white rounded-lg p-4 w-3/4">
-            <TouchableOpacity
-              className="py-3 border-b border-gray-200"
-              onPress={handleEdit}
-            >
-              <Text className="text-primary-500 font-JakartaMedium">
-                Editar canción
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity className="py-3" onPress={handleDelete}>
-              <Text className="text-red-500 font-JakartaMedium">
-                Eliminar canción
-              </Text>
-            </TouchableOpacity>
+            {cancion.usuario_id === currentUserId ? (
+              <>
+                <TouchableOpacity
+                  className="py-3 border-b border-gray-200"
+                  onPress={handleEdit}
+                >
+                  <Text className="text-primary-500 font-JakartaMedium">
+                    Editar canción
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity className="py-3" onPress={handleDelete}>
+                  <Text className="text-red-500 font-JakartaMedium">
+                    Eliminar canción
+                  </Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <TouchableOpacity className="py-3" onPress={handleReportPress}>
+                <Text className="text-red-500 font-JakartaMedium">
+                  Reportar contenido
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
         </TouchableOpacity>
       </Modal>
@@ -704,6 +831,79 @@ const SongCard: React.FC<SongCardProps> = ({
         onEditSuccess={handleEditSuccess}
         cancion={cancion}
       />
+
+      {/* Modal de reporte */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={showReportModal}
+        onRequestClose={() => {
+          setShowReportModal(false);
+          setSelectedReportReason(null);
+        }}
+      >
+        <View className="flex-1 justify-end bg-black bg-opacity-50">
+          <View className="bg-white rounded-t-3xl p-4">
+            <Text className="text-xl font-JakartaBold mb-4">Reportar contenido</Text>
+            <Text className="text-sm text-gray-600 mb-4">
+              Selecciona una razón para reportar esta canción. Un reporte injustificado o malintencionado podría resultar en una suspensión de tu cuenta.
+            </Text>
+            {reportReasons.map((reason, index) => (
+              <TouchableOpacity
+                key={index}
+                className={`py-3 border-b border-gray-200 ${selectedReportReason === reason ? 'bg-primary-100' : ''}`}
+                onPress={() => setSelectedReportReason(reason)}
+              >
+                <Text className="font-JakartaMedium">{reason}</Text>
+              </TouchableOpacity>
+            ))}
+            <TouchableOpacity
+              className="mt-4 bg-primary-500 rounded-full py-3 items-center"
+              onPress={handleReportConfirm}
+              disabled={!selectedReportReason}
+            >
+              <Text className="text-white font-JakartaBold">Enviar reporte</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              className="mt-2 py-3 items-center"
+              onPress={() => setShowReportModal(false)}
+            >
+              <Text className="text-primary-500 font-JakartaMedium">Cancelar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal de confirmación de reporte */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={isReportConfirmationVisible}
+        onRequestClose={() => setIsReportConfirmationVisible(false)}
+      >
+        <View className="flex-1 justify-center items-center bg-black bg-opacity-50">
+          <View className="bg-white rounded-lg p-4 w-3/4">
+            <Text className="text-lg font-bold mb-4">Confirmar reporte</Text>
+            <Text className="mb-4">
+              ¿Estás seguro que quieres enviar este reporte? Recuerda que solo puedes enviar un total de 3 reportes (1 por contenido) cada 12 horas.
+            </Text>
+            <View className="flex-row justify-end">
+              <TouchableOpacity
+                onPress={() => setIsReportConfirmationVisible(false)}
+                className="bg-gray-300 rounded-md px-4 py-2 mr-2"
+              >
+                <Text>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={sendReport}
+                className="bg-primary-500 rounded-md px-4 py-2"
+              >
+                <Text className="text-white">Confirmar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
