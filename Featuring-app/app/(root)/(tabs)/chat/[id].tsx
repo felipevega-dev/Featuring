@@ -441,12 +441,19 @@ export default function ChatDetail() {
         </TouchableOpacity>
 
         <View className="flex-row items-center p-2 bg-white border-t border-primary-200">
+          
           <TextInput
             className="flex-1 bg-primary-100 rounded-full px-4 py-2 mr-2 mb-14"
             value={newMessage}
             onChangeText={setNewMessage}
             placeholder="Escribe un mensaje..."
           />
+          <TouchableOpacity
+            onPress={pickImage}
+            className="bg-primary-500 rounded-full p-2 mr-2 mb-14"
+          >
+            <FontAwesome name="image" size={20} color="white" />
+          </TouchableOpacity>
           <TouchableOpacity
             onPress={isRecording ? stopRecording : startRecording}
             className="bg-primary-500 rounded-full p-2 mr-2 mb-14"
