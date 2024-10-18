@@ -143,6 +143,26 @@ const SignIn = () => {
     }
   }, [form.email, form.password, rememberMe, router]);
 
+  const handleForgotPassword = async () => {
+    if (!form.email) {
+      Alert.alert('Error', 'Por favor, ingresa tu correo electrónico');
+      return;
+    }
+
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(form.email, {
+        redirectTo: 'myapp://change-password',
+      });
+
+      if (error) throw error;
+
+      Alert.alert('Éxito', 'Se ha enviado un enlace de restablecimiento a tu correo electrónico. Por favor, revisa tu bandeja de entrada y sigue las instrucciones.');
+    } catch (error) {
+      console.error('Error al enviar el correo de restablecimiento:', error);
+      Alert.alert('Error', 'No se pudo enviar el correo de restablecimiento. Inténtalo de nuevo.');
+    }
+  };
+
   return (
     <ScrollView className="flex-1 bg-white">
       <View className="flex-1 bg-white">
@@ -194,6 +214,14 @@ const SignIn = () => {
             className="mt-6"
             disabled={isLoading}
           />
+          <Link href="/change-password" asChild>
+            <TouchableOpacity className="mt-4 mb-4">
+              <Text className="text-center text-blue-600">
+                ¿Olvidaste tu contraseña?
+              </Text>
+            </TouchableOpacity>
+          </Link>
+        
           {/* OAuth */}
           <OAuth />
           <Link
