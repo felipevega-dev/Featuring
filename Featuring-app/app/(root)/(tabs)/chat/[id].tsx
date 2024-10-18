@@ -12,11 +12,12 @@ import {
   Alert,
   Image,
   Dimensions,
+  Linking,
 } from "react-native";
 import { supabase } from "@/lib/supabase";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { FontAwesome } from "@expo/vector-icons";
-import { Audio } from "expo-av";
+import { Audio, Video } from "expo-av";
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from "expo-file-system";
 import AudioPlayer from '@/components/AudioPlayer';
@@ -319,6 +320,12 @@ export default function ChatDetail() {
     }
   };
 
+  const handleVideoPress = (uri: string) => {
+    // Aquí puedes usar un componente de video o abrir el video en un navegador
+    // Por ejemplo, usando un modal o un navegador externo
+    Linking.openURL(uri); // Abre el video en el navegador
+  };
+
   const renderMessage = ({ item }: { item: Message }) => {
     const isCurrentUser = item.emisor_id === currentUserId;
 
@@ -352,12 +359,13 @@ export default function ChatDetail() {
             />
           )}
           {item.tipo_contenido === 'video' && item.url_contenido && (
-            <View>
-              <Text className={`${isCurrentUser ? 'text-white' : 'text-primary-700'} font-JakartaMedium`}>
-                Video: Toca para reproducir
-              </Text>
-              {/* Aquí puedes agregar un componente de reproducción de video si lo deseas */}
-            </View>
+            <Video
+              source={{ uri: item.url_contenido }}
+              style={{ width: '100%', height: 200, borderRadius: 10 }}
+              useNativeControls
+              resizeMode="contain"
+              isLooping
+            />
           )}
           <Text
             className={`text-xs mt-1 ${
