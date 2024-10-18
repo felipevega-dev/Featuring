@@ -10,8 +10,8 @@ import { ChevronDownIcon } from '@heroicons/react/20/solid'
 interface Reporte {
   id: string;
   contenido: string;
-  created_at: string; // Cambiado de 'fecha' a 'created_at'
-  estado: string;
+  created_at: string;
+  estado: 'abierto' | 'resuelto' | 'desestimado';
   usuario_reportante_id: string;
   usuario_reportado_id: string;
   usuario_reportante: { username: string | null };
@@ -109,19 +109,46 @@ export default function ReportManagement() {
     setCurrentPage(newPage)
   }
 
-  const handleReporteAction = async (reporteId: string, action: 'resolve' | 'dismiss') => {
-    try {
-      await supabaseAdmin
-        .from('reportes')
-        .update({ estado: action === 'resolve' ? 'resuelto' : 'desestimado' })
-        .eq('id', reporteId)
-      // Refresh the report list after action
-      fetchReportes()
-    } catch (error) {
-      console.error(`Error ${action === 'resolve' ? 'resolviendo' : 'desestimando'} reporte:`, error)
-      setError(`No se pudo ${action === 'resolve' ? 'resolver' : 'desestimar'} el reporte. Por favor, intente de nuevo.`)
+  const getReportStatusColor = (estado: string) => {
+    switch (estado) {
+      case 'abierto':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'resuelto':
+        return 'bg-green-100 text-green-800';
+      case 'desestimado':
+        return 'bg-red-100 text-red-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
     }
-  }
+  };
+
+  const handleReporteAction = async (reporteId: string, action: 'resolve' | 'dismiss' | 'open') => {
+    try {
+      let newStatus;
+      switch (action) {
+        case 'resolve':
+          newStatus = 'resuelto';
+          break;
+        case 'dismiss':
+          newStatus = 'desestimado';
+          break;
+        case 'open':
+          newStatus = 'abierto';
+          break;
+      }
+
+      await supabaseAdmin
+        .from('reporte')
+        .update({ estado: newStatus })
+        .eq('id', reporteId);
+
+      // Refresh the report list after action
+      fetchReportes();
+    } catch (error) {
+      console.error(`Error actualizando el estado del reporte:`, error);
+      setError(`No se pudo actualizar el estado del reporte. Por favor, intente de nuevo.`);
+    }
+  };
 
   const totalPages = Math.ceil(totalReportes / REPORTES_PER_PAGE)
 
@@ -142,7 +169,7 @@ export default function ReportManagement() {
           <div className="bg-white shadow-md rounded-lg overflow-hidden">
             <ul className="divide-y divide-gray-200">
               {reportes.map((reporte) => (
-                <li key={reporte.id} className="p-4 sm:p-6">
+                <li key={reporte.id} className={`p-4 sm:p-6 ${reporte.estado === 'abierto' ? 'bg-white' : 'bg-gray-50'}`}>
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between">
                     <div>
                       <div className="text-base sm:text-lg font-medium text-gray-900">
@@ -162,15 +189,20 @@ export default function ReportManagement() {
                       </div>
                       <div className="text-sm text-red-500">Razón: {reporte.razon}</div>
                       <div className="text-sm text-gray-500">Tipo de contenido: {reporte.tipo_contenido}</div>
+                      <div className="mt-6">
+                        <span className={`px-2 inline-flex text-lg leading-5 font-semibold rounded-full ${getReportStatusColor(reporte.estado)}`}>
+                          {reporte.estado.charAt(0).toUpperCase() + reporte.estado.slice(1)}
+                        </span>
+                      </div>
                     </div>
                     <div className="flex items-center justify-end space-x-3 mt-2 sm:mt-0">
                       <button
                         onClick={() => handleExpandReporte(reporte.id)}
-                        className="text-primary-600 hover:text-secondary-500 text-base sm:text-lg font-medium"
+                        className="text-primary-600 hover:text-secondary-500 text-base sm:text-lg font-medium mb-32"
                       >
-                        -> Ver detalles
+                         -> Ver detalles
                       </button>
-                      <Menu as="div" className="relative inline-block text-left">
+                      <Menu as="div" className="relative inline-block text-left mb-32">
                         <div>
                           <Menu.Button className="inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-3 py-2 bg-white text-sm sm:text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-100 focus:ring-primary-500">
                             Acciones
@@ -188,6 +220,18 @@ export default function ReportManagement() {
                         >
                           <Menu.Items className="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none">
                             <div className="py-1">
+                              <Menu.Item>
+                                {({ active }) => (
+                                  <button
+                                    onClick={() => handleReporteAction(reporte.id, 'open')}
+                                    className={`${
+                                      active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
+                                    } block w-full text-left px-4 py-2 text-sm sm:text-base`}
+                                  >
+                                    Marcar como abierto
+                                  </button>
+                                )}
+                              </Menu.Item>
                               <Menu.Item>
                                 {({ active }) => (
                                   <button

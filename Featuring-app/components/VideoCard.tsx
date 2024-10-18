@@ -96,6 +96,10 @@ const VideoCard: React.FC<VideoCardProps> = ({
   const [showOptionsModal, setShowOptionsModal] = useState(false);
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
   const [editDescripcion, setEditDescripcion] = useState(video.descripcion);
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [selectedReportReason, setSelectedReportReason] = useState<string | null>(null);
+  const [isReportConfirmationVisible, setIsReportConfirmationVisible] = useState(false);
+  const [userReportCount, setUserReportCount] = useState(0);
 
   useEffect(() => {
     if (isActive && isScreenFocused && currentPlayingId === video.id) {
@@ -398,6 +402,122 @@ const VideoCard: React.FC<VideoCardProps> = ({
     return date.toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' });
   };
 
+  const handleOptionsPress = () => {
+    setShowOptionsModal(true);
+  };
+
+  const handleReportPress = () => {
+    setShowOptionsModal(false);
+    setShowReportModal(true);
+  };
+
+  const handleReportConfirm = async () => {
+    if (selectedReportReason) {
+      const canReport = await checkReportEligibility();
+      if (canReport) {
+        setIsReportConfirmationVisible(true);
+      }
+    }
+  };
+
+  const checkReportEligibility = async () => {
+    try {
+      // Verificar si el usuario ya ha reportado este contenido
+      const { data: existingReport, error: existingReportError } = await supabase
+        .from('reporte_usuario')
+        .select('id')
+        .eq('usuario_id', currentUserId)
+        .eq('contenido_id', video.id)
+        .eq('tipo_contenido', 'video')
+        .single();
+
+      if (existingReportError && existingReportError.code !== 'PGRST116') {
+        throw existingReportError;
+      }
+
+      if (existingReport) {
+        Alert.alert('Error', 'Ya has reportado este contenido anteriormente.');
+        return false;
+      }
+
+      // Verificar el número de reportes en las últimas 12 horas
+      const twelveHoursAgo = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString();
+      const { data: recentReports, error: recentReportsError } = await supabase
+        .from('reporte_usuario')
+        .select('id')
+        .eq('usuario_id', currentUserId)
+        .gte('created_at', twelveHoursAgo);
+
+      if (recentReportsError) {
+        throw recentReportsError;
+      }
+
+      const reportCount = recentReports ? recentReports.length : 0;
+      setUserReportCount(reportCount);
+
+      if (reportCount >= 3) {
+        Alert.alert('Límite alcanzado', 'Has alcanzado el límite de 3 reportes en las últimas 12 horas.');
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Error al verificar elegibilidad para reportar:', error);
+      Alert.alert('Error', 'No se pudo verificar tu elegibilidad para reportar. Por favor, intenta de nuevo más tarde.');
+      return false;
+    }
+  };
+
+  const sendReport = async () => {
+    try {
+      const { data: reportData, error: reportError } = await supabase
+        .from('reporte')
+        .insert({
+          usuario_reportante_id: currentUserId,
+          usuario_reportado_id: video.usuario_id,
+          contenido_id: video.id,
+          tipo_contenido: 'video',
+          razon: selectedReportReason,
+          estado: 'pendiente'
+        })
+        .select()
+        .single();
+
+      if (reportError) throw reportError;
+
+      const { error: userReportError } = await supabase
+        .from('reporte_usuario')
+        .insert({
+          usuario_id: currentUserId,
+          contenido_id: video.id,
+          tipo_contenido: 'video'
+        });
+
+      if (userReportError) throw userReportError;
+
+      setShowReportModal(false);
+      setIsReportConfirmationVisible(false);
+      
+      Alert.alert(
+        "Reporte Enviado",
+        "Tu reporte ha sido enviado correctamente.",
+        [{ text: "OK", style: "default" }],
+        { cancelable: false }
+      );
+    } catch (error) {
+      console.error('Error al enviar el reporte:', error);
+      Alert.alert('Error', 'No se pudo enviar el reporte. Por favor, intenta de nuevo.');
+    }
+  };
+
+  const reportReasons = [
+    'Contenido inapropiado',
+    'Video con índole sexual',
+    'Violencia o contenido perturbador',
+    'Violación de derechos de autor',
+    'Spam o contenido engañoso'
+  ];
+
   return (
     <View style={{ width, height }}>
       <TouchableOpacity onPress={togglePlayPause} style={{ flex: 1 }}>
@@ -468,7 +588,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
         </TouchableOpacity>
         {/* Botón de tres puntos movido aquí */}
         <TouchableOpacity
-          onPress={() => setShowOptionsModal(true)}
+          onPress={handleOptionsPress}
         >
           <Ionicons name="ellipsis-vertical" size={30} color="white" />
         </TouchableOpacity>
@@ -560,20 +680,107 @@ const VideoCard: React.FC<VideoCardProps> = ({
           onPress={() => setShowOptionsModal(false)}
         >
           <View className="bg-white rounded-lg p-4 w-3/4">
-            <TouchableOpacity
-              className="py-3 border-b border-general-300"
-              onPress={() => {
-                setShowOptionsModal(false);
-                setIsEditModalVisible(true);
-              }}
-            >
-              <Text className="text-primary-500 font-JakartaSemiBold">Editar video</Text>
-            </TouchableOpacity>
-            <TouchableOpacity className="py-3" onPress={handleDeleteVideo}>
-              <Text className="text-danger-600 font-JakartaSemiBold">Eliminar video</Text>
-            </TouchableOpacity>
+            {video.usuario_id === currentUserId ? (
+              <>
+                <TouchableOpacity
+                  className="py-3 border-b border-general-300"
+                  onPress={() => {
+                    setShowOptionsModal(false);
+                    setIsEditModalVisible(true);
+                  }}
+                >
+                  <Text className="text-primary-500 font-JakartaSemiBold">Editar video</Text>
+                </TouchableOpacity>
+                <TouchableOpacity className="py-3" onPress={handleDeleteVideo}>
+                  <Text className="text-danger-600 font-JakartaSemiBold">Eliminar video</Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <TouchableOpacity className="py-3" onPress={handleReportPress}>
+                <Text className="text-danger-600 font-JakartaSemiBold">Reportar video</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </TouchableOpacity>
+      </Modal>
+
+      {/* Modal de reporte */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={showReportModal}
+        onRequestClose={() => {
+          setShowReportModal(false);
+          setSelectedReportReason(null);
+        }}
+      >
+        <View className="flex-1 justify-end bg-black bg-opacity-50">
+          <View className="bg-white rounded-t-3xl p-4">
+            <Text className="text-xl font-JakartaBold mb-4">Reportar video</Text>
+            <Text className="text-sm text-gray-600 mb-4">
+              Selecciona una razón para reportar este video. Un reporte injustificado o malintencionado podría resultar en una suspensión de tu cuenta.
+            </Text>
+            {reportReasons.map((reason, index) => (
+              <TouchableOpacity
+                key={index}
+                className={`py-3 border-b border-gray-200 ${selectedReportReason === reason ? 'bg-primary-100' : ''}`}
+                onPress={() => setSelectedReportReason(reason)}
+              >
+                <Text className="font-JakartaMedium">{reason}</Text>
+              </TouchableOpacity>
+            ))}
+            <TouchableOpacity
+              className="mt-4 bg-primary-500 rounded-full py-3 items-center"
+              onPress={handleReportConfirm}
+              disabled={!selectedReportReason}
+            >
+              <Text className="text-white font-JakartaBold">Enviar reporte</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              className="mt-2 py-3 items-center"
+              onPress={() => setShowReportModal(false)}
+            >
+              <Text className="text-primary-500 font-JakartaMedium">Cancelar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal de confirmación de reporte */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={isReportConfirmationVisible}
+        onRequestClose={() => setIsReportConfirmationVisible(false)}
+      >
+        <View className="flex-1 justify-center items-center bg-black bg-opacity-50">
+          <View className="bg-white rounded-lg p-4 w-5/6">
+            <Text className="text-lg font-bold mb-4">Confirmar reporte</Text>
+            <Text className="mb-4">
+              ¿Estás seguro que quieres enviar este reporte? 
+            </Text>
+            <Text className="mb-4 font-semibold text-primary-600">
+              {userReportCount} de 3 reportes comunicados
+            </Text>
+            <Text className="mb-4 text-sm text-gray-600">
+              Recuerda que solo puedes enviar un total de 3 reportes cada 12 horas.
+            </Text>
+            <View className="flex-row justify-end">
+              <TouchableOpacity
+                onPress={() => setIsReportConfirmationVisible(false)}
+                className="bg-gray-300 rounded-md px-4 py-2 mr-2"
+              >
+                <Text>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={sendReport}
+                className="bg-primary-500 rounded-md px-4 py-2"
+              >
+                <Text className="text-white">Confirmar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
       </Modal>
 
       {/* Modal de edición del video */}
