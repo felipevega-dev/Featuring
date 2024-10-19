@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { Tabs, useRouter } from "expo-router";
+import React, { useEffect } from 'react';
+import { Tabs, useRouter, useSegments } from "expo-router";
 import {
   View,
   Text,
@@ -89,9 +89,13 @@ const TopBar = () => {
 
 // Layout general de la aplicación
 const Layout = () => {
+  const segments = useSegments(); // Obtiene los segmentos de la ruta actual
+  const isChatScreen = segments.includes('[id]'); // Verifica si estás en la pantalla de chat
+
   return (
     <NotificationProvider>
-      <TopBar />
+      {/* Condiciona la renderización de TopBar */}
+      {!isChatScreen && <TopBar />}
 
       {/* Barra inferior (Tabs) */}
       <Tabs
