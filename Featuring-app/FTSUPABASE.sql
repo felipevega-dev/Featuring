@@ -360,3 +360,13 @@ CREATE INDEX idx_likes_cancion_usuario ON likes_cancion (usuario_id, cancion_id)
 CREATE INDEX idx_comentario_cancion_usuario ON comentario_cancion (usuario_id, cancion_id);
 CREATE INDEX idx_comentario_cancion_created_at ON comentario_cancion (created_at);
 CREATE INDEX idx_perfil_nacionalidad ON perfil (nacionalidad);
+
+CREATE TABLE bloqueo (
+    id BIGSERIAL PRIMARY KEY,
+    usuario_id UUID NOT NULL,
+    bloqueado_id UUID NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    CONSTRAINT fk_usuario_bloqueo FOREIGN KEY (usuario_id) REFERENCES auth.users (id) ON DELETE CASCADE,
+    CONSTRAINT fk_bloqueado FOREIGN KEY (bloqueado_id) REFERENCES auth.users (id) ON DELETE CASCADE,
+    UNIQUE (usuario_id, bloqueado_id)
+);

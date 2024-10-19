@@ -13,6 +13,8 @@ import {
   Image,
   Dimensions,
   Linking,
+  Modal,
+  StyleSheet,
 } from "react-native";
 import { supabase } from "@/lib/supabase";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -50,10 +52,14 @@ export default function ChatDetail() {
 
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
 
+  const [isBlocked, setIsBlocked] = useState(false);
+  const [modalVisible, setModalVisible] = useState(false);
+
   useEffect(() => {
     getCurrentUser();
     fetchMessages();
     getOtherUserInfo();
+    checkIfUserIsBlocked(id).then(setIsBlocked); // Verifica si el usuario está bloqueado
     const subscription = supabase
       .channel("messages")
       .on(
@@ -109,12 +115,21 @@ export default function ChatDetail() {
     if (!currentUserId) return;
     setIsLoading(true);
     try {
+      // Obtener IDs de usuarios bloqueados
+      const { data: blockedUsers } = await supabase
+        .from("bloqueo")
+        .select("bloqueado_id")
+        .eq("usuario_id", currentUserId);
+
+      const blockedUserIds = blockedUsers.map(user => user.bloqueado_id);
+
       const { data, error } = await supabase
         .from("mensaje")
         .select("*")
         .or(
           `and(emisor_id.eq.${currentUserId},receptor_id.eq.${id}),and(emisor_id.eq.${id},receptor_id.eq.${currentUserId})`
         )
+        .not("emisor_id", "in", `(${blockedUserIds.join(",")})`) // Excluir mensajes de usuarios bloqueados
         .order("fecha_envio", { ascending: false });
 
       if (error) throw error;
@@ -385,6 +400,76 @@ export default function ChatDetail() {
     );
   };
 
+  const blockUser = async (userIdToBlock: string) => {
+    try {
+        if (!currentUserId) {
+            throw new Error("Usuario no autenticado");
+        }
+
+        const { data, error } = await supabase
+            .from("bloqueo")
+            .insert({
+                usuario_id: currentUserId,
+                bloqueado_id: userIdToBlock,
+            });
+
+        if (error) throw error;
+
+        console.log("Usuario bloqueado:", data);
+        Alert.alert("Éxito", "Usuario bloqueado correctamente.");
+    } catch (error) {
+        console.error("Error al bloquear usuario:", error);
+        Alert.alert("Error", "No se pudo bloquear al usuario.");
+    }
+};
+
+const unblockUser = async (userIdToUnblock: string) => {
+    try {
+        if (!currentUserId) {
+            throw new Error("Usuario no autenticado");
+        }
+
+        const { error } = await supabase
+            .from("bloqueo")
+            .delete()
+            .match({
+                usuario_id: currentUserId,
+                bloqueado_id: userIdToUnblock,
+            });
+
+        if (error) throw error;
+
+        console.log("Usuario desbloqueado");
+        Alert.alert("Éxito", "Usuario desbloqueado correctamente.");
+    } catch (error) {
+        console.error("Error al desbloquear usuario:", error);
+        Alert.alert("Error", "No se pudo desbloquear al usuario.");
+    }
+};
+
+const checkIfUserIsBlocked = async (userId: string) => {
+    if (!currentUserId) return false;
+
+    const { data, error } = await supabase
+        .from("bloqueo")
+        .select("id")
+        .eq("usuario_id", currentUserId)
+        .eq("bloqueado_id", userId)
+        .single();
+
+    return data !== null; // Retorna true si el usuario está bloqueado
+};
+
+  const toggleBlockUser = () => {
+    if (isBlocked) {
+      unblockUser(id);
+    } else {
+      blockUser(id);
+    }
+    setIsBlocked(!isBlocked);
+    setModalVisible(false); // Cierra el modal después de la acción
+  };
+
   if (isLoading) {
     return (
       <View className="flex-1 justify-center items-center">
@@ -428,6 +513,12 @@ export default function ChatDetail() {
             <FontAwesome name="trash" size={24} color="#6D29D2" />
           </TouchableOpacity>
         )}
+        <TouchableOpacity
+          onPress={() => setModalVisible(true)}
+          style={styles.threeDotsButton}
+        >
+          <FontAwesome name="ellipsis-v" size={20} color="#6D29D2" />
+        </TouchableOpacity>
       </View>
 
       <KeyboardAvoidingView
@@ -486,6 +577,68 @@ export default function ChatDetail() {
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
+
+      {/* Modal para opciones de bloqueo/desbloqueo */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={modalVisible}
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Opciones</Text>
+            <TouchableOpacity
+              onPress={toggleBlockUser}
+              style={styles.optionButton}
+            >
+              <Text style={styles.optionText}>
+                {isBlocked ? "Desbloquear" : "Bloquear"}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setModalVisible(false)}
+              style={styles.optionButton}
+            >
+              <Text style={styles.optionText}>Cancelar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  threeDotsButton: {
+    padding: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modalContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.5)", // Fondo semi-transparente
+  },
+  modalContent: {
+    width: 300,
+    backgroundColor: "white",
+    borderRadius: 10,
+    padding: 20,
+    alignItems: "center",
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    marginBottom: 20,
+  },
+  optionButton: {
+    padding: 10,
+    width: "100%",
+    alignItems: "center",
+  },
+  optionText: {
+    fontSize: 16,
+  },
+});
