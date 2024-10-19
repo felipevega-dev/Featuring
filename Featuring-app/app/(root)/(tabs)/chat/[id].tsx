@@ -329,6 +329,12 @@ export default function ChatDetail() {
   const renderMessage = ({ item }: { item: Message }) => {
     const isCurrentUser = item.emisor_id === currentUserId;
 
+    // Función para formatear la hora
+    const formatTime = (dateString: string) => {
+      const date = new Date(dateString);
+      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+    };
+
     return (
       <TouchableOpacity
         onLongPress={() => setSelectedMessage(item)}
@@ -372,7 +378,7 @@ export default function ChatDetail() {
               isCurrentUser ? 'text-primary-200' : 'text-primary-400'
             }`}
           >
-            {new Date(item.fecha_envio).toLocaleTimeString()}
+            {formatTime(item.fecha_envio)}
           </Text>
         </View>
       </TouchableOpacity>
