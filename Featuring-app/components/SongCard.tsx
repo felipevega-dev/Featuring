@@ -109,6 +109,7 @@ const SongCard: React.FC<SongCardProps> = ({
   const [isImageModalVisible, setIsImageModalVisible] = useState(false);
   const [isReportConfirmationVisible, setIsReportConfirmationVisible] = useState(false);
   const [userReportCount, setUserReportCount] = useState(0);
+  const [editingComment, setEditingComment] = useState("");
   
   useEffect(() => {
     return sound
@@ -416,8 +417,11 @@ const handleLike = async () => {
   };
 
   const handleCommentOptions = (comentario: Comentario) => {
-    setSelectedCommentId(comentario.id);
-    setCommentOptionsVisible(true);
+    if (comentario.usuario_id === currentUserId) {
+      setSelectedCommentId(comentario.id);
+      setEditingComment(comentario.contenido);
+      setCommentOptionsVisible(true);
+    }
   };
 
   const handleDeleteComment = async () => {
@@ -426,12 +430,9 @@ const handleLike = async () => {
         await supabase
           .from("comentario_cancion")
           .delete()
-          .eq("id", selectedCommentId)
-          .eq("usuario_id", currentUserId);
+          .eq("id", selectedCommentId);
 
-        setComentarios((prevComentarios) =>
-          prevComentarios.filter((c) => c.id !== selectedCommentId)
-        );
+        setComentarios(comentarios.filter(c => c.id !== selectedCommentId));
         setCommentOptionsVisible(false);
       } catch (error) {
         console.error("Error al eliminar el comentario:", error);
@@ -628,6 +629,29 @@ const handleLike = async () => {
     'Violación de derechos de autor',
     'Spam o contenido engañoso'
   ];
+
+  const handleEditComment = async () => {
+    if (selectedCommentId && editingComment.trim()) {
+      try {
+        const { data, error } = await supabase
+          .from("comentario_cancion")
+          .update({ contenido: editingComment.trim() })
+          .eq("id", selectedCommentId)
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        setComentarios(comentarios.map(c => 
+          c.id === selectedCommentId ? { ...c, contenido: editingComment.trim() } : c
+        ));
+        setCommentOptionsVisible(false);
+      } catch (error) {
+        console.error("Error al editar el comentario:", error);
+        Alert.alert("Error", "No se pudo editar el comentario");
+      }
+    }
+  };
 
   return (
     <View className="bg-white rounded-lg shadow-md mb-4 p-4">
@@ -976,6 +1000,41 @@ const handleLike = async () => {
             </View>
           </View>
         </View>
+      </Modal>
+
+      {/* Modal para opciones de comentario */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={commentOptionsVisible}
+        onRequestClose={() => setCommentOptionsVisible(false)}
+      >
+        <TouchableOpacity
+          className="flex-1 justify-center items-center bg-black bg-opacity-50"
+          activeOpacity={1}
+          onPress={() => setCommentOptionsVisible(false)}
+        >
+          <View className="bg-white rounded-lg p-4 w-3/4">
+            <TextInput
+              className="border border-gray-300 rounded-lg p-2 mb-4"
+              value={editingComment}
+              onChangeText={setEditingComment}
+              multiline
+            />
+            <TouchableOpacity
+              className="bg-blue-500 rounded-lg p-2 mb-2"
+              onPress={handleEditComment}
+            >
+              <Text className="text-white text-center">Editar comentario</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              className="bg-red-500 rounded-lg p-2"
+              onPress={handleDeleteComment}
+            >
+              <Text className="text-white text-center">Eliminar comentario</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
       </Modal>
     </View>
   );
