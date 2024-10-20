@@ -15,7 +15,6 @@ import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import Slider from '@react-native-community/slider';
 
-// Importar las listas completas de géneros y habilidades
 const habilidadesMusicales = [
   "Canto", "Guitarra", "Piano", "Batería", "Bajo", "Violín", "Saxofón", "Trompeta",
   "Flauta", "Ukulele", "DJ", "Producción", "Composición", "Arreglos", "Percusión",
@@ -26,7 +25,7 @@ const habilidadesMusicales = [
 ];
 
 const generosMusicales = [
-  "Pop", "Rock", "Hip Hop", "R&B", "Jazz", "Cl��sica", "Electrónica", "Reggaeton",
+  "Pop", "Rock", "Hip Hop", "R&B", "Jazz", "Clásica", "Electrónica", "Reggaeton",
   "Country", "Folk", "Blues", "Metal", "Punk", "Indie", "Salsa", "Reggae", "Trap",
   "House", "Techno", "Dubstep", "Gospel", "Soul", "Funk", "Bossa Nova", "Flamenco",
   "Cumbia", "Bachata", "Merengue", "Tango", "Grunge", "Progressive Rock", "Disco",
@@ -35,7 +34,7 @@ const generosMusicales = [
 ];
 
 const { width } = Dimensions.get('window');
-const itemWidth = (width - 40) / 3; // 40 es el padding horizontal total
+const itemWidth = (width - 40) / 3;
 
 const MAX_SELECTIONS = 3;
 
@@ -65,7 +64,7 @@ export default function Preferencias() {
         setHabilidadesPreferidas(data.preferencias_habilidad || []);
         if (data.preferencias_distancia === null) {
           setSinLimiteDistancia(true);
-          setDistancia(100); // Valor por defecto cuando está en "Sin límite"
+          setDistancia(100);
         } else {
           setSinLimiteDistancia(false);
           setDistancia(data.preferencias_distancia || 10);
@@ -93,10 +92,7 @@ export default function Preferencias() {
           {
             text: "OK",
             onPress: () => {
-              router.push({
-                pathname: "/(root)/(tabs)/match",
-                params: { update: Date.now() }
-              });
+              router.push('/match');
             }
           }
         ]);
@@ -181,7 +177,7 @@ export default function Preferencias() {
                 onValueChange={(value) => {
                   setSinLimiteDistancia(value);
                   if (value) {
-                    setDistancia(100); // Establecer un valor máximo cuando se activa "Sin límite"
+                    setDistancia(100);
                   }
                 }}
               />

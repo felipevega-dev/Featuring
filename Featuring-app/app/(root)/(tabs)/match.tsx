@@ -58,39 +58,30 @@ const Card: React.FC<CardProps> = ({
   const [modalVisible, setModalVisible] = useState(false);
 
   const renderHabilidades = (
-    habilidades: { habilidad: string }[] | null | undefined,
-    limit?: number
+    habilidades: { habilidad: string }[] | null | undefined
   ) => {
     if (!habilidades || habilidades.length === 0)
       return "Sin habilidades especificadas";
     const habilidadesArray = habilidades.map((h) => h.habilidad);
-    if (limit && habilidadesArray.length > limit) {
-      return `${habilidadesArray.slice(0, limit).join(", ")} y ${habilidadesArray.length - limit} más`;
-    }
-    return habilidadesArray.join(", ");
+    return habilidadesArray.length <= 3
+      ? habilidadesArray.join(", ")
+      : `${habilidadesArray.slice(0, 3).join(", ")} y ${habilidadesArray.length - 3} más`;
   };
 
-  const renderGeneros = (
-    generos: { genero: string }[] | null | undefined,
-    limit?: number
-  ) => {
+  const renderGeneros = (generos: { genero: string }[] | null | undefined) => {
     if (!generos || generos.length === 0) return "Sin géneros especificados";
-    const generosArray = generos.map((g) => g.genero);
-    if (limit && generosArray.length > limit) {
-      return `${generosArray.slice(0, limit).join(", ")} y ${generosArray.length - limit} más`;
-    }
-    return generosArray.join(", ");
+    return generos.map((g) => g.genero).join(", ");
   };
 
-  const getRedSocialIcon = (nombre: string) => {
-    const iconMap: { [key: string]: any } = {
-      soundcloud: "soundcloud",
-      instagram: "instagram",
-      facebook: "facebook",
-      twitter: "twitter",
-      spotify: "spotify",
+  const getRedSocialIcon = (nombre: string): keyof typeof FontAwesome.glyphMap => {
+    const iconMap: { [key: string]: keyof typeof FontAwesome.glyphMap } = {
+      soundcloud: 'soundcloud',
+      instagram: 'instagram',
+      facebook: 'facebook',
+      twitter: 'twitter',
+      spotify: 'spotify',
     };
-    return iconMap[nombre.toLowerCase()] || "link";
+    return iconMap[nombre.toLowerCase()] || 'link';
   };
 
   const handleRedSocialPress = (url: string) => {
@@ -141,7 +132,7 @@ const Card: React.FC<CardProps> = ({
         )}
         <Text className="text-center mt-2 text-black">{card.biografia}</Text>
         <Text className="text-center mt-2 text-primary-500 font-semibold">
-          {renderHabilidades(card.perfil_habilidad, 3)}
+          {renderHabilidades(card.perfil_habilidad)}
         </Text>
         <TouchableOpacity
           className="bg-primary-500 rounded-full mt-4 p-2 w-1/2"
@@ -241,23 +232,11 @@ const Match = () => {
     outputRange: ["-10deg", "0deg", "10deg"],
     extrapolate: "clamp",
   });
-  const likeOpacity = position.x.interpolate({
-    inputRange: [0, SWIPE_THRESHOLD],
-    outputRange: [0, 1],
-    extrapolate: "clamp",
-  });
-  const nopeOpacity = position.x.interpolate({
-    inputRange: [-SWIPE_THRESHOLD, 0],
-    outputRange: [1, 0],
-    extrapolate: "clamp",
-  });
   const router = useRouter();
   const [lastRefreshTime, setLastRefreshTime] = useState(Date.now());
   const [shownCards, setShownCards] = useState<Set<string>>(new Set());
   const [userLocation, setUserLocation] =
     useState<Location.LocationObject | null>(null);
-  const [showPopup, setShowPopup] = useState(false);
-  const [popupMessage, setPopupMessage] = useState("");
 
   useEffect(() => {
     getCurrentUser();
@@ -323,7 +302,6 @@ const Match = () => {
     try {
       setIsLoading(true);
 
-      // Obtener las preferencias del usuario actual
       const { data: userPreferences, error: preferencesError } = await supabase
         .from('perfil')
         .select('preferencias_genero, preferencias_habilidad, preferencias_distancia')
@@ -342,11 +320,7 @@ const Match = () => {
       const excludedUserIds = new Set(
         connections.flatMap((conn) => {
           if (conn.estado === true) {
-            return [
-              conn.usuario1_id === currentUserId
-                ? conn.usuario2_id
-                : conn.usuario1_id,
-            ];
+            return [conn.usuario1_id === currentUserId ? conn.usuario2_id : conn.usuario1_id];
           } else if (conn.usuario1_id === currentUserId) {
             return [conn.usuario2_id];
           }
@@ -391,19 +365,16 @@ const Match = () => {
             : undefined,
         }))
         .filter(profile => {
-          // Filtrar por distancia solo si no está en "Sin límite"
           if (userPreferences.preferencias_distancia !== null && 
               profile.distance && 
               profile.distance > userPreferences.preferencias_distancia) {
             return false;
           }
-          // Filtrar por género musical
-          if (userPreferences.preferencias_genero.length > 0 &&
+          if (userPreferences.preferencias_genero && userPreferences.preferencias_genero.length > 0 &&
               !profile.perfil_genero.some(g => userPreferences.preferencias_genero.includes(g.genero))) {
             return false;
           }
-          // Filtrar por habilidad
-          if (userPreferences.preferencias_habilidad.length > 0 &&
+          if (userPreferences.preferencias_habilidad && userPreferences.preferencias_habilidad.length > 0 &&
               !profile.perfil_habilidad.some(h => userPreferences.preferencias_habilidad.includes(h.habilidad))) {
             return false;
           }
@@ -658,12 +629,25 @@ const Match = () => {
   const refreshCards = () => {
     setLastRefreshTime(Date.now());
     position.setValue({ x: 0, y: 0 });
+    fetchUsers();
   };
+
+  if (isLoading) {
+    return (
+      <View className="flex-1 justify-center items-center bg-gray-100">
+        <ActivityIndicator size="large" color="#6D29D2" />
+      </View>
+    );
+  }
 
   return (
     <GestureHandlerRootView className="flex-1">
       <View className="flex-1 items-center justify-center bg-gray-100">
-        {renderCards()}
+        {cards.length > 0 ? (
+          renderCards()
+        ) : (
+          <Text className="text-xl text-center">No hay más perfiles disponibles</Text>
+        )}
         <TouchableOpacity
           onPress={refreshCards}
           className="absolute top-10 right-5 bg-blue-500 py-2 px-4 rounded-full"
