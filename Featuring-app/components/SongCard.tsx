@@ -46,6 +46,7 @@ interface Comentario {
   likes_count: number;
   perfil: Perfil;
   isLiked?: boolean;
+  is_edited?: boolean;
 }
 
 interface ComentarioLike {
@@ -417,7 +418,7 @@ const handleLike = async () => {
   };
 
   const handleCommentOptions = (comentario: Comentario) => {
-    if (comentario.usuario_id === currentUserId) {
+    if (comentario.usuario_id === currentUserId || cancion.usuario_id === currentUserId) {
       setSelectedCommentId(comentario.id);
       setEditingComment(comentario.contenido);
       setCommentOptionsVisible(true);
@@ -635,7 +636,9 @@ const handleLike = async () => {
       try {
         const { data, error } = await supabase
           .from("comentario_cancion")
-          .update({ contenido: editingComment.trim() })
+          .update({ 
+            contenido: editingComment.trim()
+          })
           .eq("id", selectedCommentId)
           .select()
           .single();
@@ -643,7 +646,9 @@ const handleLike = async () => {
         if (error) throw error;
 
         setComentarios(comentarios.map(c => 
-          c.id === selectedCommentId ? { ...c, contenido: editingComment.trim() } : c
+          c.id === selectedCommentId 
+            ? { ...c, contenido: editingComment.trim() } 
+            : c
         ));
         setCommentOptionsVisible(false);
       } catch (error) {
@@ -651,6 +656,22 @@ const handleLike = async () => {
         Alert.alert("Error", "No se pudo editar el comentario");
       }
     }
+  };
+
+  const renderNotificacion = ({ item }: { item: Comentario }) => {
+    return (
+      <View className="bg-gray-100 p-3 mb-2 rounded-lg">
+        <View className="flex-row justify-between items-center mb-1">
+          <Text className="font-JakartaSemiBold text-sm">
+            {item.perfil?.username || "Usuario desconocido"}
+          </Text>
+          <Text className="text-gray-400 text-xs">
+            {formatCommentDate(item.created_at)}
+          </Text>
+        </View>
+        <Text className="text-sm">{item.contenido}</Text>
+      </View>
+    );
   };
 
   return (
@@ -829,12 +850,14 @@ const handleLike = async () => {
                         </Text>
                       </View>
                     </View>
-                    <TouchableOpacity
-                      onPress={() => handleCommentOptions(comentario)}
-                      className="ml-2"
-                    >
-                      <Image source={icons.trespuntos} className="w-5 h-5" />
-                    </TouchableOpacity>
+                    {(comentario.usuario_id === currentUserId || cancion.usuario_id === currentUserId) && (
+                      <TouchableOpacity
+                        onPress={() => handleCommentOptions(comentario)}
+                        className="ml-2"
+                      >
+                        <Image source={icons.trespuntos} className="w-5 h-5" />
+                      </TouchableOpacity>
+                    )}
                   </View>
                   <View className="flex-row items-center mt-2 ml-10">
                     <TouchableOpacity
@@ -1015,24 +1038,35 @@ const handleLike = async () => {
           onPress={() => setCommentOptionsVisible(false)}
         >
           <View className="bg-white rounded-lg p-4 w-3/4">
-            <TextInput
-              className="border border-gray-300 rounded-lg p-2 mb-4"
-              value={editingComment}
-              onChangeText={setEditingComment}
-              multiline
-            />
-            <TouchableOpacity
-              className="bg-blue-500 rounded-lg p-2 mb-2"
-              onPress={handleEditComment}
-            >
-              <Text className="text-white text-center">Editar comentario</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              className="bg-red-500 rounded-lg p-2"
-              onPress={handleDeleteComment}
-            >
-              <Text className="text-white text-center">Eliminar comentario</Text>
-            </TouchableOpacity>
+            {cancion.usuario_id === currentUserId ? (
+              <TouchableOpacity
+                className="bg-red-500 rounded-lg p-2"
+                onPress={handleDeleteComment}
+              >
+                <Text className="text-white text-center">Eliminar comentario</Text>
+              </TouchableOpacity>
+            ) : (
+              <>
+                <TextInput
+                  className="border border-gray-300 rounded-lg p-2 mb-4"
+                  value={editingComment}
+                  onChangeText={setEditingComment}
+                  multiline
+                />
+                <TouchableOpacity
+                  className="bg-blue-500 rounded-lg p-2 mb-2"
+                  onPress={handleEditComment}
+                >
+                  <Text className="text-white text-center">Editar comentario</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  className="bg-red-500 rounded-lg p-2"
+                  onPress={handleDeleteComment}
+                >
+                  <Text className="text-white text-center">Eliminar comentario</Text>
+                </TouchableOpacity>
+              </>
+            )}
           </View>
         </TouchableOpacity>
       </Modal>
