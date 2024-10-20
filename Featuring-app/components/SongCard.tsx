@@ -206,26 +206,45 @@ const SongCard: React.FC<SongCardProps> = ({
 
     setIsLiked(!!data);
   };
+//funcion que maneja likes de la canción
+const handleLike = async () => {
+  if (isLiked) {
+    await supabase
+      .from("likes_cancion")
+      .delete()
+      .eq("cancion_id", cancion.id)
+      .eq("usuario_id", currentUserId);
+    setLikes(likes.filter((like) => like.usuario_id !== currentUserId));
+  } else {
+    const { data } = await supabase
+      .from("likes_cancion")
+      .insert({ cancion_id: cancion.id, usuario_id: currentUserId })
+      .select()
+      .single();
+    if (data) {
+      setLikes([...likes, data]);
+      
+      // Crear notificación de like solo si el usuario que da like no es el creador de la canción
+      if (currentUserId !== cancion.usuario_id) {
+        const { error: notificationError } = await supabase
+          .from('notificacion')
+          .insert({
+            usuario_id: cancion.usuario_id,
+            tipo_notificacion: 'like_cancion',
+            leido: false,
+            usuario_origen_id: currentUserId,
+            contenido_id: cancion.id
+          });
 
-  const handleLike = async () => {
-    if (isLiked) {
-      await supabase
-        .from("likes_cancion")
-        .delete()
-        .eq("cancion_id", cancion.id)
-        .eq("usuario_id", currentUserId);
-      setLikes(likes.filter((like) => like.usuario_id !== currentUserId));
-    } else {
-      const { data } = await supabase
-        .from("likes_cancion")
-        .insert({ cancion_id: cancion.id, usuario_id: currentUserId })
-        .select()
-        .single();
-      if (data) setLikes([...likes, data]);
+        if (notificationError) {
+          console.error('Error al crear notificación de like:', notificationError);
+        }
+      }
     }
-    setIsLiked(!isLiked);
-  };
-
+  }
+  setIsLiked(!isLiked);
+};
+//funcion que maneja los comentarios de las canciones
   const handleComment = async () => {
     if (nuevoComentario.trim()) {
       try {
@@ -257,12 +276,29 @@ const SongCard: React.FC<SongCardProps> = ({
         if (data) {
           const newComentario: Comentario = {
             ...data,
-            likes_count: 0, // Set an initial value for likes_count
-            perfil: data.perfil[0] as Perfil, // Assume perfil is the first item in the array
-            isLiked: false // Add this if it's part of your Comentario interface
+            likes_count: 0,
+            perfil: data.perfil[0] as Perfil,
+            isLiked: false
           };
           setComentarios([newComentario, ...comentarios]);
           setNuevoComentario("");
+
+          // Crear notificación de comentario solo si el usuario que comenta no es el creador de la canción
+          if (currentUserId !== cancion.usuario_id) {
+            const { error: notificationError } = await supabase
+              .from('notificacion')
+              .insert({
+                usuario_id: cancion.usuario_id,
+                tipo_notificacion: 'comentario_cancion',
+                leido: false,
+                usuario_origen_id: currentUserId,
+                contenido_id: cancion.id
+              });
+
+            if (notificationError) {
+              console.error('Error al crear notificación de comentario:', notificationError);
+            }
+          }
         }
       } catch (error) {
         console.error("Error al enviar el comentario:", error);
@@ -273,7 +309,7 @@ const SongCard: React.FC<SongCardProps> = ({
       }
     }
   };
-
+//función que manej likes de comentarios de las canciones publicadas
   const handleCommentLike = async (comentarioId: number) => {
     const likes = comentarioLikes[comentarioId] || [];
     const isLiked = likes.some((like) => like.usuario_id === currentUserId);
@@ -303,6 +339,25 @@ const SongCard: React.FC<SongCardProps> = ({
           ...prev,
           [comentarioId]: [...(prev[comentarioId] || []), data],
         }));
+
+        // Obtener el usuario_id del comentario
+        const comentario = comentarios.find(c => c.id === comentarioId);
+        if (comentario && comentario.usuario_id !== currentUserId) {
+          // Crear notificación de like en comentario solo si el usuario que da like no es el creador del comentario
+          const { error: notificationError } = await supabase
+            .from('notificacion')
+            .insert({
+              usuario_id: comentario.usuario_id,
+              tipo_notificacion: 'like_comentario_cancion',
+              leido: false,
+              usuario_origen_id: currentUserId,
+              contenido_id: comentarioId
+            });
+
+          if (notificationError) {
+            console.error('Error al crear notificación de like en comentario:', notificationError);
+          }
+        }
       }
     }
 

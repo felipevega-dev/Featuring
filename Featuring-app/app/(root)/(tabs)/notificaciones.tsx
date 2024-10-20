@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FlatList, Text, View, RefreshControl } from "react-native";
+import { FlatList, Text, View, RefreshControl, StatusBar } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { supabase } from "@/lib/supabase";
 import { useNotification } from '@/contexts/NotificationContext';
@@ -67,12 +67,18 @@ const Notificaciones = () => {
   }, []);
 
   const renderNotificacion = ({ item }: { item: Notificacion }) => (
-    <View className="bg-gray-100 p-4 mb-2 rounded-lg">
-      <Text className="font-JakartaBold text-base">
+    <View className="bg-gray-100 p-3 mb-2 rounded-lg">
+      <Text className="font-JakartaSemiBold text-sm">
         {item.tipo_notificacion === 'like' && item.perfil
           ? `${item.perfil.username} te ha dado like, ¡conecta!`
           : item.tipo_notificacion === 'match' && item.perfil
           ? `Conectaste con ${item.perfil.username}, ¡empieza a colaborar!`
+          : item.tipo_notificacion === 'like_cancion' && item.perfil
+          ? `A ${item.perfil.username} le gustó tu publicación`
+          : item.tipo_notificacion === 'comentario_cancion' && item.perfil
+          ? `${item.perfil.username} ha comentado tu publicación`
+          : item.tipo_notificacion === 'like_comentario_cancion' && item.perfil
+          ? `A ${item.perfil.username} le gustó tu comentario en una canción`
           : item.tipo_notificacion}
       </Text>
       <Text className="text-gray-400 mt-1 text-xs">
@@ -82,17 +88,25 @@ const Notificaciones = () => {
   );
 
   return (
-    <SafeAreaView className="flex-1 bg-white p-5">
-      <Text className="text-2xl font-JakartaBold mb-4">Notificaciones</Text>
-      <FlatList
-        data={notificaciones}
-        renderItem={renderNotificacion}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={{ flexGrow: 1 }}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-      />
+    <SafeAreaView className="flex-1 bg-white" edges={['top']}>
+      <StatusBar barStyle="dark-content" backgroundColor="white" />
+      <View className="flex-1 px-4">
+        <Text className="text-2xl font-JakartaBold mb-2">Notificaciones</Text>
+        <FlatList
+          data={notificaciones}
+          renderItem={renderNotificacion}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={{ paddingBottom: 20 }}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+          ListEmptyComponent={
+            <Text className="text-center text-gray-500 mt-4">
+              No tienes notificaciones
+            </Text>
+          }
+        />
+      </View>
     </SafeAreaView>
   );
 };
