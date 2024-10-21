@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from "react";
-import { View, Text, FlatList, TouchableOpacity, Image } from "react-native";
+import React, { useEffect, useState, useCallback, useRef } from "react";
+import { View, Text, FlatList, TouchableOpacity, Image, RefreshControl } from "react-native";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "expo-router";
 import { FontAwesome } from "@expo/vector-icons";
+import { RealtimeChannel } from '@supabase/supabase-js';
 
 interface ChatListItem {
   id: string;
@@ -17,15 +18,23 @@ export default function Chat() {
   const [chatList, setChatList] = useState<ChatListItem[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const router = useRouter();
+  const subscriptionRef = useRef<RealtimeChannel | null>(null);
 
   useEffect(() => {
     getCurrentUser();
+    return () => {
+      if (subscriptionRef.current) {
+        supabase.removeChannel(subscriptionRef.current);
+      }
+    };
   }, []);
 
   useEffect(() => {
     if (currentUserId) {
       fetchChatList();
+      subscribeToMessages();
     }
   }, [currentUserId]);
 
@@ -34,6 +43,16 @@ export default function Chat() {
       data: { user },
     } = await supabase.auth.getUser();
     if (user) setCurrentUserId(user.id);
+  };
+
+  const subscribeToMessages = () => {
+    subscriptionRef.current = supabase
+      .channel('public:mensaje')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'mensaje' }, payload => {
+        console.log('Nuevo mensaje recibido:', payload);
+        fetchChatList();
+      })
+      .subscribe();
   };
 
   const fetchChatList = async () => {
@@ -55,7 +74,6 @@ export default function Chat() {
         return;
       }
 
-      // Crear un Set para almacenar IDs de usuarios únicos
       const uniqueUserIds = new Set<string>();
       const uniqueConnections = connections.filter((connection) => {
         const otherUserId =
@@ -69,51 +87,62 @@ export default function Chat() {
         return false;
       });
 
-      const chatListPromises = uniqueConnections.map(async (connection) => {
-        const otherUserId =
-          connection.usuario1_id === currentUserId
-            ? connection.usuario2_id
-            : connection.usuario1_id;
+      const chatListData = await Promise.all(
+        uniqueConnections.map(async (connection) => {
+          const otherUserId =
+            connection.usuario1_id === currentUserId
+              ? connection.usuario2_id
+              : connection.usuario1_id;
 
-        const { data: userData, error: userError } = await supabase
-          .from("perfil")
-          .select("username, foto_perfil")
-          .eq("usuario_id", otherUserId)
-          .single();
+          const { data: userData, error: userError } = await supabase
+            .from("perfil")
+            .select("username, foto_perfil")
+            .eq("usuario_id", otherUserId)
+            .single();
 
-        if (userError) throw userError;
+          if (userError) {
+            console.error("Error al obtener datos del usuario:", userError);
+            return null;
+          }
 
-        const { data: lastMessageData, error: messageError } = await supabase
-          .from("mensaje")
-          .select("contenido, fecha_envio")
-          .or(
-            `and(emisor_id.eq.${currentUserId},receptor_id.eq.${otherUserId}),and(emisor_id.eq.${otherUserId},receptor_id.eq.${currentUserId})`
-          )
-          .order("fecha_envio", { ascending: false })
-          .limit(1)
-          .single();
+          const { data: lastMessageData, error: messageError } = await supabase
+            .from("mensaje")
+            .select("contenido, fecha_envio")
+            .or(
+              `and(emisor_id.eq.${currentUserId},receptor_id.eq.${otherUserId}),and(emisor_id.eq.${otherUserId},receptor_id.eq.${currentUserId})`
+            )
+            .order("fecha_envio", { ascending: false })
+            .limit(1)
+            .single();
 
-        if (messageError && messageError.code !== "PGRST116")
-          throw messageError;
+          if (messageError && messageError.code !== "PGRST116") {
+            console.error("Error al obtener mensajes:", messageError);
+          }
 
-        return {
-          id: connection.id,
-          otherUserId,
-          otherUserName: userData.username,
-          otherUserAvatar: userData.foto_perfil,
-          lastMessage: lastMessageData?.contenido || null,
-          lastMessageTime: lastMessageData?.fecha_envio || null,
-        };
-      });
+          return {
+            id: connection.id,
+            otherUserId,
+            otherUserName: userData?.username || "Usuario desconocido",
+            otherUserAvatar: userData?.foto_perfil || null,
+            lastMessage: lastMessageData?.contenido || null,
+            lastMessageTime: lastMessageData?.fecha_envio || null,
+          };
+        })
+      );
 
-      const chatListData = await Promise.all(chatListPromises);
-      setChatList(chatListData);
+      setChatList(chatListData.filter((item): item is ChatListItem => item !== null));
     } catch (error) {
       console.error("Error al obtener la lista de chats:", error);
     } finally {
       setIsLoading(false);
+      setRefreshing(false);
     }
   };
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchChatList();
+  }, []);
 
   const renderChatItem = ({ item }: { item: ChatListItem }) => (
     <TouchableOpacity
@@ -189,6 +218,9 @@ export default function Chat() {
           data={chatList}
           renderItem={renderChatItem}
           keyExtractor={(item) => item.id}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
         />
       ) : (
         renderEmptyList()
