@@ -378,3 +378,23 @@ ADD COLUMN menciones JSONB DEFAULT '[]'::JSONB;
 --ejecutar en sus supabase
 ALTER TABLE comentario_cancion
 ADD COLUMN padre_id INTEGER REFERENCES comentario_cancion(id);
+-- ejecutar en supabase
+ALTER TABLE mensaje
+ADD COLUMN leido BOOLEAN DEFAULT FALSE;
+-- ejecutar en supabase
+CREATE INDEX idx_mensaje_leido ON mensaje (receptor_id, emisor_id, leido);
+-- lo mismo 
+CREATE OR REPLACE FUNCTION set_message_unread()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.leido = FALSE;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER set_message_unread_trigger
+BEFORE INSERT ON mensaje
+FOR EACH ROW
+EXECUTE FUNCTION set_message_unread();
+
+UPDATE mensaje SET leido = FALSE WHERE leido IS NULL;

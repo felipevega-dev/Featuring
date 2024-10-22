@@ -12,6 +12,7 @@ interface ChatListItem {
   otherUserAvatar: string | null;
   lastMessage: string | null;
   lastMessageTime: string | null;
+  unreadMessages: boolean; // Nuevo campo para indicar si hay mensajes no leídos
 }
 
 export default function Chat() {
@@ -105,9 +106,10 @@ export default function Chat() {
             return null;
           }
 
+          // Obtener el último mensaje y verificar si está leído
           const { data: lastMessageData, error: messageError } = await supabase
             .from("mensaje")
-            .select("contenido, fecha_envio")
+            .select("contenido, fecha_envio, leido, emisor_id")
             .or(
               `and(emisor_id.eq.${currentUserId},receptor_id.eq.${otherUserId}),and(emisor_id.eq.${otherUserId},receptor_id.eq.${currentUserId})`
             )
@@ -119,6 +121,11 @@ export default function Chat() {
             console.error("Error al obtener mensajes:", messageError);
           }
 
+          // Determinar si hay mensajes no leídos
+          const unreadMessages = lastMessageData 
+            ? lastMessageData.emisor_id !== currentUserId && !lastMessageData.leido
+            : false;
+
           return {
             id: connection.id,
             otherUserId,
@@ -126,6 +133,7 @@ export default function Chat() {
             otherUserAvatar: userData?.foto_perfil || null,
             lastMessage: lastMessageData?.contenido || null,
             lastMessageTime: lastMessageData?.fecha_envio || null,
+            unreadMessages: unreadMessages,
           };
         })
       );
@@ -162,10 +170,10 @@ export default function Chat() {
         </View>
       )}
       <View className="flex-1">
-        <Text className="font-JakartaBold text-lg text-primary-700">
+        <Text className={`text-lg ${item.unreadMessages ? 'font-JakartaBold' : 'font-JakartaRegular'} text-primary-700`}>
           {item.otherUserName}
         </Text>
-        <Text className="text-primary-600" numberOfLines={1}>
+        <Text className={`${item.unreadMessages ? 'font-JakartaBold' : 'font-JakartaRegular'} text-primary-600`} numberOfLines={1}>
           {item.lastMessage || "No hay mensajes aún"}
         </Text>
       </View>
@@ -173,6 +181,9 @@ export default function Chat() {
         <Text className="text-primary-400 text-xs">
           {new Date(item.lastMessageTime).toLocaleDateString()}
         </Text>
+      )}
+      {item.unreadMessages && (
+        <View className="bg-primary-500 rounded-full w-3 h-3 ml-2" />
       )}
     </TouchableOpacity>
   );

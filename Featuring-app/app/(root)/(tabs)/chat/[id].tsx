@@ -525,6 +525,23 @@ const checkIfUserIsBlocked = async (userId: string) => {
     setModalVisible(false); // Cierra el modal después de la acción
   };
 
+  const markMessagesAsRead = async () => {
+    if (!currentUserId || !otherUserId) return;
+
+    try {
+      const { error } = await supabase
+        .from("mensaje")
+        .update({ leido: true })
+        .eq("receptor_id", currentUserId)
+        .eq("emisor_id", otherUserId)
+        .eq("leido", false);
+
+      if (error) throw error;
+    } catch (error) {
+      console.error("Error al marcar mensajes como leídos:", error);
+    }
+  };
+
   if (isLoading) {
     return (
       <View className="flex-1 justify-center items-center">
