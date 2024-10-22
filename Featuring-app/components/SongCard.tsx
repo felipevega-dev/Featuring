@@ -823,6 +823,23 @@ const handleLike = async () => {
           <Text className="text-xs text-primary-500 font-JakartaBold">Responder</Text>
         </TouchableOpacity>
       </View>
+      {respondingTo?.id === item.id && (
+        <View className="mt-2 ml-8">
+          <TextInput
+            className="border border-general-300 rounded-full px-4 py-2 mb-2"
+            value={respuestaTexto}
+            onChangeText={setRespuestaTexto}
+            placeholder="Escribe tu respuesta..."
+            placeholderTextColor="#858585"
+          />
+          <TouchableOpacity
+            onPress={handleEnviarRespuesta}
+            className="bg-primary-500 rounded-full py-2 items-center"
+          >
+            <Text className="text-white font-JakartaBold">Enviar respuesta</Text>
+          </TouchableOpacity>
+        </View>
+      )}
       {item.respuestas && item.respuestas.map(respuesta => (
         <View key={respuesta.id} className="ml-8 mt-2 border-l-2 border-general-300 pl-2">
           <View className="flex-row justify-between items-start mb-1">
@@ -876,23 +893,6 @@ const handleLike = async () => {
           </View>
         </View>
       ))}
-      {respondingTo?.id === item.id && (
-        <View className="mt-2 ml-8">
-          <TextInput
-            className="border border-general-300 rounded-full px-4 py-2 mb-2"
-            value={respuestaTexto}
-            onChangeText={setRespuestaTexto}
-            placeholder="Escribe tu respuesta..."
-            placeholderTextColor="#858585"
-          />
-          <TouchableOpacity
-            onPress={handleEnviarRespuesta}
-            className="bg-primary-500 rounded-full py-2 items-center"
-          >
-            <Text className="text-white font-JakartaBold">Enviar respuesta</Text>
-          </TouchableOpacity>
-        </View>
-      )}
     </View>
   );
 
@@ -1050,23 +1050,23 @@ const handleLike = async () => {
                 </React.Fragment>
               ))}
             </ScrollView>
-            <View className="mt-2">
-              <TextInput
-                className="border border-general-300 rounded-full px-4 py-2 mb-2"
-                value={respondingTo ? respuestaTexto : nuevoComentario}
-                onChangeText={respondingTo ? setRespuestaTexto : setNuevoComentario}
-                placeholder={respondingTo ? "Escribe tu respuesta..." : "Añade un comentario..."}
-                placeholderTextColor="#858585"
-              />
-              <TouchableOpacity
-                onPress={respondingTo ? handleEnviarRespuesta : handleComment}
-                className="bg-primary-500 rounded-full py-2 items-center"
-              >
-                <Text className="text-white font-JakartaBold">
-                  {respondingTo ? "Enviar respuesta" : "Enviar"}
-                </Text>
-              </TouchableOpacity>
-            </View>
+            {!respondingTo && (
+              <View className="mt-2">
+                <TextInput
+                  className="border border-general-300 rounded-full px-4 py-2 mb-2"
+                  value={nuevoComentario}
+                  onChangeText={setNuevoComentario}
+                  placeholder="Añade un comentario..."
+                  placeholderTextColor="#858585"
+                />
+                <TouchableOpacity
+                  onPress={handleComment}
+                  className="bg-primary-500 rounded-full py-2 items-center"
+                >
+                  <Text className="text-white font-JakartaBold">Enviar</Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
         </View>
       </Modal>
