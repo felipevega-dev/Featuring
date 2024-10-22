@@ -50,8 +50,10 @@ export default function Chat() {
     subscriptionRef.current = supabase
       .channel('public:mensaje')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'mensaje' }, payload => {
-        console.log('Nuevo mensaje recibido:', payload);
-        fetchChatList();
+        console.log('Cambio en mensajes detectado:', payload);
+        if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+          fetchChatList(); // Actualiza la lista de chats cuando hay un nuevo mensaje o se actualiza uno
+        }
       })
       .subscribe();
   };
