@@ -25,6 +25,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from "expo-file-system";
 import AudioPlayer from '@/components/AudioPlayer';
 import * as DocumentPicker from 'expo-document-picker';
+import { useUnreadMessages } from '@/contexts/UnreadMessagesContext';
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -56,12 +57,14 @@ export default function ChatDetail() {
 
   const [isBlocked, setIsBlocked] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
+  const { updateUnreadMessagesCount } = useUnreadMessages();
 
   useEffect(() => {
     getCurrentUser();
     fetchMessages();
     getOtherUserInfo();
     checkIfUserIsBlocked(id).then(setIsBlocked); // Verifica si el usuario está bloqueado
+    markMessagesAsRead();
     const subscription = supabase
       .channel("messages")
       .on(
@@ -526,17 +529,20 @@ const checkIfUserIsBlocked = async (userId: string) => {
   };
 
   const markMessagesAsRead = async () => {
-    if (!currentUserId || !otherUserId) return;
+    if (!currentUserId) return;
 
     try {
       const { error } = await supabase
         .from("mensaje")
         .update({ leido: true })
         .eq("receptor_id", currentUserId)
-        .eq("emisor_id", otherUserId)
+        .eq("emisor_id", id)
         .eq("leido", false);
 
       if (error) throw error;
+
+      // Actualizar el contador de mensajes no leídos
+      updateUnreadMessagesCount();
     } catch (error) {
       console.error("Error al marcar mensajes como leídos:", error);
     }
