@@ -23,6 +23,7 @@ import { Audio, Video } from "expo-av";
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from "expo-file-system";
 import AudioPlayer from '@/components/AudioPlayer';
+import * as DocumentPicker from 'expo-document-picker';
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -31,7 +32,7 @@ interface Message {
   emisor_id: string;
   receptor_id: string;
   contenido: string;
-  tipo_contenido: "texto" | "audio" | "imagen" | "video";
+  tipo_contenido: "texto" | "audio" | "imagen" | "video" | "archivo";
   url_contenido: string | null;
   fecha_envio: string;
 }
@@ -219,7 +220,7 @@ export default function ChatDetail() {
 
   const sendMessage = async (
     content: string,
-    tipo: "texto" | "audio",
+    tipo: "texto" | "audio" | "imagen" | "video" | "archivo",
     url?: string
   ) => {
     if ((!content.trim() && tipo === "texto") || !currentUserId) return;
@@ -341,6 +342,52 @@ export default function ChatDetail() {
     Linking.openURL(uri); // Abre el video en el navegador
   };
 
+  const pickDocument = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: '*/*', // Permite todos los tipos de archivos
+        copyToCacheDirectory: false,
+      });
+
+      if (result.type === 'success') {
+        await sendFileMessage(result.uri, result.name);
+      }
+    } catch (err) {
+      console.error('Error al seleccionar el archivo:', err);
+      Alert.alert('Error', 'No se pudo seleccionar el archivo');
+    }
+  };
+
+  const sendFileMessage = async (uri: string, fileName: string) => {
+    try {
+      if (!currentUserId) {
+        throw new Error("Usuario no autenticado");
+      }
+
+      const filePath = `${currentUserId}/${fileName}`;
+
+      const { data, error } = await supabase.storage
+        .from("chat_files")
+        .upload(filePath, {
+          uri: uri,
+          type: "application/octet-stream",
+          name: fileName,
+        });
+
+      if (error) throw error;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from("chat_files")
+        .getPublicUrl(filePath);
+
+      console.log("Archivo subido, URL pública:", publicUrl);
+      await sendMessage(`Archivo: ${fileName}`, "archivo", publicUrl);
+    } catch (error) {
+      console.error("Error al enviar el archivo:", error);
+      Alert.alert("Error", "No se pudo enviar el archivo");
+    }
+  };
+
   const renderMessage = ({ item }: { item: Message }) => {
     const isCurrentUser = item.emisor_id === currentUserId;
 
@@ -358,7 +405,7 @@ export default function ChatDetail() {
         <View
           className={`rounded-lg p-3 ${
             isCurrentUser ? 'bg-primary-500' : 'bg-primary-100'
-          } ${['audio', 'imagen', 'video'].includes(item.tipo_contenido) ? 'w-[80%]' : 'max-w-[80%]'}`}
+          } ${['audio', 'imagen', 'video', 'archivo'].includes(item.tipo_contenido) ? 'w-[80%]' : 'max-w-[80%]'}`}
         >
           {item.tipo_contenido === 'texto' && (
             <Text
@@ -387,6 +434,13 @@ export default function ChatDetail() {
               resizeMode="contain"
               isLooping
             />
+          )}
+          {item.tipo_contenido === 'archivo' && item.url_contenido && (
+            <TouchableOpacity onPress={() => Linking.openURL(item.url_contenido!)}>
+              <Text className={`${isCurrentUser ? 'text-white' : 'text-primary-700'} font-JakartaMedium`}>
+                {item.contenido}
+              </Text>
+            </TouchableOpacity>
           )}
           <Text
             className={`text-xs mt-1 ${
@@ -546,13 +600,18 @@ const checkIfUserIsBlocked = async (userId: string) => {
         </TouchableOpacity>
 
         <View className="flex-row items-center p-2 bg-white border-t border-primary-200">
-          
           <TextInput
             className="flex-1 bg-primary-100 rounded-full px-4 py-2 mr-2 mb-14"
             value={newMessage}
             onChangeText={setNewMessage}
             placeholder="Escribe un mensaje..."
           />
+          <TouchableOpacity
+            onPress={pickDocument}
+            className="bg-primary-500 rounded-full p-2 mr-2 mb-14"
+          >
+            <FontAwesome name="file" size={20} color="white" />
+          </TouchableOpacity>
           <TouchableOpacity
             onPress={pickImage}
             className="bg-primary-500 rounded-full p-2 mr-2 mb-14"
