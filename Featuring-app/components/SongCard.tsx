@@ -196,8 +196,16 @@ const SongCard: React.FC<SongCardProps> = ({
 
       const { data: comentariosData } = await supabase
         .from("comentario_cancion")
-        .select("*, perfil(*)")
+        .select(`
+          *,
+          perfil(*),
+          respuestas:comentario_cancion!padre_id(
+            *,
+            perfil(*)
+          )
+        `)
         .eq("cancion_id", cancion.id)
+        .is("padre_id", null)
         .order("created_at", { ascending: false });
 
       if (likesData) setLikes(likesData);
@@ -214,32 +222,39 @@ const SongCard: React.FC<SongCardProps> = ({
               [comentario.id]: likesData || [],
             }));
 
+            // Procesar las respuestas
+            const respuestasConLikes = await Promise.all(
+              (comentario.respuestas || []).map(async (respuesta: Comentario) => {
+                const { data: respuestaLikesData } = await supabase
+                  .from("likes_comentario_cancion")
+                  .select("*")
+                  .eq("comentario_id", respuesta.id);
+
+                setComentarioLikes((prev) => ({
+                  ...prev,
+                  [respuesta.id]: respuestaLikesData || [],
+                }));
+
+                return {
+                  ...respuesta,
+                  isLiked: (respuestaLikesData || []).some(
+                    (like) => like.usuario_id === currentUserId
+                  ),
+                };
+              })
+            );
+
             return {
               ...comentario,
               isLiked: (likesData || []).some(
                 (like) => like.usuario_id === currentUserId
               ),
-              respuestas: [], // Inicializamos las respuestas como un array vacío
+              respuestas: respuestasConLikes,
             };
           })
         );
 
-        // Ahora organizamos los comentarios y sus respuestas
-        const comentariosOrganizados = comentariosConLikes.reduce((acc, comentario) => {
-          if (comentario.padre_id === null) {
-            // Es un comentario principal
-            acc.push(comentario);
-          } else {
-            // Es una respuesta
-            const comentarioPadre = acc.find(c => c.id === comentario.padre_id);
-            if (comentarioPadre) {
-              comentarioPadre.respuestas.push(comentario);
-            }
-          }
-          return acc;
-        }, [] as Comentario[]);
-
-        setComentarios(comentariosOrganizados);
+        setComentarios(comentariosConLikes);
       }
     } catch (error) {
       console.error("Error al cargar likes y comentarios:", error);
@@ -725,11 +740,7 @@ const handleLike = async () => {
         })
         .select(
           `
-          id,
-          usuario_id,
-          cancion_id,
-          contenido,
-          created_at,
+          *,
           perfil (
             usuario_id,
             username,
@@ -745,7 +756,7 @@ const handleLike = async () => {
         const newRespuesta: Comentario = {
           ...data,
           likes_count: 0,
-          perfil: data.perfil[0] as Perfil,
+          perfil: data.perfil,
           isLiked: false
         };
 
