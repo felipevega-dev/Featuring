@@ -226,7 +226,7 @@ export default function Chat() {
       <Text className="text-2xl font-JakartaBold p-4 text-primary-700">
         Chats
       </Text>
-      {chatList.length >  ? (
+      {chatList.length > 0 ? (
         <FlatList
           data={chatList}
           renderItem={renderChatItem}
