@@ -15,6 +15,7 @@ import {
   Linking,
   Modal,
   StyleSheet,
+  StatusBar,
 } from "react-native";
 import { supabase } from "@/lib/supabase";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -533,137 +534,139 @@ const checkIfUserIsBlocked = async (userId: string) => {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-white ">
-      <View className="flex-row items-center p-4 bg-white border-b border-primary-200">
-        <TouchableOpacity onPress={() => router.push("/chat")} className="mr-4">
-          <FontAwesome name="arrow-left" size={24} color="#6D29D2" />
-        </TouchableOpacity>
-        {otherUserAvatar && (
-          <Image
-            source={{ uri: otherUserAvatar }}
-            className="w-10 h-10 rounded-full mr-3"
-          />
-        )}
-        <Text className="text-lg font-JakartaBold text-primary-700 flex-1">
-          {otherUserName}
-        </Text>
-        {selectedMessage && (
-          <TouchableOpacity
-            onPress={() =>
-              Alert.alert(
-                "Eliminar mensaje",
-                "¿Estás seguro de que quieres eliminar este mensaje?",
-                [
-                  { text: "Cancelar", style: "cancel" },
-                  {
-                    text: "Eliminar",
-                    onPress: deleteMessage,
-                    style: "destructive",
-                  },
-                ]
-              )
-            }
-          >
-            <FontAwesome name="trash" size={24} color="#6D29D2" />
+    <SafeAreaView style={{ flex: 1, backgroundColor: 'white', paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0 }}>
+      <View className="flex-1 bg-white">
+        <View className="flex-row items-center p-4 bg-white border-b border-primary-200">
+          <TouchableOpacity onPress={() => router.push("/chat")} className="mr-4">
+            <FontAwesome name="arrow-left" size={24} color="#6D29D2" />
           </TouchableOpacity>
-        )}
-        <TouchableOpacity
-          onPress={() => setModalVisible(true)}
-          style={styles.threeDotsButton}
-        >
-          <FontAwesome name="ellipsis-v" size={20} color="#6D29D2" />
-        </TouchableOpacity>
-      </View>
+          {otherUserAvatar && (
+            <Image
+              source={{ uri: otherUserAvatar }}
+              className="w-10 h-10 rounded-full mr-3"
+            />
+          )}
+          <Text className="text-lg font-JakartaBold text-primary-700 flex-1">
+            {otherUserName}
+          </Text>
+          {selectedMessage && (
+            <TouchableOpacity
+              onPress={() =>
+                Alert.alert(
+                  "Eliminar mensaje",
+                  "¿Estás seguro de que quieres eliminar este mensaje?",
+                  [
+                    { text: "Cancelar", style: "cancel" },
+                    {
+                      text: "Eliminar",
+                      onPress: deleteMessage,
+                      style: "destructive",
+                    },
+                  ]
+                )
+              }
+            >
+              <FontAwesome name="trash" size={24} color="#6D29D2" />
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity
+            onPress={() => setModalVisible(true)}
+            style={styles.threeDotsButton}
+          >
+            <FontAwesome name="ellipsis-v" size={20} color="#6D29D2" />
+          </TouchableOpacity>
+        </View>
 
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        className="flex-1"
-        keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
-      >
-        <TouchableOpacity
-          activeOpacity={1}
-          onPress={handleBackgroundPress}
-          className="flex-1 p-2"
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          className="flex-1"
+          keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
         >
-          <FlatList
-            ref={flatListRef}
-            data={messages}
-            renderItem={renderMessage}
-            keyExtractor={(item) => item.id.toString()}
-            inverted
-            contentContainerStyle={{
-              flexGrow: 1,
-              justifyContent: "flex-end",
-              paddingVertical: 10,
-            }}
-          />
-        </TouchableOpacity>
-
-        <View className="flex-row items-center p-2 bg-white border-t border-primary-200">
-          <TextInput
-            className="flex-1 bg-primary-100 rounded-full px-4 py-2 mr-2 mb-14"
-            value={newMessage}
-            onChangeText={setNewMessage}
-            placeholder="Escribe un mensaje..."
-          />
           <TouchableOpacity
-            onPress={pickDocument}
-            className="bg-primary-500 rounded-full p-2 mr-2 mb-14"
+            activeOpacity={1}
+            onPress={handleBackgroundPress}
+            className="flex-1 p-2"
           >
-            <FontAwesome name="file" size={20} color="white" />
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={pickImage}
-            className="bg-primary-500 rounded-full p-2 mr-2 mb-14"
-          >
-            <FontAwesome name="image" size={20} color="white" />
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={isRecording ? stopRecording : startRecording}
-            className="bg-primary-500 rounded-full p-2 mr-2 mb-14"
-          >
-            <FontAwesome
-              name={isRecording ? "stop" : "microphone"}
-              size={20}
-              color="white"
+            <FlatList
+              ref={flatListRef}
+              data={messages}
+              renderItem={renderMessage}
+              keyExtractor={(item) => item.id.toString()}
+              inverted
+              contentContainerStyle={{
+                flexGrow: 1,
+                justifyContent: "flex-end",
+                paddingVertical: 10,
+              }}
             />
           </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => sendMessage(newMessage, "texto")}
-            className="bg-primary-500 rounded-full p-2 mb-14"
-          >
-            <FontAwesome name="send" size={20} color="white" />
-          </TouchableOpacity>
-        </View>
-      </KeyboardAvoidingView>
 
-      {/* Modal para opciones de bloqueo/desbloqueo */}
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={modalVisible}
-        onRequestClose={() => setModalVisible(false)}
-      >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Opciones</Text>
+          <View className="flex-row items-center p-2 bg-white border-t border-primary-200">
+            <TextInput
+              className="flex-1 bg-primary-100 rounded-full px-4 py-2 mr-2 mb-14"
+              value={newMessage}
+              onChangeText={setNewMessage}
+              placeholder="Escribe un mensaje..."
+            />
             <TouchableOpacity
-              onPress={toggleBlockUser}
-              style={styles.optionButton}
+              onPress={pickDocument}
+              className="bg-primary-500 rounded-full p-2 mr-2 mb-14"
             >
-              <Text style={styles.optionText}>
-                {isBlocked ? "Desbloquear" : "Bloquear"}
-              </Text>
+              <FontAwesome name="paperclip" size={20} color="white" />
             </TouchableOpacity>
             <TouchableOpacity
-              onPress={() => setModalVisible(false)}
-              style={styles.optionButton}
+              onPress={pickImage}
+              className="bg-primary-500 rounded-full p-2 mr-2 mb-14"
             >
-              <Text style={styles.optionText}>Cancelar</Text>
+              <FontAwesome name="image" size={20} color="white" />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={isRecording ? stopRecording : startRecording}
+              className="bg-primary-500 rounded-full p-2 mr-2 mb-14"
+            >
+              <FontAwesome
+                name={isRecording ? "stop" : "microphone"}
+                size={20}
+                color="white"
+              />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => sendMessage(newMessage, "texto")}
+              className="bg-primary-500 rounded-full p-2 mb-14"
+            >
+              <FontAwesome name="send" size={20} color="white" />
             </TouchableOpacity>
           </View>
-        </View>
-      </Modal>
+        </KeyboardAvoidingView>
+
+        {/* Modal para opciones de bloqueo/desbloqueo */}
+        <Modal
+          animationType="slide"
+          transparent={true}
+          visible={modalVisible}
+          onRequestClose={() => setModalVisible(false)}
+        >
+          <View style={styles.modalContainer}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>Opciones</Text>
+              <TouchableOpacity
+                onPress={toggleBlockUser}
+                style={styles.optionButton}
+              >
+                <Text style={styles.optionText}>
+                  {isBlocked ? "Desbloquear" : "Bloquear"}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setModalVisible(false)}
+                style={styles.optionButton}
+              >
+                <Text style={styles.optionText}>Cancelar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+      </View>
     </SafeAreaView>
   );
 }
