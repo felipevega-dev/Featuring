@@ -47,6 +47,7 @@ CREATE TABLE
     edad INT CHECK (edad > 0),
     sexo TEXT,
     ubicacion TEXT,
+    mensaje TEXT,
     latitud DOUBLE PRECISION,
     longitud DOUBLE PRECISION,
     preferencias_genero TEXT array,
@@ -370,3 +371,10 @@ CREATE TABLE bloqueo (
     CONSTRAINT fk_bloqueado FOREIGN KEY (bloqueado_id) REFERENCES auth.users (id) ON DELETE CASCADE,
     UNIQUE (usuario_id, bloqueado_id)
 );
+
+--ejecutar en sus supabase
+ALTER TABLE comentario_cancion
+ADD COLUMN menciones JSONB DEFAULT '[]'::JSONB;
+--ejecutar en sus supabase
+ALTER TABLE comentario_cancion
+ADD COLUMN padre_id INTEGER REFERENCES comentario_cancion(id);
