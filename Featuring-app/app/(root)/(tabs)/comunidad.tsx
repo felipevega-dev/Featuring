@@ -11,6 +11,7 @@ import SearchBar from "@/components/SearchBar";
 import GlobalAudioPlayer from "@/components/GlobalAudioPlayer";
 import { AudioPlayerProvider } from "@/contexts/AudioPlayerContext";
 import { generosMusicalesCompletos } from '@/constants/musicData';
+import CommentSection from "@/components/CommentSection";
 
 type CancionDB = Database["public"]["Tables"]["cancion"]["Row"];
 type PerfilDB = Database["public"]["Tables"]["perfil"]["Row"];
@@ -36,6 +37,8 @@ const Comunidad = () => {
   const [isUserSongsModalVisible, setIsUserSongsModalVisible] = useState(false);
   const [isSearchBarExpanded, setIsSearchBarExpanded] = useState(false);
   const [sortedGenres, setSortedGenres] = useState<string[]>([]);
+  const [selectedSongId, setSelectedSongId] = useState<number | null>(null);
+  const [isCommentModalVisible, setIsCommentModalVisible] = useState(false);
 
   useEffect(() => {
     fetchSongs();
@@ -189,8 +192,14 @@ const Comunidad = () => {
       currentUserId={currentUserId || ""}
       onDeleteSong={handleDeleteSong}
       onUpdateSong={handleUpdateSong}
+      onCommentPress={() => handleCommentPress(item.id)}
     />
   );
+
+  const handleCommentPress = (songId: number) => {
+    setSelectedSongId(songId);
+    setIsCommentModalVisible(true);
+  };
 
   if (isLoading) {
     return (
@@ -266,6 +275,14 @@ const Comunidad = () => {
             isVisible={isUserSongsModalVisible}
             onClose={() => setIsUserSongsModalVisible(false)}
             userId={currentUserId}
+          />
+        )}
+        {selectedSongId && (
+          <CommentSection
+            isVisible={isCommentModalVisible}
+            onClose={() => setIsCommentModalVisible(false)}
+            songId={selectedSongId}
+            currentUserId={currentUserId || ""}
           />
         )}
         <GlobalAudioPlayer />

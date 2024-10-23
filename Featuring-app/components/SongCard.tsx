@@ -17,6 +17,7 @@ import * as Clipboard from "expo-clipboard";
 import { Ionicons } from "@expo/vector-icons";
 import { useAudioPlayer } from "@/contexts/AudioPlayerContext";
 import EditSongModal from "./EditSongModal";
+import { RealtimeChannel } from '@supabase/supabase-js';
 
 interface Perfil {
   usuario_id: string;
@@ -47,6 +48,8 @@ interface Comentario {
   perfil: Perfil;
   isLiked?: boolean;
   is_edited?: boolean;
+  respuestas?: Comentario[];
+  padre_id?: number;
 }
 
 interface ComentarioLike {
@@ -68,6 +71,7 @@ interface SongCardProps {
   currentUserId: string;
   onDeleteSong: (cancionId: number) => void;
   onUpdateSong: (cancionId: number) => void;
+  onCommentPress: (cancionId: number) => void; // Nueva prop
 }
 
 const SongCard: React.FC<SongCardProps> = ({
@@ -75,6 +79,7 @@ const SongCard: React.FC<SongCardProps> = ({
   currentUserId,
   onDeleteSong,
   onUpdateSong,
+  onCommentPress, // Nueva prop
 }) => {
   const [sound, setSound] = useState<Audio.Sound | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -111,6 +116,9 @@ const SongCard: React.FC<SongCardProps> = ({
   const [isReportConfirmationVisible, setIsReportConfirmationVisible] = useState(false);
   const [userReportCount, setUserReportCount] = useState(0);
   const [editingComment, setEditingComment] = useState("");
+  const [respondingTo, setRespondingTo] = useState<{ id: number; username: string } | null>(null);
+  const [respuestaTexto, setRespuestaTexto] = useState('');
+  const [commentSubscription, setCommentSubscription] = useState<RealtimeChannel | null>(null);
   
   useEffect(() => {
     return sound
@@ -123,7 +131,26 @@ const SongCard: React.FC<SongCardProps> = ({
   useEffect(() => {
     fetchLikesAndComments();
     checkIfLiked();
+    subscribeToComments();
+
+    return () => {
+      if (commentSubscription) {
+        commentSubscription.unsubscribe();
+      }
+    };
   }, [cancion.id]);
+
+  const subscribeToComments = async () => {
+    const subscription = supabase
+      .channel(`public:comentario_cancion:cancion_id=eq.${cancion.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'comentario_cancion', filter: `cancion_id=eq.${cancion.id}` }, (payload) => {
+        console.log('Cambio en comentarios:', payload);
+        fetchLikesAndComments();
+      })
+      .subscribe();
+
+    setCommentSubscription(subscription);
+  };
 
   const loadAudio = async () => {
     if (cancion.archivo_audio) {
@@ -161,40 +188,76 @@ const SongCard: React.FC<SongCardProps> = ({
   };
 
   const fetchLikesAndComments = async () => {
-    const { data: likesData } = await supabase
-      .from("likes_cancion")
-      .select("*")
-      .eq("cancion_id", cancion.id);
+    try {
+      const { data: likesData } = await supabase
+        .from("likes_cancion")
+        .select("*")
+        .eq("cancion_id", cancion.id);
 
-    const { data: comentariosData } = await supabase
-      .from("comentario_cancion")
-      .select("*, perfil(*)")
-      .eq("cancion_id", cancion.id)
-      .order("created_at", { ascending: false });
+      const { data: comentariosData } = await supabase
+        .from("comentario_cancion")
+        .select(`
+          *,
+          perfil(*),
+          respuestas:comentario_cancion!padre_id(
+            *,
+            perfil(*)
+          )
+        `)
+        .eq("cancion_id", cancion.id)
+        .is("padre_id", null)
+        .order("created_at", { ascending: false });
 
-    if (likesData) setLikes(likesData);
-    if (comentariosData) {
-      const comentariosConLikes = await Promise.all(
-        comentariosData.map(async (comentario) => {
-          const { data: likesData } = await supabase
-            .from("likes_comentario_cancion")
-            .select("*")
-            .eq("comentario_id", comentario.id);
+      if (likesData) setLikes(likesData);
+      if (comentariosData) {
+        const comentariosConLikes = await Promise.all(
+          comentariosData.map(async (comentario) => {
+            const { data: likesData } = await supabase
+              .from("likes_comentario_cancion")
+              .select("*")
+              .eq("comentario_id", comentario.id);
 
-          setComentarioLikes((prev) => ({
-            ...prev,
-            [comentario.id]: likesData || [],
-          }));
+            setComentarioLikes((prev) => ({
+              ...prev,
+              [comentario.id]: likesData || [],
+            }));
 
-          return {
-            ...comentario,
-            isLiked: (likesData || []).some(
-              (like) => like.usuario_id === currentUserId
-            ),
-          };
-        })
-      );
-      setComentarios(comentariosConLikes);
+            // Procesar las respuestas
+            const respuestasConLikes = await Promise.all(
+              (comentario.respuestas || []).map(async (respuesta: Comentario) => {
+                const { data: respuestaLikesData } = await supabase
+                  .from("likes_comentario_cancion")
+                  .select("*")
+                  .eq("comentario_id", respuesta.id);
+
+                setComentarioLikes((prev) => ({
+                  ...prev,
+                  [respuesta.id]: respuestaLikesData || [],
+                }));
+
+                return {
+                  ...respuesta,
+                  isLiked: (respuestaLikesData || []).some(
+                    (like) => like.usuario_id === currentUserId
+                  ),
+                };
+              })
+            );
+
+            return {
+              ...comentario,
+              isLiked: (likesData || []).some(
+                (like) => like.usuario_id === currentUserId
+              ),
+              respuestas: respuestasConLikes,
+            };
+          })
+        );
+
+        setComentarios(comentariosConLikes);
+      }
+    } catch (error) {
+      console.error("Error al cargar likes y comentarios:", error);
     }
   };
 
@@ -658,21 +721,191 @@ const handleLike = async () => {
     }
   };
 
-  const renderNotificacion = ({ item }: { item: Comentario }) => {
-    return (
-      <View className="bg-gray-100 p-3 mb-2 rounded-lg">
-        <View className="flex-row justify-between items-center mb-1">
-          <Text className="font-JakartaSemiBold text-sm">
-            {item.perfil?.username || "Usuario desconocido"}
+  const handleResponderComment = (comentario: Comentario) => {
+    setRespondingTo({ id: comentario.id, username: comentario.perfil.username });
+    setRespuestaTexto(`@${comentario.perfil.username} `);
+  };
+
+  const handleEnviarRespuesta = async () => {
+    if (respuestaTexto.trim() === '' || !respondingTo) return;
+
+    try {
+      const { data, error } = await supabase
+        .from("comentario_cancion")
+        .insert({
+          cancion_id: cancion.id,
+          usuario_id: currentUserId,
+          contenido: respuestaTexto.trim(),
+          padre_id: respondingTo.id
+        })
+        .select(
+          `
+          *,
+          perfil (
+            usuario_id,
+            username,
+            foto_perfil
+          )
+        `
+        )
+        .single();
+
+      if (error) throw error;
+
+      if (data) {
+        const newRespuesta: Comentario = {
+          ...data,
+          likes_count: 0,
+          perfil: data.perfil,
+          isLiked: false
+        };
+
+        setComentarios(prevComentarios => 
+          prevComentarios.map(c => 
+            c.id === respondingTo.id
+              ? { ...c, respuestas: [...(c.respuestas || []), newRespuesta] }
+              : c
+          )
+        );
+
+        setRespuestaTexto('');
+        setRespondingTo(null);
+      }
+    } catch (error) {
+      console.error("Error al enviar la respuesta:", error);
+      Alert.alert("Error", "No se pudo enviar la respuesta. Por favor, intenta de nuevo.");
+    }
+  };
+
+  const renderComment = ({ item }: { item: Comentario }) => (
+    <View key={item.id} className="mb-3 border-b border-general-300 pb-2">
+      <View className="flex-row justify-between items-start mb-1">
+        <View className="flex-row items-center flex-1">
+          {item.perfil?.foto_perfil && (
+            <Image
+              source={{ uri: item.perfil.foto_perfil }}
+              className="w-8 h-8 rounded-full mr-2"
+            />
+          )}
+          <View className="flex-1">
+            <View className="flex-row items-center">
+              <Text className="font-JakartaBold text-sm mr-2">
+                {item.perfil?.username ||
+                  "Usuario desconocido"}
           </Text>
-          <Text className="text-gray-400 text-xs">
+              <Text className="text-xs text-general-200">
             {formatCommentDate(item.created_at)}
           </Text>
         </View>
-        <Text className="text-sm">{item.contenido}</Text>
+            <Text className="text-sm mt-1">
+              {item.contenido}
+            </Text>
+          </View>
+        </View>
+        {(item.usuario_id === currentUserId || cancion.usuario_id === currentUserId) && (
+          <TouchableOpacity
+            onPress={() => handleCommentOptions(item)}
+            className="ml-2"
+          >
+            <Image source={icons.trespuntos} className="w-5 h-5" />
+          </TouchableOpacity>
+        )}
       </View>
-    );
-  };
+      <View className="flex-row items-center mt-2 ml-10">
+        <TouchableOpacity
+          onPress={() => handleCommentLike(item.id)}
+          className="flex-row items-center"
+        >
+          <Image
+            source={item.isLiked ? icons.hearto : icons.heart}
+            className="w-4 h-4 mr-1"
+            style={{
+              tintColor: item.isLiked ? "#6D29D2" : undefined,
+            }}
+          />
+          <Text className="text-xs text-primary-500 font-JakartaBold">
+            {(comentarioLikes[item.id] || []).length}
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => handleResponderComment(item)}
+          className="ml-4"
+        >
+          <Text className="text-xs text-primary-500 font-JakartaBold">Responder</Text>
+        </TouchableOpacity>
+      </View>
+      {respondingTo?.id === item.id && (
+        <View className="mt-2 ml-8">
+          <TextInput
+            className="border border-general-300 rounded-full px-4 py-2 mb-2"
+            value={respuestaTexto}
+            onChangeText={setRespuestaTexto}
+            placeholder="Escribe tu respuesta..."
+            placeholderTextColor="#858585"
+          />
+          <TouchableOpacity
+            onPress={handleEnviarRespuesta}
+            className="bg-primary-500 rounded-full py-2 items-center"
+          >
+            <Text className="text-white font-JakartaBold">Enviar respuesta</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+      {item.respuestas && item.respuestas.map(respuesta => (
+        <View key={respuesta.id} className="ml-8 mt-2 border-l-2 border-general-300 pl-2">
+          <View className="flex-row justify-between items-start mb-1">
+            <View className="flex-row items-center flex-1">
+              {respuesta.perfil?.foto_perfil && (
+                <Image
+                  source={{ uri: respuesta.perfil.foto_perfil }}
+                  className="w-8 h-8 rounded-full mr-2"
+                />
+              )}
+              <View className="flex-1">
+                <View className="flex-row items-center">
+                  <Text className="font-JakartaBold text-sm mr-2">
+                    {respuesta.perfil?.username ||
+                      "Usuario desconocido"}
+                  </Text>
+                  <Text className="text-xs text-general-200">
+                    {formatCommentDate(respuesta.created_at)}
+                  </Text>
+                </View>
+                <Text className="text-sm mt-1">
+                  {respuesta.contenido}
+                </Text>
+              </View>
+            </View>
+            {(respuesta.usuario_id === currentUserId || cancion.usuario_id === currentUserId) && (
+              <TouchableOpacity
+                onPress={() => handleCommentOptions(respuesta)}
+                className="ml-2"
+              >
+                <Image source={icons.trespuntos} className="w-5 h-5" />
+              </TouchableOpacity>
+            )}
+          </View>
+          <View className="flex-row items-center mt-2 ml-10">
+            <TouchableOpacity
+              onPress={() => handleCommentLike(respuesta.id)}
+              className="flex-row items-center"
+            >
+              <Image
+                source={respuesta.isLiked ? icons.hearto : icons.heart}
+                className="w-4 h-4 mr-1"
+                style={{
+                  tintColor: respuesta.isLiked ? "#6D29D2" : undefined,
+                }}
+              />
+              <Text className="text-xs text-primary-500 font-JakartaBold">
+                {(comentarioLikes[respuesta.id] || []).length}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      ))}
+    </View>
+  );
 
   return (
     <View className="bg-white rounded-lg shadow-md mb-4 p-4">
@@ -823,77 +1056,28 @@ const handleLike = async () => {
             )}
             <ScrollView className="mb-4">
               {comentarios.map((comentario) => (
-                <View
-                  key={comentario.id}
-                  className="mb-3 border-b border-general-300 pb-2"
-                >
-                  <View className="flex-row justify-between items-start mb-1">
-                    <View className="flex-row items-center flex-1">
-                      {comentario.perfil?.foto_perfil && (
-                        <Image
-                          source={{ uri: comentario.perfil.foto_perfil }}
-                          className="w-8 h-8 rounded-full mr-2"
-                        />
-                      )}
-                      <View className="flex-1">
-                        <View className="flex-row items-center">
-                          <Text className="font-JakartaBold text-sm mr-2">
-                            {comentario.perfil?.username ||
-                              "Usuario desconocido"}
-                          </Text>
-                          <Text className="text-xs text-general-200">
-                            {formatCommentDate(comentario.created_at)}
-                          </Text>
-                        </View>
-                        <Text className="text-sm mt-1">
-                          {comentario.contenido}
-                        </Text>
-                      </View>
-                    </View>
-                    {(comentario.usuario_id === currentUserId || cancion.usuario_id === currentUserId) && (
-                      <TouchableOpacity
-                        onPress={() => handleCommentOptions(comentario)}
-                        className="ml-2"
-                      >
-                        <Image source={icons.trespuntos} className="w-5 h-5" />
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                  <View className="flex-row items-center mt-2 ml-10">
-                    <TouchableOpacity
-                      onPress={() => handleCommentLike(comentario.id)}
-                      className="flex-row items-center"
-                    >
-                      <Image
-                        source={comentario.isLiked ? icons.hearto : icons.heart}
-                        className="w-4 h-4 mr-1"
-                        style={{
-                          tintColor: comentario.isLiked ? "#6D29D2" : undefined,
-                        }}
-                      />
-                      <Text className="text-xs text-primary-500 font-JakartaBold">
-                        {(comentarioLikes[comentario.id] || []).length}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
+                <React.Fragment key={comentario.id}>
+                  {renderComment({ item: comentario })}
+                </React.Fragment>
               ))}
             </ScrollView>
-            <View className="mt-2">
-              <TextInput
-                className="border border-general-300 rounded-full px-4 py-2 mb-2"
-                value={nuevoComentario}
-                onChangeText={setNuevoComentario}
-                placeholder="Añade un comentario..."
-                placeholderTextColor="#858585"
-              />
-              <TouchableOpacity
-                onPress={handleComment}
-                className="bg-primary-500 rounded-full py-2 items-center"
-              >
-                <Text className="text-white font-JakartaBold">Enviar</Text>
-              </TouchableOpacity>
-            </View>
+            {!respondingTo && (
+              <View className="mt-2">
+                <TextInput
+                  className="border border-general-300 rounded-full px-4 py-2 mb-2"
+                  value={nuevoComentario}
+                  onChangeText={setNuevoComentario}
+                  placeholder="Añade un comentario..."
+                  placeholderTextColor="#858585"
+                />
+                <TouchableOpacity
+                  onPress={handleComment}
+                  className="bg-primary-500 rounded-full py-2 items-center"
+                >
+                  <Text className="text-white font-JakartaBold">Enviar</Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
         </View>
       </Modal>
