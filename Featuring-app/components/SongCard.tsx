@@ -120,6 +120,11 @@ const SongCard: React.FC<SongCardProps> = ({
   const [respuestaTexto, setRespuestaTexto] = useState('');
   const [commentSubscription, setCommentSubscription] = useState<RealtimeChannel | null>(null);
   
+  // Construir la URL pública de la foto de perfil
+  const profileImageUrl = cancion.perfil?.foto_perfil
+    ? `https://jvtgpbgnxevfazwzbhtr.supabase.co/storage/v1/object/public/fotoperfil/${cancion.perfil.foto_perfil}`
+    : "https://via.placeholder.com/30";
+
   useEffect(() => {
     return sound
       ? () => {
@@ -911,21 +916,19 @@ const handleLike = async () => {
     <View className="bg-white rounded-lg shadow-md mb-4 p-4">
       {/* Cabecera con nombre de usuario y opciones */}
       <View className="flex-row justify-between items-center mb-2">
-            <TouchableOpacity onPress={handleProfilePress}  className="flex-row items-center">
-              <Image
-                source={{
-                  uri: cancion.perfil?.foto_perfil || "https://via.placeholder.com/30",
-                }}
-                className="w-6 h-6 rounded-full mr-2"
-              />
-              <Text className="text-sm font-bold text-gray-700">
-                {cancion.perfil?.username || "Usuario desconocido"}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={handleOptionsPress} className="absolute top-2 right-2">
-              <Ionicons name="ellipsis-vertical" size={20} color="#666" />
-            </TouchableOpacity>
-          </View>
+        <TouchableOpacity onPress={handleProfilePress} className="flex-row items-center">
+          <Image
+            source={{ uri: profileImageUrl }}
+            className="w-6 h-6 rounded-full mr-2"
+          />
+          <Text className="text-sm font-bold text-gray-700">
+            {cancion.perfil?.username || "Usuario desconocido"}
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={handleOptionsPress} className="absolute top-2 right-2">
+          <Ionicons name="ellipsis-vertical" size={20} color="#666" />
+        </TouchableOpacity>
+      </View>
       <View className="flex-row">
         {/* Imagen de portada */}
         <View>

@@ -43,6 +43,7 @@ CREATE TABLE
     fecha_nacimiento TIMESTAMPTZ,
     biografia TEXT,
     foto_perfil TEXT,
+    nacionalidad TEXT,
     numTelefono TEXT UNIQUE,
     edad INT CHECK (edad > 0),
     sexo TEXT,
@@ -122,6 +123,14 @@ CREATE TABLE comentario_cancion (
     CONSTRAINT fk_usuario_comentario_cancion FOREIGN KEY (usuario_id) REFERENCES perfil (usuario_id) ON DELETE CASCADE,
     CONSTRAINT fk_cancion_comentario FOREIGN KEY (cancion_id) REFERENCES cancion (id) ON DELETE CASCADE
 );
+
+-- Tabla etiqueta
+CREATE TABLE
+  etiqueta (
+    id BIGSERIAL PRIMARY KEY,
+    nombre TEXT NOT NULL UNIQUE
+);
+
 
 -- Renombrar publicacion_etiqueta a cancion_etiqueta
 CREATE TABLE cancion_etiqueta (
@@ -271,14 +280,6 @@ CREATE TABLE
     CONSTRAINT fk_usuario_notificacion FOREIGN KEY (usuario_id) REFERENCES auth.users (id) ON DELETE CASCADE
   );
 
--- Tabla etiqueta
-CREATE TABLE
-  etiqueta (
-    id BIGSERIAL PRIMARY KEY,
-    nombre TEXT NOT NULL UNIQUE
-  );
-
-
 
 -- Tabla valoracion_cancion
 CREATE TABLE
@@ -339,28 +340,13 @@ CREATE POLICY "permitirtodo 1tvnhqo_1" ON storage.objects FOR UPDATE TO public U
 CREATE POLICY "permitirtodo 1tvnhqo_2" ON storage.objects FOR INSERT TO public WITH CHECK (bucket_id = 'caratulas');
 CREATE POLICY "permitirtodo 1tvnhqo_3" ON storage.objects FOR DELETE TO public USING (bucket_id = 'caratulas');
 
--- Índices para mejora de rendimiento
-CREATE INDEX idx_video_titulo ON video (titulo);
-CREATE INDEX idx_video_created_at ON video (created_at);
+-- fotoperfil
 
-CREATE INDEX idx_cancion_titulo ON cancion (titulo);
-CREATE INDEX idx_cancion_usuario ON cancion (usuario_id);
+CREATE POLICY "permitirtodo ftpnhqo_0" ON storage.objects FOR SELECT TO public USING (bucket_id = 'fotoperfil');
+CREATE POLICY "permitirtodo ftpnhqo_1" ON storage.objects FOR UPDATE TO public USING (bucket_id = 'fotoperfil');
+CREATE POLICY "permitirtodo ftpnhqo_2" ON storage.objects FOR INSERT TO public WITH CHECK (bucket_id = 'fotoperfil');
+CREATE POLICY "permitirtodo ftpnhqo_3" ON storage.objects FOR DELETE TO public USING (bucket_id = 'fotoperfil');
 
-CREATE INDEX idx_notificacion_usuario_leido ON notificacion (usuario_id, leido);
-CREATE INDEX idx_mensaje_emisor_receptor ON mensaje (emisor_id, receptor_id);
-CREATE INDEX idx_seguidor_usuario_seguidor ON seguidor (usuario_id, seguidor_id);
-
-
-CREATE INDEX idx_perfil_username ON perfil (username);
-CREATE INDEX idx_perfil_habilidad_perfil ON perfil_habilidad (perfil_id, habilidad);
-CREATE INDEX idx_perfil_genero_perfil ON perfil_genero (perfil_id, genero);
-
-CREATE INDEX idx_cancion_created_at ON cancion (created_at);
-CREATE INDEX idx_cancion_usuario ON cancion (usuario_id);
-CREATE INDEX idx_likes_cancion_usuario ON likes_cancion (usuario_id, cancion_id);
-CREATE INDEX idx_comentario_cancion_usuario ON comentario_cancion (usuario_id, cancion_id);
-CREATE INDEX idx_comentario_cancion_created_at ON comentario_cancion (created_at);
-CREATE INDEX idx_perfil_nacionalidad ON perfil (nacionalidad);
 
 CREATE TABLE bloqueo (
     id BIGSERIAL PRIMARY KEY,
@@ -398,3 +384,22 @@ FOR EACH ROW
 EXECUTE FUNCTION set_message_unread();
 
 UPDATE mensaje SET leido = FALSE WHERE leido IS NULL;
+
+CREATE INDEX idx_cancion_titulo ON cancion (titulo);
+CREATE INDEX idx_cancion_usuario ON cancion (usuario_id);
+
+CREATE INDEX idx_notificacion_usuario_leido ON notificacion (usuario_id, leido);
+CREATE INDEX idx_mensaje_emisor_receptor ON mensaje (emisor_id, receptor_id);
+CREATE INDEX idx_seguidor_usuario_seguidor ON seguidor (usuario_id, seguidor_id);
+
+
+CREATE INDEX idx_perfil_username ON perfil (username);
+CREATE INDEX idx_perfil_habilidad_perfil ON perfil_habilidad (perfil_id, habilidad);
+CREATE INDEX idx_perfil_genero_perfil ON perfil_genero (perfil_id, genero);
+
+CREATE INDEX idx_cancion_created_at ON cancion (created_at);
+CREATE INDEX idx_cancion_usuario ON cancion (usuario_id);
+CREATE INDEX idx_likes_cancion_usuario ON likes_cancion (usuario_id, cancion_id);
+CREATE INDEX idx_comentario_cancion_usuario ON comentario_cancion (usuario_id, cancion_id);
+CREATE INDEX idx_comentario_cancion_created_at ON comentario_cancion (created_at);
+CREATE INDEX idx_perfil_nacionalidad ON perfil (nacionalidad);

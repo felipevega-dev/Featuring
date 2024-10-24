@@ -57,6 +57,11 @@ const Card: React.FC<CardProps> = ({
   const [imageError, setImageError] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
 
+  // Construir la URL pública de la foto de perfil
+  const profileImageUrl = card.foto_perfil
+    ? `https://jvtgpbgnxevfazwzbhtr.supabase.co/storage/v1/object/public/fotoperfil/${card.foto_perfil}`
+    : "https://via.placeholder.com/150";
+
   const renderHabilidades = (
     habilidades: { habilidad: string }[] | null | undefined
   ) => {
@@ -101,9 +106,9 @@ const Card: React.FC<CardProps> = ({
         <Text className="text-white text-center font-bold">{card.mensaje}</Text>
       </View>
       <View className="w-[75%] mt-2 h-2/5 rounded-xl overflow-hidden">
-        {card.foto_perfil && !imageError ? (
+        {profileImageUrl && !imageError ? (
           <Image
-            source={{ uri: card.foto_perfil }}
+            source={{ uri: profileImageUrl }}
             className="w-full h-full rounded-xl border-4 border-secondary-500"
             onError={() => setImageError(true)}
           />
@@ -173,7 +178,7 @@ const Card: React.FC<CardProps> = ({
             <ScrollView>
               <Image
                 source={
-                  card.foto_perfil ? { uri: card.foto_perfil } : icons.person
+                  profileImageUrl ? { uri: profileImageUrl } : icons.person
                 }
                 className="w-32 h-32 rounded-full self-center mb-4"
               />
@@ -293,7 +298,7 @@ const Match = () => {
         Math.sin(dLon / 2) *
         Math.sin(dLon / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c; // Distancia en km
+    return R * c;
   };
 
   const fetchUsers = async () => {
@@ -303,9 +308,9 @@ const Match = () => {
       setIsLoading(true);
 
       const { data: userPreferences, error: preferencesError } = await supabase
-        .from('perfil')
-        .select('preferencias_genero, preferencias_habilidad, preferencias_distancia')
-        .eq('usuario_id', currentUserId)
+        .from("perfil")
+        .select("preferencias_genero, preferencias_habilidad, preferencias_distancia")
+        .eq("usuario_id", currentUserId)
         .single();
 
       if (preferencesError) throw preferencesError;

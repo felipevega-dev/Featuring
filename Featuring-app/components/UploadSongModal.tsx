@@ -12,7 +12,6 @@ import {
 import * as ImagePicker from "expo-image-picker";
 import * as DocumentPicker from "expo-document-picker";
 import { supabase } from "@/lib/supabase";
-import { generosMusicalesCompletos } from '@/constants/musicData';
 import { Ionicons } from '@expo/vector-icons';
 import GenreSelectionModal from './GenreSelectionModal';
 

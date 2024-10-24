@@ -191,7 +191,10 @@ const EditarPerfil = () => {
             [],
           mensaje: data.mensaje || "",
         });
+
+        // No construimos la URL pública aquí, solo guardamos el path
         setFotoPerfil(data.foto_perfil);
+        console.log('Loaded profile image path:', data.foto_perfil);
       }
     } catch (error) {
       console.error("Error al obtener el perfil:", error);
@@ -216,7 +219,33 @@ const EditarPerfil = () => {
       });
 
       if (!result.canceled && result.assets && result.assets[0].uri) {
-        setFotoPerfil(result.assets[0].uri);
+        const uri = result.assets[0].uri;
+
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (!user) throw new Error("No se encontró el usuario");
+
+        const fileName = `${Date.now()}.jpg`;
+        const filePath = `${user.id}/${fileName}`;
+
+        const { error } = await supabase.storage
+          .from('fotoperfil')
+          .upload(filePath, {
+            uri,
+            name: fileName,
+            type: 'image/jpeg',
+          });
+
+        if (error) {
+          console.error('Error uploading image:', error);
+          Alert.alert("Error", "No se pudo subir la imagen de perfil");
+          return;
+        }
+
+        // Guardar solo el path en la base de datos
+        setFotoPerfil(filePath);
+        console.log('Image path saved:', filePath);
       }
     } catch (error) {
       console.error("Error al cambiar la foto de perfil:", error);
@@ -247,7 +276,7 @@ const EditarPerfil = () => {
         .from("perfil")
         .update({
           username: perfil.username,
-          foto_perfil: fotoPerfil,
+          foto_perfil: fotoPerfil, // Guardar solo el path
           sexo: perfil.sexo,
           ubicacion: perfil.ubicacion,
           biografia: perfil.biografia,
@@ -537,7 +566,7 @@ const EditarPerfil = () => {
 
         <StyledView className="items-center mb-2">
           <StyledImage
-            source={{ uri: fotoPerfil || "https://via.placeholder.com/150" }}
+            source={{ uri: fotoPerfil ? `https://jvtgpbgnxevfazwzbhtr.supabase.co/storage/v1/object/public/fotoperfil/${fotoPerfil}` : "https://via.placeholder.com/150" }}
             className="w-24 h-24 rounded-full mb-3"
           />
           <StyledTouchableOpacity onPress={cambiarFoto}>

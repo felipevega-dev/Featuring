@@ -187,6 +187,11 @@ export default function PublicProfile() {
     </View>
   );
 
+  // Construir la URL pública de la foto de perfil
+  const profileImageUrl = perfil.foto_perfil
+    ? `https://jvtgpbgnxevfazwzbhtr.supabase.co/storage/v1/object/public/fotoperfil/${perfil.foto_perfil}`
+    : "https://via.placeholder.com/150";
+
   const renderSongItem = ({ item }: { item: Cancion }) => (
     <SongCard cancion={item} currentUserId={id} onDeleteSong={() => {}} onUpdateSong={() => {}} />
   );
@@ -204,9 +209,9 @@ export default function PublicProfile() {
                 <View className="bg-white rounded-xl shadow-lg shadow-black/30 p-6 mb-10">
                     <View className="items-center pb-4">
                     <View className="w-36 h-36 rounded-full shadow-lg shadow-black/50 mb-4">
-                        {perfil.foto_perfil ? (
+                        {profileImageUrl ? (
                         <Image
-                            source={{ uri: perfil.foto_perfil }}
+                            source={{ uri: profileImageUrl }}
                             className="w-full h-full rounded-full border-10 border-secondary-500"
                         />
                         ) : (
