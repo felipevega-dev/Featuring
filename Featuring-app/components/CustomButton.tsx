@@ -4,17 +4,17 @@ import { ButtonProps } from "@/types/type";
 const getBgVariantStyle = (variant: ButtonProps["bgVariant"]) => {
   switch (variant) {
     case "primary":
-      return "bg-primary-600"; // Usando el color púrpura principal
+      return "bg-primary-600";
     case "secondary":
-      return "bg-secondary-500"; // Usando el color cian
+      return "bg-secondary-500";
     case "danger":
       return "bg-red-500";
     case "success":
       return "bg-green-500";
     case "outline":
-      return "bg-transparent border-neutral-300 border-[0.5px]";
+      return "bg-transparent border-neutral-300 border";
     default:
-      return "bg-primary-600"; // Usando el color púrpura principal
+      return "bg-primary-600";
   }
 };
 
@@ -45,11 +45,11 @@ const CustomButton = ({
 }: ButtonProps) => (
   <TouchableOpacity
     onPress={onPress}
-    className={`w-full  p-2 flex flex-row justify-center items-center shadow-md shadow-neutral-400/70 mb-5 ${getBgVariantStyle(bgVariant)} ${className}`}
+    className={`w-full py-3 flex flex-row justify-center items-center shadow-sm shadow-neutral-400/50 mb-3 rounded-md ${getBgVariantStyle(bgVariant)} ${className}`}
     {...props}
   >
     {IconLeft && <IconLeft />}
-    <Text className={`text-lg font-bold ${getTextVariantStyle(textVariant)}`}>
+    <Text className={`text-base font-bold ${getTextVariantStyle(textVariant)}`}>
       {title}
     </Text>
     {IconRight && <IconRight />}

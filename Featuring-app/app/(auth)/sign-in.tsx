@@ -5,6 +5,7 @@ import {
   Image,
   Alert,
   TouchableOpacity,
+  useWindowDimensions,
 } from "react-native";
 import { icons, images } from "@/constants";
 import { useCallback, useState, useEffect } from "react";
@@ -23,6 +24,7 @@ interface FormState {
 
 const SignIn = () => {
   const router = useRouter();
+  const { width } = useWindowDimensions();
 
   const [form, setForm] = useState<FormState>({
     email: "",
@@ -125,37 +127,16 @@ const SignIn = () => {
     }
   }, [form.email, form.password, rememberMe, router]);
 
-  const handleForgotPassword = async () => {
-    if (!form.email) {
-      Alert.alert('Error', 'Por favor, ingresa tu correo electrónico');
-      return;
-    }
-
-    try {
-      const { error } = await supabase.auth.resetPasswordForEmail(form.email, {
-        redirectTo: 'myapp://change-password',
-      });
-
-      if (error) throw error;
-
-      Alert.alert('Éxito', 'Se ha enviado un enlace de restablecimiento a tu correo electrónico. Por favor, revisa tu bandeja de entrada y sigue las instrucciones.');
-    } catch (error) {
-      Alert.alert('Error', 'No se pudo enviar el correo de restablecimiento. Por favor, verifica tu correo electrónico e inténtalo de nuevo.');
-    }
-  };
-
   return (
     <ScrollView className="flex-1 bg-white">
-      <View className="flex-1 bg-white">
-        <View className="relative w-full h-[140px] mt-20 flex items-center justify-center">
+      <View className="flex-1 bg-white px-4 sm:px-6 md:px-8">
+        <View className="relative w-full h-[140px] mt-10 sm:mt-14 flex items-center justify-center">
           <Image source={images.FeatLogo} className="z-0 w-[180px] h-[100px]" />
-        </View>
-        <View className="flex flex-col items-center">
-          <Text className="text-lg font-JakartaSemiBold text-primary-500">
+          <Text className="text-xl sm:text-2xl font-JakartaSemiBold text-primary-500 mt-2">
             Login
           </Text>
         </View>
-        <View className="p-5">
+        <View>
           <InputField
             label="Email"
             placeholder="Ingresa tu correo"
@@ -189,33 +170,32 @@ const SignIn = () => {
             checked={rememberMe}
             onPress={() => setRememberMe(!rememberMe)}
           />
-          <CustomButton
-            title="Iniciar Sesión"
-            onPress={onSignInPress}
-            className="mt-6"
-            disabled={isLoading}
-          />
           <Link href="/change-password" asChild>
             <TouchableOpacity className="mt-4 mb-4">
-              <Text className="text-center text-blue-600">
+              <Text className="text-center text-secondary-600 text-base sm:text-lg">
                 ¿Olvidaste tu contraseña?
               </Text>
             </TouchableOpacity>
           </Link>
-        
-          {/* OAuth */}
+          <CustomButton
+            title="Iniciar Sesión"
+            onPress={onSignInPress}
+            className="mt-3"
+            disabled={isLoading}
+          />
           <OAuth />
-          <Link
-            href="/sign-up"
-            className="text-xl text-center text-general-200 "
-          >
-            <View className="flex flex-col items-center">
-              <Text className="font-JakartaMedium">¿No tienes cuenta?</Text>
-              <Text className="font-JakartaMedium text-primary-500">
-                Regístrate
-              </Text>
-            </View>
-          </Link>
+          <View className="flex-1 items-center justify-center mt-6 mb-5">
+            <Link href="/sign-up">
+              <View className="flex flex-col items-center">
+                <Text className="font-JakartaMedium text-base sm:text-lg text-general-200">
+                  ¿No tienes cuenta?
+                </Text>
+                <Text className="font-JakartaMedium text-base sm:text-lg text-secondary-500">
+                  Regístrate
+                </Text>
+              </View>
+            </Link>
+          </View>
         </View>
       </View>
     </ScrollView>

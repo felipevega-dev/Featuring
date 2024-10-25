@@ -26,18 +26,18 @@ const InputField = ({
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-        <View className="mb-2 w-full">
-          <Text className={`text-lg font-JakartaSemiBold mb-2 ${labelStyle}`}>
+        <View className="mb-3 w-full">
+          <Text className={`text-sm font-JakartaSemiBold mb-1 ${labelStyle}`}>
             {label}
           </Text>
           <View
-            className={`flex flex-row justify-start items-center relative bg-neutral-100 border border-neutral-300 focus:border-primary-500 ${containerStyle}`}
+            className={`flex flex-row justify-start items-center relative bg-neutral-100 border border-neutral-300 focus:border-primary-500 rounded-md ${containerStyle}`}
           >
             {icon && (
-              <Image source={icon} className={`w-6 h-6 ml-4 ${iconStyle}`} />
+              <Image source={icon} className={`w-5 h-5 ml-3 ${iconStyle}`} />
             )}
             <TextInput
-              className={`p-3 font-JakartaSemiBold text-[15px] flex-1 ${inputStyle} text-left`}
+              className={`py-2.5 px-3 font-JakartaSemiBold text-base flex-1 ${inputStyle} text-left`}
               secureTextEntry={secureTextEntry}
               {...props}
             />

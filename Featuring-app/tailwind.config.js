@@ -79,6 +79,14 @@ module.exports = {
           800: "#ADADAD",
         },
       },
+      screens: {
+        'sm': '640px',
+        'md': '768px',
+        'lg': '1024px',
+        'xl': '1280px',
+        '2xl': '1536px',
+        'poco-c65': {'raw': '(min-width: 720px) and (max-width: 1600px)'}, // Específico para tu dispositivo
+      },
     },
   },
   plugins: [],

@@ -1,5 +1,5 @@
 import React from "react";
-import { TouchableOpacity, View, Text, StyleSheet } from "react-native";
+import { TouchableOpacity, View, Text } from "react-native";
 
 interface CustomCheckboxProps {
   title: string;
@@ -13,42 +13,24 @@ const CustomCheckbox: React.FC<CustomCheckboxProps> = ({
   onPress,
 }) => {
   return (
-    <TouchableOpacity style={styles.container} onPress={onPress}>
-      <View style={[styles.checkbox, checked && styles.checked]}>
-        {checked && <View style={styles.innerCheck} />}
+    <TouchableOpacity 
+      className="flex flex-row items-center justify-end my-2" 
+      onPress={onPress}
+    >
+      <Text className="text-base text-general-200 mr-2 font-JakartaMedium">
+        {title}
+      </Text>
+      <View 
+        className={`w-5 h-5 border-2 border-primary-500 rounded-sm justify-center items-center ${
+          checked ? 'bg-secondary-600' : 'bg-white'
+        }`}
+      >
+        {checked && (
+          <View className="w-3 h-3 bg-secondary-400 rounded-sm" />
+        )}
       </View>
-      <Text style={styles.title}>{title}</Text>
     </TouchableOpacity>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginVertical: 8,
-  },
-  checkbox: {
-    width: 20,
-    height: 20,
-    borderWidth: 2,
-    borderColor: "#3B1070",
-    marginRight: 10,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  checked: {
-    backgroundColor: "#00A38C",
-  },
-  innerCheck: {
-    width: 12,
-    height: 12,
-    backgroundColor: "#66E7D5",
-  },
-  title: {
-    fontSize: 16,
-    color: "#3B1070",
-  },
-});
 
 export default CustomCheckbox;
