@@ -60,7 +60,7 @@ const SignIn = () => {
       .maybeSingle();
 
     if (error && error.code !== "PGRST116") {
-      console.error("Error al verificar el perfil:", error);
+      Alert.alert("Error", "No se pudo verificar el perfil. Por favor, intenta de nuevo.");
       return false;
     }
 
@@ -76,40 +76,26 @@ const SignIn = () => {
       });
 
       if (error) {
-        console.error("Error de inicio de sesión:", error.message);
         switch (error.message) {
           case "Invalid login credentials":
             Alert.alert("Error", "Correo electrónico o contraseña incorrectos");
             break;
           case "Email not confirmed":
-            Alert.alert(
-              "Error",
-              "Por favor, confirma tu correo electrónico antes de iniciar sesión"
-            );
+            Alert.alert("Error", "Por favor, confirma tu correo electrónico antes de iniciar sesión");
             break;
           case "Too many requests":
-            Alert.alert(
-              "Error",
-              "Demasiados intentos fallidos. Por favor, intenta más tarde"
-            );
+            Alert.alert("Error", "Demasiados intentos fallidos. Por favor, intenta más tarde");
             break;
           case "User not found":
-            Alert.alert(
-              "Error",
-              "No se encontró ninguna cuenta con este correo electrónico"
-            );
+            Alert.alert("Error", "No se encontró ninguna cuenta con este correo electrónico");
             break;
           default:
-            Alert.alert(
-              "Error",
-              `Ocurrió un error durante el inicio de sesión: ${error.message}`
-            );
+            Alert.alert("Error", "Ocurrió un error durante el inicio de sesión. Por favor, intenta de nuevo.");
         }
         return;
       }
 
       if (data.user) {
-        // Guardar el user.id en AsyncStorage para uso futuro
         await AsyncStorage.setItem("usuario_id", data.user.id);
 
         if (rememberMe) {
@@ -130,14 +116,10 @@ const SignIn = () => {
           router.replace("/(auth)/preguntas");
         }
       } else {
-        throw new Error("No se pudo obtener la información del usuario");
+        Alert.alert("Error", "No se pudo obtener la información del usuario. Por favor, intenta de nuevo.");
       }
     } catch (error) {
-      console.error("Error durante el inicio de sesión:", error);
-      Alert.alert(
-        "Error",
-        "Ocurrió un error inesperado durante el inicio de sesión"
-      );
+      Alert.alert("Error", "Ocurrió un error inesperado durante el inicio de sesión. Por favor, intenta de nuevo.");
     } finally {
       setIsLoading(false);
     }
@@ -158,8 +140,7 @@ const SignIn = () => {
 
       Alert.alert('Éxito', 'Se ha enviado un enlace de restablecimiento a tu correo electrónico. Por favor, revisa tu bandeja de entrada y sigue las instrucciones.');
     } catch (error) {
-      console.error('Error al enviar el correo de restablecimiento:', error);
-      Alert.alert('Error', 'No se pudo enviar el correo de restablecimiento. Inténtalo de nuevo.');
+      Alert.alert('Error', 'No se pudo enviar el correo de restablecimiento. Por favor, verifica tu correo electrónico e inténtalo de nuevo.');
     }
   };
 
