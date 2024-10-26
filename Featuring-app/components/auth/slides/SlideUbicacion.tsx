@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { PreguntasState, PreguntasAction } from '@/types/preguntas';
 import { useLocation } from '@/hooks/useLocation';
@@ -14,52 +14,67 @@ export function SlideUbicacion({ state, dispatch, onValidationComplete }: SlideU
   const { location } = state;
   const { requestLocationPermission } = useLocation();
   const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     onValidationComplete(!!location);
   }, [location]);
 
   const handleRequestLocation = async () => {
+    setIsLoading(true);
+    setError(null);
     try {
       const newLocation = await requestLocationPermission();
       if (newLocation) {
         dispatch({ type: 'SET_LOCATION', payload: newLocation });
-        setError(null);
       } else {
         setError('No se pudo obtener la ubicación. Por favor, inténtalo de nuevo.');
       }
     } catch (err) {
       setError('Error al solicitar permisos de ubicación. Por favor, inténtalo de nuevo.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
-    <View className="flex-1 justify-center items-center mb-10 pb-10 p-4">
-      <Ionicons name="location" size={80} color="#6D29D2" />
-      <Text className="text-2xl text-primary-700 font-JakartaBold mb-6 text-center">
+    <View className="flex-1 justify-center items-center px-4 py-6 sm:py-8 md:py-10 mb-14">
+      <View className="mb-4 sm:mb-6 md:mb-8">
+        <Ionicons name="location" size={60} color="#6D29D2" />
+      </View>
+      <Text className="text-xl sm:text-2xl md:text-3xl text-primary-700 font-JakartaBold mb-4 sm:mb-6 md:mb-8 text-center">
         Habilita tu ubicación
       </Text>
-      <Text className="text-center text-primary-700 mt-4 px-4 mb-6">
-        Necesitamos tu ubicación para mejorar tu experiencia en la aplicación y permitirte colaborar con otros artistas cercanos. Esta información es esencial para nuestra funcionalidad de colaboración.
+      <Text className="text-center text-primary-700 text-base sm:text-lg mb-6 sm:mb-8">
+        Necesitamos tu ubicación para mejorar tu experiencia en la aplicación y permitirte colaborar con otros artistas cercanos.
       </Text>
       <TouchableOpacity
-        className="bg-primary-500 border-2 border-primary-700 p-3 mt-4 rounded-md"
+        className="bg-primary-500 px-6 py-3 rounded-full mb-4 sm:mb-6"
         onPress={handleRequestLocation}
+        disabled={isLoading}
       >
-        <Text className="text-white font-JakartaBold">Permitir ubicación</Text>
+        {isLoading ? (
+          <ActivityIndicator color="#ffffff" />
+        ) : (
+          <Text className="text-white font-JakartaBold text-base sm:text-lg">
+            {location ? "Actualizar ubicación" : "Permitir ubicación"}
+          </Text>
+        )}
       </TouchableOpacity>
       {location && (
-        <Text className="text-center text-primary-700 mt-4">
-          Ubicación obtenida: {location.ubicacion}
-        </Text>
+        <View className="bg-primary-100 p-4 rounded-lg mb-4">
+          <Text className="text-center text-secondary-700 font-JakartaMedium text-sm sm:text-base">
+            Ubicación obtenida: {location.ubicacion}
+          </Text>
+        </View>
       )}
       {error && (
-        <Text className="text-center text-danger-600 mt-4">
+        <Text className="text-center text-danger-600 mt-2 text-sm sm:text-base">
           {error}
         </Text>
       )}
       {!location && (
-        <Text className="text-center text-danger-600 mt-4">
+        <Text className="text-center text-danger-600 mt-2 text-sm sm:text-base">
           Debes habilitar la ubicación para continuar.
         </Text>
       )}

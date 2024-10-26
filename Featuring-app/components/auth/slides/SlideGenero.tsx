@@ -22,16 +22,16 @@ export function SlideGenero({ state, dispatch, onValidationComplete }: SlideGene
   };
 
   return (
-    <View className="flex-1 justify-center items-center mb-10 p-4">
-      <View className="mb-3">
-        <FontAwesome name="intersex" size={80} color="#00BFA5" />
+    <View className="flex-1 justify-center items-center px-4 py-6 sm:py-8 md:py-10 mb-14">
+      <View className="mb-4 sm:mb-6 md:mb-8">
+        <FontAwesome name="intersex" size={60} color="#00BFA5" />
       </View>
-      <Text className="text-2xl text-primary-700 font-JakartaBold mb-5">
+      <Text className="text-xl sm:text-2xl md:text-3xl text-primary-700 font-JakartaBold mb-6 sm:mb-8 md:mb-10">
         Selecciona tu género
       </Text>
-      <View className="flex flex-row mb-20">
+      <View className="flex flex-row justify-center w-full">
         <TouchableOpacity
-          className={`p-4 mx-1 border-2 rounded-full ${
+          className={`px-4 py-3 sm:px-6 sm:py-4 mx-1 sm:mx-2 border-2 rounded-full ${
             genero === "Masculino"
               ? "bg-primary-500 border-primary-700"
               : "bg-primary-200 border-primary-400"
@@ -43,13 +43,13 @@ export function SlideGenero({ state, dispatch, onValidationComplete }: SlideGene
               genero === "Masculino"
                 ? "text-white"
                 : "text-primary-700"
-            } font-JakartaSemiBold`}
+            } font-JakartaSemiBold text-sm sm:text-base`}
           >
             Masculino
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
-          className={`p-4 mx-2 border-2 rounded-full ${
+          className={`px-4 py-3 sm:px-6 sm:py-4 mx-1 sm:mx-2 border-2 rounded-full ${
             genero === "Femenino"
               ? "bg-secondary-500 border-secondary-700"
               : "bg-primary-200 border-primary-400"
@@ -61,13 +61,13 @@ export function SlideGenero({ state, dispatch, onValidationComplete }: SlideGene
               genero === "Femenino"
                 ? "text-white"
                 : "text-secondary-700"
-            } font-JakartaSemiBold`}
+            } font-JakartaSemiBold text-sm sm:text-base`}
           >
             Femenino
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
-          className={`p-4 mx-2 border-2 rounded-full ${
+          className={`px-4 py-3 sm:px-6 sm:py-4 mx-1 sm:mx-2 border-2 rounded-full ${
             genero === "Otro"
               ? "bg-general-200 border-general-400"
               : "bg-primary-200 border-primary-400"
@@ -77,7 +77,7 @@ export function SlideGenero({ state, dispatch, onValidationComplete }: SlideGene
           <Text
             className={`${
               genero === "Otro" ? "text-white" : "text-general-800"
-            } font-JakartaSemiBold`}
+            } font-JakartaSemiBold text-sm sm:text-base`}
           >
             Otro
           </Text>

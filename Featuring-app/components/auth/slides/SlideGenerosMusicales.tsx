@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Alert } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { PreguntasState, PreguntasAction } from '@/types/preguntas';
 import { generosMusicalesCompletos } from '@/constants/musicData';
 
@@ -32,28 +32,35 @@ export function SlideGenerosMusicales({ state, dispatch, onValidationComplete }:
   };
 
   return (
-    <View className="flex-1 justify-start items-center mt-8 p-4">
-      <Text className="text-2xl text-primary-700 font-JakartaBold mb-6">
-        Selecciona tus 5 géneros musicales favoritos
+    <View className="flex-1 justify-start items-center px-4 py-6 sm:py-8 md:py-10 mb-14">
+      <View className="mb-2 sm:mb-6 md:mb-8 mt-2">
+        <MaterialCommunityIcons name="music-clef-treble" size={50} color="#6D29D2" />
+      </View>
+      <Text className="text-xl sm:text-2xl md:text-3xl text-primary-700 font-JakartaBold mb-2 sm:mb-6 md:mb-8 text-center">
+        Selecciona tus géneros musicales favoritos
       </Text>
-      <ScrollView style={{ maxHeight: 300 }} contentContainerStyle={{ flexGrow: 1 }}>
+      <ScrollView 
+        className="w-full" 
+        contentContainerStyle={{ paddingBottom: 20 }}
+        showsVerticalScrollIndicator={true}
+      >
         <View className="flex-row flex-wrap justify-center">
           {generosMusicalesCompletos.map((genero) => (
             <TouchableOpacity
               key={genero}
               onPress={() => toggleGeneroMusical(genero)}
-              className={`m-2 p-3 rounded-full ${
+              className={`m-1 sm:m-2 p-2 sm:p-3 rounded-full ${
                 generosMusicales.includes(genero)
-                  ? "bg-secondary-600"
-                  : "bg-gray-200"
+                  ? "bg-primary-700"
+                  : "bg-primary-200"
               }`}
             >
               <Text
-                className={`text-center ${
+                className={`text-center text-sm sm:text-base ${
                   generosMusicales.includes(genero)
                     ? "text-white"
-                    : "text-gray-800"
-                }`}
+                    : "text-primary-700"
+                } font-JakartaMedium`}
               >
                 {genero}
               </Text>
@@ -61,12 +68,33 @@ export function SlideGenerosMusicales({ state, dispatch, onValidationComplete }:
           ))}
         </View>
       </ScrollView>
-      {generosMusicales.length === 0 && (
-        <Text className="text-danger-600 mt-2">
-          Por favor, selecciona al menos un género musical.
+      {generosMusicales.length === 0 ? (
+        <Text className="text-danger-600 mt-2 text-sm sm:text-base text-center">
+          Por favor, selecciona al menos una habilidad musical.
         </Text>
+      ) : (
+        <>
+          <Text className="text-secondary-600 mb-2 mt-1 text-sm sm:text-base text-center font-JakartaBold">
+            Seleccionadas: {generosMusicales.length}/5
+          </Text>
+          <View 
+            className="w-full"
+          >
+            <View className="flex-row flex-wrap justify-center">
+              {generosMusicales.map((genero, index) => (
+                <View 
+                  key={genero} 
+                  className="bg-primary-500 rounded-full py-1 px-1 mr-1 mb-2"
+                >
+                  <Text className="text-white text-sm font-JakartaMedium">
+                    {genero}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        </>
       )}
-      <Ionicons name="musical-note" size={80} color="#6D29D2" />
     </View>
   );
 }

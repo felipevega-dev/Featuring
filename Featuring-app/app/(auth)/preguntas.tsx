@@ -26,8 +26,8 @@ import {
   SlideDescripcion,
   SlideUbicacion,
 } from "@/components/auth/slides";
-import { phoneNumberMaxLength } from '@/utils/countryCodes';
 import { checkPhoneNumberExists, checkUsernameExists } from '@/utils/profileUtils';
+import { supabase } from "@/lib/supabase";
 
 const { width, height } = Dimensions.get("window");
 
@@ -49,18 +49,86 @@ export default function Preguntas() {
     });
   };
 
+  const uploadProfileImage = async (imageUri: string) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("No se encontró el usuario");
+
+      const fileExt = imageUri.split('.').pop();
+      const fileName = `${Date.now()}.${fileExt}`;
+      const filePath = `${user.id}/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('fotoperfil')
+        .upload(filePath, {
+          uri: imageUri,
+          name: fileName,
+          type: `image/${fileExt}`,
+        });
+
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      // Devolvemos solo el path relativo, no la URL completa
+      return filePath;
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      throw error;
+    }
+  };
+
   const handleNext = async () => {
     if (isLastSlide) {
       if (validateAllFields()) {
-        await saveProfile(state);
-        router.replace("/(root)/(tabs)/home");
+        try {
+          let profileImagePath = state.profileImage;
+          if (profileImagePath && profileImagePath.startsWith('file://')) {
+            // Si la imagen es local, súbela al storage
+            profileImagePath = await uploadProfileImage(profileImagePath);
+          }
+
+          // Actualiza el estado con el nuevo path de la imagen
+          dispatch({ type: 'SET_PROFILE_IMAGE', payload: profileImagePath });
+
+          // Guarda el perfil con el nuevo path de la imagen
+          await saveProfile({ ...state, profileImage: profileImagePath });
+          router.replace("/(root)/(tabs)/home");
+        } catch (error) {
+          console.error("Error al guardar el perfil:", error);
+          Alert.alert("Error", "Hubo un problema al guardar tu perfil. Por favor, inténtalo de nuevo.");
+        }
       } else {
-        Alert.alert("Error", "Por favor, completa todos los campos antes de continuar.");
+        Alert.alert("Campos incompletos", "Por favor, completa todos los campos antes de continuar.");
       }
     } else if (slideValidations[activeIndex]) {
+      if (activeIndex === 0) {
+        // Validación adicional para el primer slide (username y teléfono)
+        const usernameExists = await checkUsernameExists(state.username);
+        const phoneExists = await checkPhoneNumberExists(state.telefono);
+        
+        if (usernameExists) {
+          Alert.alert("Error", "Este nombre de usuario ya está en uso. Por favor, elige otro.");
+          return;
+        }
+        if (phoneExists) {
+          Alert.alert("Error", "Este número de teléfono ya está registrado. Por favor, usa otro.");
+          return;
+        }
+      }
       swiperRef.current?.scrollBy(1);
     } else {
-      // Aquí podrías mostrar una alerta específica para cada slide si lo deseas
+      const slideMessages = [
+        "Por favor, ingresa un nombre de usuario y número de teléfono válidos.",
+        "Selecciona tu género.",
+        "Ingresa una fecha de nacimiento válida.",
+        "Selecciona al menos una habilidad musical.",
+        "Elige al menos un género musical.",
+        "Sube una foto de perfil.",
+        "Escribe una breve descripción sobre ti.",
+        "Proporciona tu ubicación."
+      ];
+      Alert.alert("Información incompleta", slideMessages[activeIndex]);
     }
   };
 
@@ -87,7 +155,7 @@ export default function Preguntas() {
         style={{ flex: 1 }}
         keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
       >
-        <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
+      
           <View className="flex-1">
             <View className="relative w-full h-[100px] mt-10 flex items-center justify-center">
               <Image
@@ -105,7 +173,7 @@ export default function Preguntas() {
               onIndexChanged={setActiveIndex}
               showsPagination={true}
               paginationStyle={{ top: 10, bottom: undefined }}
-              style={{ height: height - 250 }}
+              style={{ height: height - 120 }}
             >
               <SlideUsername 
                 state={state} 
@@ -149,10 +217,10 @@ export default function Preguntas() {
               />
             </Swiper>
           </View>
-        </ScrollView>
+
 
         {!keyboardVisible && (
-          <View className="w-full absolute bottom-10 pt-10 flex flex-row justify-between items-center px-4">
+          <View className="w-full absolute bottom-2 flex flex-row justify-between items-center px-4">
             {!isFirstSlide && (
               <CustomButton
                 title="Atrás"
