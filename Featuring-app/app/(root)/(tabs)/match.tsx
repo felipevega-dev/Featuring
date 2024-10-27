@@ -57,10 +57,17 @@ const Card: React.FC<CardProps> = ({
   const [imageError, setImageError] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
 
-  // Construir la URL pública de la foto de perfil
-  const profileImageUrl = card.foto_perfil
-    ? `https://jvtgpbgnxevfazwzbhtr.supabase.co/storage/v1/object/public/fotoperfil/${card.foto_perfil}`
-    : "https://via.placeholder.com/150";
+  // Actualizar la URL del bucket de Supabase
+  const getProfileImageUrl = (fotoPerfilPath: string | null) => {
+    if (!fotoPerfilPath) {
+      return null;
+    }
+    return `https://eizcbcljfpartgeausfy.supabase.co/storage/v1/object/public/fotoperfil/${fotoPerfilPath}`;
+
+  };
+
+  // Usar la nueva función para obtener la URL
+  const profileImageUrl = card.foto_perfil ? getProfileImageUrl(card.foto_perfil) : null;
 
   const renderHabilidades = (
     habilidades: { habilidad: string }[] | null | undefined
@@ -178,7 +185,9 @@ const Card: React.FC<CardProps> = ({
             <ScrollView>
               <Image
                 source={
-                  profileImageUrl ? { uri: profileImageUrl } : icons.person
+                  profileImageUrl 
+                    ? { uri: profileImageUrl }
+                    : icons.person
                 }
                 className="w-32 h-32 rounded-full self-center mb-4"
               />
@@ -464,7 +473,7 @@ const Match = () => {
         .eq("id", connectionId);
 
       if (error) throw error;
-      console.log(`Conexión ${connectionId} actualizada a estado: ${status}`);
+      console.log(`Conexi��n ${connectionId} actualizada a estado: ${status}`);
     } catch (error) {
       console.error("Error al actualizar el estado de la conexión:", error);
     }

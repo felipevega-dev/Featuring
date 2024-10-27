@@ -155,12 +155,12 @@ export default function Profile() {
     );
   };
 
-  // Modificar esta parte para construir correctamente la URL de la imagen
+  // Construir la URL pública de la foto de perfil
   const getProfileImageUrl = (fotoPerfilPath: string | null) => {
     if (!fotoPerfilPath) {
       return null;
     }
-    return `https://jvtgpbgnxevfazwzbhtr.supabase.co/storage/v1/object/public/fotoperfil/${fotoPerfilPath}`;
+    return `https://eizcbcljfpartgeausfy.supabase.co/storage/v1/object/public/fotoperfil/${fotoPerfilPath}`;
   };
 
   if (isLoading) {
@@ -236,7 +236,9 @@ export default function Profile() {
               <View className="w-36 h-36 rounded-full shadow-lg shadow-black/50 mb-4">
                 {perfil.foto_perfil ? (
                   <Image
-                    source={{ uri: getProfileImageUrl(perfil.foto_perfil) }}
+                    source={{ 
+                      uri: getProfileImageUrl(perfil.foto_perfil) || "https://via.placeholder.com/150"
+                    }}
                     className="w-full h-full rounded-full border-10 border-secondary-500"
                   />
                 ) : (

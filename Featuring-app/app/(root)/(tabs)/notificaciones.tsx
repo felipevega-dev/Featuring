@@ -73,6 +73,12 @@ const Notificaciones = () => {
           ? `${item.perfil.username} te ha dado like, ¡conecta!`
           : item.tipo_notificacion === 'match' && item.perfil
           ? `Conectaste con ${item.perfil.username}, ¡empieza a colaborar!`
+          : item.tipo_notificacion === 'like_video' && item.perfil
+          ? `${item.perfil.username} ha dado like a tu video`
+          : item.tipo_notificacion === 'comentario_video' && item.perfil
+          ? `${item.perfil.username} ha comentado tu video`
+          : item.tipo_notificacion === 'like_comentario_video' && item.perfil
+          ? `A ${item.perfil.username} le gustó tu comentario en un video`
           : item.tipo_notificacion === 'like_cancion' && item.perfil
           ? `A ${item.perfil.username} le gustó tu publicación`
           : item.tipo_notificacion === 'comentario_cancion' && item.perfil

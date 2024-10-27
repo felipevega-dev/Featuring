@@ -166,51 +166,105 @@ const VideoCard: React.FC<VideoCardProps> = ({
   const handleLike = async () => {
     try {
       if (isLiked) {
-        await supabase
+        const { error } = await supabase
           .from("likes_video")
           .delete()
           .eq("video_id", video.id)
           .eq("usuario_id", currentUserId);
+
+        if (error) throw error;
+        
         setLikesCount((prev) => prev - 1);
+        setIsLiked(false);
       } else {
-        await supabase
+        const { error } = await supabase
           .from("likes_video")
-          .insert({ video_id: video.id, usuario_id: currentUserId });
+          .insert({ 
+            video_id: video.id, 
+            usuario_id: currentUserId 
+          })
+          .single();
+
+        if (error) {
+          // Si ya existe el like, no hacemos nada
+          if (error.code === '23505') { // Código de error para violación de restricción única
+            return;
+          }
+          throw error;
+        }
+
         setLikesCount((prev) => prev + 1);
+        setIsLiked(true);
+
+        // Crear notificación de like solo si el usuario que da like no es el creador del video
+        if (currentUserId !== video.usuario_id) {
+          const { error: notificationError } = await supabase
+            .from('notificacion')
+            .insert({
+              usuario_id: video.usuario_id,
+              tipo_notificacion: 'like_video',
+              leido: false,
+              usuario_origen_id: currentUserId,
+              contenido_id: video.id
+            });
+
+          if (notificationError) {
+            console.error('Error al crear notificación de like:', notificationError);
+          }
+        }
       }
-      setIsLiked(!isLiked);
     } catch (error) {
       console.error("Error al dar/quitar like:", error);
+      // Revertir el estado en caso de error
+      setIsLiked((prev) => !prev);
+      setLikesCount((prev) => isLiked ? prev + 1 : prev - 1);
     }
   };
 
   const fetchComentarios = async () => {
     try {
-      const { data, error } = await supabase
+      // Primero obtenemos los comentarios con sus perfiles
+      const { data: comentariosData, error: comentariosError } = await supabase
         .from("comentario_video")
         .select(
           `
           *,
-          perfil:usuario_id (
+          perfil:perfil (
             username,
             foto_perfil
-          ),
-          likes:likes_comentario_video (*)
+          )
         `
         )
         .eq("video_id", video.id)
         .order("created_at", { ascending: false });
-      if (error) throw error;
 
-      const comentariosConLikes = data.map((comentario) => ({
-        ...comentario,
-        isLiked: comentario.likes.some(
-          (like: any) => like.usuario_id === currentUserId
-        ),
-        likes_count: comentario.likes.length,
-      }));
+      if (comentariosError) throw comentariosError;
 
-      setComentarios(comentariosConLikes);
+      // Luego obtenemos los likes de los comentarios
+      const { data: likesData, error: likesError } = await supabase
+        .from("likes_comentario")  // Asumiendo que esta es la tabla correcta para likes de comentarios
+        .select("*")
+        .in(
+          "comentario_id", 
+          comentariosData?.map(c => c.id) || []
+        );
+
+      if (likesError) throw likesError;
+
+      // Combinamos la información
+      const comentariosConLikes = comentariosData?.map(comentario => {
+        const comentarioLikes = likesData?.filter(
+          like => like.comentario_id === comentario.id
+        ) || [];
+        
+        return {
+          ...comentario,
+          isLiked: comentarioLikes.some(like => like.usuario_id === currentUserId),
+          likes_count: comentarioLikes.length
+        };
+      });
+
+      setComentarios(comentariosConLikes || []);
     } catch (error) {
       console.error("Error al obtener comentarios:", error);
     }
@@ -241,16 +295,37 @@ const VideoCard: React.FC<VideoCardProps> = ({
           .select(
             `
             *,
-            perfil:usuario_id (
+            perfil:perfil (
               username,
               foto_perfil
             )
           `
           )
           .single();
+
         if (error) throw error;
-        setComentarios([data, ...comentarios]);
-        setNuevoComentario("");
+
+        if (data) {
+          setComentarios([data, ...comentarios]);
+          setNuevoComentario("");
+
+          // Crear notificación de comentario solo si el usuario que comenta no es el creador del video
+          if (currentUserId !== video.usuario_id) {
+            const { error: notificationError } = await supabase
+              .from('notificacion')
+              .insert({
+                usuario_id: video.usuario_id,
+                tipo_notificacion: 'comentario_video',
+                leido: false,
+                usuario_origen_id: currentUserId,
+                contenido_id: video.id
+              });
+
+            if (notificationError) {
+              console.error('Error al crear notificación de comentario:', notificationError);
+            }
+          }
+        }
       } catch (error) {
         console.error("Error al enviar el comentario:", error);
         Alert.alert(
@@ -271,11 +346,31 @@ const VideoCard: React.FC<VideoCardProps> = ({
     try {
       if (newIsLiked) {
         await supabase
-          .from("likes_comentario_video")
-          .insert({ comentario_id: comentarioId, usuario_id: currentUserId });
+          .from("likes_comentario")
+          .insert({ 
+            comentario_id: comentarioId,
+            usuario_id: currentUserId 
+          });
+
+        // Crear notificación de like en comentario solo si el usuario que da like no es el creador del comentario
+        if (currentUserId !== comentario.usuario_id) {
+          const { error: notificationError } = await supabase
+            .from('notificacion')
+            .insert({
+              usuario_id: comentario.usuario_id,
+              tipo_notificacion: 'like_comentario_video',
+              leido: false,
+              usuario_origen_id: currentUserId,
+              contenido_id: comentarioId
+            });
+
+          if (notificationError) {
+            console.error('Error al crear notificación de like en comentario:', notificationError);
+          }
+        }
       } else {
         await supabase
-          .from("likes_comentario_video")
+          .from("likes_comentario")
           .delete()
           .eq("comentario_id", comentarioId)
           .eq("usuario_id", currentUserId);

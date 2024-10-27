@@ -566,7 +566,11 @@ const EditarPerfil = () => {
 
         <StyledView className="items-center mb-2">
           <StyledImage
-            source={{ uri: fotoPerfil ? `https://jvtgpbgnxevfazwzbhtr.supabase.co/storage/v1/object/public/fotoperfil/${fotoPerfil}` : "https://via.placeholder.com/150" }}
+            source={{ 
+              uri: fotoPerfil 
+                ? `https://eizcbcljfpartgeausfy.supabase.co/storage/v1/object/public/fotoperfil/${fotoPerfil}`
+                : "https://via.placeholder.com/150"
+            }}
             className="w-24 h-24 rounded-full mb-3"
           />
           <StyledTouchableOpacity onPress={cambiarFoto}>
