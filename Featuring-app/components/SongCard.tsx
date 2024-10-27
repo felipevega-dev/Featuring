@@ -362,7 +362,7 @@ const handleLike = async () => {
                 tipo_notificacion: 'comentario_cancion',
                 leido: false,
                 usuario_origen_id: currentUserId,
-                contenido_id: cancion.id
+                contenido_id: cancion.id // Usamos el ID de la canción en lugar del comentario
               });
 
             if (notificationError) {
@@ -773,6 +773,24 @@ const handleLike = async () => {
           )
         );
 
+        // Agregar notificación para la respuesta al comentario
+        const comentarioOriginal = comentarios.find(c => c.id === respondingTo.id);
+        if (comentarioOriginal && comentarioOriginal.usuario_id !== currentUserId) {
+          const { error: notificationError } = await supabase
+            .from('notificacion')
+            .insert({
+              usuario_id: comentarioOriginal.usuario_id,
+              tipo_notificacion: 'respuesta_comentario',
+              leido: false,
+              usuario_origen_id: currentUserId,
+              contenido_id: cancion.id
+            });
+
+          if (notificationError) {
+            console.error('Error al crear notificación de respuesta:', notificationError);
+          }
+        }
+
         setRespuestaTexto('');
         setRespondingTo(null);
       }
@@ -795,13 +813,12 @@ const handleLike = async () => {
           <View className="flex-1">
             <View className="flex-row items-center">
               <Text className="font-JakartaBold text-sm mr-2">
-                {item.perfil?.username ||
-                  "Usuario desconocido"}
-          </Text>
+                {item.perfil?.username || "Usuario desconocido"}
+              </Text>
               <Text className="text-xs text-general-200">
-            {formatCommentDate(item.created_at)}
-          </Text>
-        </View>
+                {formatCommentDate(item.created_at)}
+              </Text>
+            </View>
             <Text className="text-sm mt-1">
               {item.contenido}
             </Text>

@@ -79,6 +79,8 @@ const Notificaciones = () => {
           ? `${item.perfil.username} ha comentado tu publicación`
           : item.tipo_notificacion === 'like_comentario_cancion' && item.perfil
           ? `A ${item.perfil.username} le gustó tu comentario en una canción`
+          : item.tipo_notificacion === 'respuesta_comentario' && item.perfil
+          ? `${item.perfil.username} ha respondido a tu comentario`
           : item.tipo_notificacion}
       </Text>
       <Text className="text-gray-400 mt-1 text-xs">

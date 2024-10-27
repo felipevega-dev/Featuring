@@ -13,6 +13,10 @@ export function SlideDescripcion({ state, dispatch, onValidationComplete }: Slid
   const { descripcion } = state;
   const [charCount, setCharCount] = useState(0);
 
+  useEffect(() => {
+    onValidationComplete(true);
+  }, []);
+
   const handleDescripcionChange = (text: string) => {
     if (text.length <= 300) {
       dispatch({ type: 'SET_DESCRIPCION', payload: text });
