@@ -18,6 +18,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useAudioPlayer } from "@/contexts/AudioPlayerContext";
 import EditSongModal from "./EditSongModal";
 import { RealtimeChannel } from '@supabase/supabase-js';
+import Constants from "expo-constants";
 
 interface Perfil {
   usuario_id: string;
@@ -120,9 +121,10 @@ const SongCard: React.FC<SongCardProps> = ({
   const [respuestaTexto, setRespuestaTexto] = useState('');
   const [commentSubscription, setCommentSubscription] = useState<RealtimeChannel | null>(null);
   
+  const supabaseUrl = Constants.expoConfig?.extra?.supabaseUrl;
   // Construir la URL pública de la foto de perfil
   const profileImageUrl = cancion.perfil?.foto_perfil
-    ? `https://jvtgpbgnxevfazwzbhtr.supabase.co/storage/v1/object/public/fotoperfil/${cancion.perfil.foto_perfil}`
+    ? `${supabaseUrl}/storage/v1/object/public/fotoperfil/${cancion.perfil.foto_perfil}`
     : "https://via.placeholder.com/30";
 
   useEffect(() => {
@@ -806,7 +808,9 @@ const handleLike = async () => {
         <View className="flex-row items-center flex-1">
           {item.perfil?.foto_perfil && (
             <Image
-              source={{ uri: item.perfil.foto_perfil }}
+            source={{
+              uri: `${supabaseUrl}/storage/v1/object/public/fotoperfil/${item.perfil.foto_perfil}`
+              }}
               className="w-8 h-8 rounded-full mr-2"
             />
           )}
@@ -879,7 +883,9 @@ const handleLike = async () => {
             <View className="flex-row items-center flex-1">
               {respuesta.perfil?.foto_perfil && (
                 <Image
-                  source={{ uri: respuesta.perfil.foto_perfil }}
+                  source={{
+                    uri: `${supabaseUrl}/storage/v1/object/public/fotoperfil/${respuesta.perfil.foto_perfil}`
+                  }}
                   className="w-8 h-8 rounded-full mr-2"
                 />
               )}

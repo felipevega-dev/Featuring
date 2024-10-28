@@ -15,6 +15,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "@/lib/supabase";
 import { Image } from "expo-image";
 import { useVideo } from "@/contexts/VideoContext";
+import Constants from "expo-constants";
 
 const { width, height } = Dimensions.get("window");
 
@@ -69,6 +70,8 @@ interface VideoCardProps {
   setVideos: React.Dispatch<React.SetStateAction<Video[]>>;
   refetchVideos: () => Promise<void>;
 }
+
+const supabaseUrl = Constants.expoConfig?.extra?.supabaseUrl;
 
 const VideoCard: React.FC<VideoCardProps> = ({
   video,
@@ -242,7 +245,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
 
       // Luego obtenemos los likes de los comentarios
       const { data: likesData, error: likesError } = await supabase
-        .from("likes_comentario")  // Asumiendo que esta es la tabla correcta para likes de comentarios
+        .from("likes_comentario_video")  // Asumiendo que esta es la tabla correcta para likes de comentarios
         .select("*")
         .in(
           "comentario_id", 
@@ -346,7 +349,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
     try {
       if (newIsLiked) {
         await supabase
-          .from("likes_comentario")
+          .from("likes_comentario_video")
           .insert({ 
             comentario_id: comentarioId,
             usuario_id: currentUserId 
@@ -370,7 +373,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
         }
       } else {
         await supabase
-          .from("likes_comentario")
+          .from("likes_comentario_video")
           .delete()
           .eq("comentario_id", comentarioId)
           .eq("usuario_id", currentUserId);
@@ -651,7 +654,11 @@ const VideoCard: React.FC<VideoCardProps> = ({
       {/* Información del usuario y fecha de subida */}
       <View className="absolute left-4 bottom-28 flex-row items-center">
         <Image
-          source={{ uri: video.perfil?.foto_perfil || "https://via.placeholder.com/40" }}
+          source={{ 
+            uri: video.perfil?.foto_perfil 
+              ? `${supabaseUrl}/storage/v1/object/public/fotoperfil/${video.perfil.foto_perfil}`
+              : "https://via.placeholder.com/40" 
+          }}
           className="w-10 h-10 rounded-full mr-2"
         />
         <View>
@@ -711,7 +718,9 @@ const VideoCard: React.FC<VideoCardProps> = ({
                 <View className="flex-row mb-4">
                   <Image
                     source={{
-                      uri: item.perfil.foto_perfil || "https://via.placeholder.com/50",
+                      uri: item.perfil.foto_perfil
+                        ? `${supabaseUrl}/storage/v1/object/public/fotoperfil/${item.perfil.foto_perfil}`
+                        : "https://via.placeholder.com/50"
                     }}
                     className="w-10 h-10 rounded-full mr-3"
                   />
