@@ -60,29 +60,79 @@ export default function ChatDetail() {
   const { updateUnreadMessagesCount } = useUnreadMessages();
 
   useEffect(() => {
-    getCurrentUser();
-    fetchMessages();
-    getOtherUserInfo();
-    checkIfUserIsBlocked(id).then(setIsBlocked); // Verifica si el usuario está bloqueado
-    markMessagesAsRead();
-    const subscription = supabase
-      .channel("messages")
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "mensaje",
-          filter: `or(emisor_id.eq.${id},receptor_id.eq.${id})`,
-        },
-        handleNewMessage
-      )
-      .subscribe();
+    let refreshInterval: NodeJS.Timeout;
+    
+    const initialize = async () => {
+      try {
+        setIsLoading(true);
+        
+        // 1. Obtener usuario y datos iniciales
+        await getCurrentUser();
+        
+        if (currentUserId) {
+          // 2. Cargar todos los datos iniciales
+          await Promise.all([
+            fetchMessages(),
+            getOtherUserInfo(),
+            checkIfUserIsBlocked(id).then(setIsBlocked),
+            markMessagesAsRead()
+          ]);
 
-    return () => {
-      subscription.unsubscribe();
+          // 3. Solo después de cargar los datos, iniciamos el refresco automático
+          refreshInterval = setInterval(() => {
+            console.log('Refrescando mensajes...'); 
+            fetchMessages();
+          }, 5000);
+
+          // 4. Configurar suscripción en tiempo real
+          const channel = supabase
+            .channel(`chat-${id}-${currentUserId}`)
+            .on(
+              'postgres_changes',
+              {
+                event: 'INSERT',
+                schema: 'public',
+                table: 'mensaje',
+                filter: `or(emisor_id.eq.${id},receptor_id.eq.${id})`,
+              },
+              async (payload) => {
+                console.log('Nuevo mensaje recibido:', payload);
+                await fetchMessages();
+                
+                const newMsg = payload.new as Message;
+                if (newMsg.receptor_id === currentUserId) {
+                  await markMessagesAsRead();
+                  updateUnreadMessagesCount();
+                }
+
+                if (flatListRef.current) {
+                  flatListRef.current.scrollToOffset({ offset: 0, animated: true });
+                }
+              }
+            )
+            .subscribe();
+
+          return () => {
+            channel.unsubscribe();
+          };
+        }
+      } catch (error) {
+        console.error('Error en la inicialización:', error);
+      } finally {
+        setIsLoading(false);
+      }
     };
-  }, [id, currentUserId]);
+
+    // Iniciar la carga
+    initialize();
+
+    // Limpieza
+    return () => {
+      if (refreshInterval) {
+        clearInterval(refreshInterval);
+      }
+    };
+  }, [id]); // Solo dependemos de id
 
   useEffect(() => {
     (async () => {
@@ -118,15 +168,14 @@ export default function ChatDetail() {
 
   const fetchMessages = async () => {
     if (!currentUserId) return;
-    setIsLoading(true);
+    
     try {
-      // Obtener IDs de usuarios bloqueados
-      const { data: blockedUsers } = await supabase
+      const { data: blockedUsers = [] } = await supabase
         .from("bloqueo")
         .select("bloqueado_id")
         .eq("usuario_id", currentUserId);
 
-      const blockedUserIds = blockedUsers.map(user => user.bloqueado_id);
+      const blockedUserIds = blockedUsers?.map(user => user.bloqueado_id) || [];
 
       const { data, error } = await supabase
         .from("mensaje")
@@ -134,15 +183,15 @@ export default function ChatDetail() {
         .or(
           `and(emisor_id.eq.${currentUserId},receptor_id.eq.${id}),and(emisor_id.eq.${id},receptor_id.eq.${currentUserId})`
         )
-        .not("emisor_id", "in", `(${blockedUserIds.join(",")})`) // Excluir mensajes de usuarios bloqueados
+        .not("emisor_id", "in", `(${blockedUserIds.join(",")})`)
         .order("fecha_envio", { ascending: false });
 
       if (error) throw error;
-      setMessages(data || []);
+
+      // Forzamos la actualización del estado
+      setMessages([...(data || [])]);
     } catch (error) {
       console.error("Error al obtener mensajes:", error);
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -201,12 +250,13 @@ export default function ChatDetail() {
       const fileName = `audio_${Date.now()}.m4a`;
       const filePath = `${currentUserId}/${fileName}`;
 
+      const fileContent = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
+      const blob = new Blob([Buffer.from(fileContent, 'base64')], { type: 'audio/m4a' });
+
       const { data, error } = await supabase.storage
         .from("audio_messages")
-        .upload(filePath, {
-          uri: uri,
-          type: "audio/m4a",
-          name: fileName,
+        .upload(filePath, blob, {
+          contentType: "audio/m4a",
         });
 
       if (error) throw error;
@@ -243,9 +293,11 @@ export default function ChatDetail() {
 
       if (error) throw error;
       setNewMessage("");
-      if (data) setMessages((prevMessages) => [data[0], ...prevMessages]);
+      
+      // No necesitamos actualizar messages aquí ya que la suscripción lo manejará
     } catch (error) {
       console.error("Error al enviar mensaje:", error);
+      Alert.alert("Error", "No se pudo enviar el mensaje");
     }
   };
 
@@ -311,19 +363,18 @@ export default function ChatDetail() {
 
   const sendMediaMessage = async (uri: string, tipo: 'imagen' | 'video') => {
     try {
-      if (!currentUserId) {
-        throw new Error("Usuario no autenticado");
-      }
+      const fileContent = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
+      const blob = new Blob([Buffer.from(fileContent, 'base64')], { 
+        type: tipo === 'imagen' ? "image/jpeg" : "video/mp4" 
+      });
 
       const fileName = `${tipo}_${Date.now()}.${uri.split('.').pop()}`;
       const filePath = `${currentUserId}/${fileName}`;
 
       const { data, error } = await supabase.storage
         .from("chat_media")
-        .upload(filePath, {
-          uri: uri,
-          type: tipo === 'imagen' ? "image/jpeg" : "video/mp4",
-          name: fileName,
+        .upload(filePath, blob, {
+          contentType: tipo === 'imagen' ? "image/jpeg" : "video/mp4",
         });
 
       if (error) throw error;
@@ -348,17 +399,14 @@ export default function ChatDetail() {
 
   const pickDocument = async () => {
     try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: '*/*', // Permite todos los tipos de archivos
-        copyToCacheDirectory: false,
-      });
-
-      if (result.type === 'success') {
-        await sendFileMessage(result.uri, result.name);
+      const result = await DocumentPicker.getDocumentAsync();
+      
+      if (result.assets && result.assets.length > 0) {
+        const file = result.assets[0];
+        await sendFileMessage(file.uri, file.name);
       }
     } catch (err) {
       console.error('Error al seleccionar el archivo:', err);
-      Alert.alert('Error', 'No se pudo seleccionar el archivo');
     }
   };
 
@@ -435,7 +483,7 @@ export default function ChatDetail() {
               source={{ uri: item.url_contenido }}
               style={{ width: '100%', height: 200, borderRadius: 10 }}
               useNativeControls
-              resizeMode="contain"
+              resizeMode={Video.RESIZE_MODE_CONTAIN}
               isLooping
             />
           )}
@@ -614,7 +662,7 @@ const checkIfUserIsBlocked = async (userId: string) => {
               ref={flatListRef}
               data={messages}
               renderItem={renderMessage}
-              keyExtractor={(item) => item.id.toString()}
+              keyExtractor={(item) => `message-${item.id}`} // Asegura una key única
               inverted
               contentContainerStyle={{
                 flexGrow: 1,
