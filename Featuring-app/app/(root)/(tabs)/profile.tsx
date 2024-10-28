@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import Constants from "expo-constants";
 import {
   View,
   Text,
@@ -28,11 +29,12 @@ interface Perfil {
   nacionalidad: string;
 }
 
+const supabaseUrl = Constants.expoConfig?.extra?.supabaseUrl;
+
 export default function Profile() {
   const { refreshProfile } = useLocalSearchParams<{ refreshProfile: string }>();
   const [perfil, setPerfil] = useState<Perfil | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isUploadModalVisible, setIsUploadModalVisible] = useState(false);
   const [userProfile, setUserProfile] = useState(null);
 
   useEffect(() => {
@@ -160,7 +162,7 @@ export default function Profile() {
     if (!fotoPerfilPath) {
       return null;
     }
-    return `https://eizcbcljfpartgeausfy.supabase.co/storage/v1/object/public/fotoperfil/${fotoPerfilPath}`;
+    return `${supabaseUrl}/storage/v1/object/public/fotoperfil/${fotoPerfilPath}`;
   };
 
   if (isLoading) {

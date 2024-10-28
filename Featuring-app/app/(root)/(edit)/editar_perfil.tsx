@@ -18,6 +18,7 @@ import * as ImagePicker from "expo-image-picker";
 import { icons } from "@/constants";
 import DropDownPicker from "react-native-dropdown-picker";
 import { FontAwesome } from "@expo/vector-icons";
+import Constants from "expo-constants";
 
 // Ignorar la advertencia específica
 LogBox.ignoreLogs(["VirtualizedLists should never be nested"]);
@@ -42,6 +43,9 @@ interface Perfil {
   mensaje: string; // Añadimos el campo mensaje
   redes_sociales: { nombre: string; url: string }[];
 }
+
+// Añadir la constante después de las interfaces
+const supabaseUrl = Constants.expoConfig?.extra?.supabaseUrl;
 
 const EditarPerfil = () => {
   const router = useRouter();
@@ -568,7 +572,7 @@ const EditarPerfil = () => {
           <StyledImage
             source={{ 
               uri: fotoPerfil 
-                ? `https://eizcbcljfpartgeausfy.supabase.co/storage/v1/object/public/fotoperfil/${fotoPerfil}`
+                ? `${supabaseUrl}/storage/v1/object/public/fotoperfil/${fotoPerfil}`
                 : "https://via.placeholder.com/150"
             }}
             className="w-24 h-24 rounded-full mb-3"
