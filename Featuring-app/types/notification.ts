@@ -6,7 +6,10 @@ export type NotificationType =
   | 'colaboracion_aceptada'
   | 'colaboracion_rechazada'
   | 'match'
-  | 'like';
+  | 'like'
+  | 'like_video'
+  | 'comentario_video'
+  | 'like_comentario_video';
 
 export interface NotificationRedirect {
   route: string;
@@ -57,5 +60,30 @@ export const NOTIFICATION_REDIRECTS: Record<NotificationType, NotificationRedire
   colaboracion_rechazada: {
     route: '/colaboraciones',
     getParams: () => ({})
+  },
+  like_video: {
+    route: '/(root)/(tabs)/watch',
+    getParams: (notification) => ({ 
+      scrollToId: notification.contenido_id.toString()
+    })
+  },
+  comentario_video: {
+    route: '/(root)/(tabs)/watch',
+    getParams: (notification) => ({ 
+      scrollToId: notification.contenido_id.toString()
+    })
+  },
+  like_comentario_video: {
+    route: '/(root)/(tabs)/watch',
+    getParams: async (notification) => {
+      const { data } = await supabase
+        .from('comentario_video')
+        .select('video_id')
+        .eq('id', notification.contenido_id)
+        .single();
+      return { 
+        scrollToId: data?.video_id.toString() || notification.contenido_id.toString()
+      };
+    }
   }
 }; 

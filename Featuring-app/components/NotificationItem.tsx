@@ -1,5 +1,5 @@
 import React from 'react';
-import { TouchableOpacity, View, Text, Image } from 'react-native';
+import { TouchableOpacity, View, Text, Image, Alert } from 'react-native';
 import { router } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import Constants from 'expo-constants';
@@ -53,6 +53,37 @@ export default function NotificationItem({ notification, onNotificationRead }: N
     }
   };
 
+  const handleLongPress = () => {
+    Alert.alert(
+      "Eliminar notificación",
+      "¿Estás seguro de que quieres eliminar esta notificación?",
+      [
+        {
+          text: "Cancelar",
+          style: "cancel"
+        },
+        {
+          text: "Eliminar",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              const { error } = await supabase
+                .from('notificacion')
+                .delete()
+                .eq('id', notification.id);
+
+              if (error) throw error;
+              onNotificationRead(); // Actualizar la lista
+            } catch (error) {
+              console.error('Error al eliminar notificación:', error);
+              Alert.alert('Error', 'No se pudo eliminar la notificación');
+            }
+          }
+        }
+      ]
+    );
+  };
+
   // No renderizar el componente si es una notificación de colaboración
   if (['solicitud_colaboracion', 'colaboracion_aceptada', 'colaboracion_rechazada'].includes(notification.tipo_notificacion)) {
     return null;
@@ -61,6 +92,8 @@ export default function NotificationItem({ notification, onNotificationRead }: N
   return (
     <TouchableOpacity
       onPress={handleNotificationPress}
+      onLongPress={handleLongPress}
+      delayLongPress={500}
       className={`bg-white p-4 rounded-lg mb-2 shadow ${
         !notification.leido ? 'border-l-4 border-primary-500' : 'opacity-75'
       }`}

@@ -4,6 +4,7 @@ import {
   Text,
   TouchableOpacity,
   Image,
+  Alert,
 } from 'react-native';
 import { supabase } from '@/lib/supabase';
 import Constants from 'expo-constants';
@@ -98,8 +99,43 @@ export default function AcceptedCollaborationNotification({
     }
   };
 
+  const handleLongPress = () => {
+    Alert.alert(
+      "Eliminar notificación",
+      "¿Estás seguro de que quieres eliminar esta notificación?",
+      [
+        {
+          text: "Cancelar",
+          style: "cancel"
+        },
+        {
+          text: "Eliminar",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              const { error } = await supabase
+                .from('notificacion')
+                .delete()
+                .eq('id', notification.id);
+
+              if (error) throw error;
+              onRespond(); // Actualizar la lista
+            } catch (error) {
+              console.error('Error al eliminar notificación:', error);
+              Alert.alert('Error', 'No se pudo eliminar la notificación');
+            }
+          }
+        }
+      ]
+    );
+  };
+
   return (
-    <>
+    <TouchableOpacity
+      onLongPress={handleLongPress}
+      delayLongPress={500}
+      activeOpacity={1}
+    >
       <View className="bg-white p-4 rounded-lg mb-2 shadow">
         <View className="flex-row items-center mb-2">
           <Image
@@ -145,6 +181,6 @@ export default function AcceptedCollaborationNotification({
           usuarioId={currentUserId}
         />
       )}
-    </>
+    </TouchableOpacity>
   );
 } 

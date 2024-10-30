@@ -16,6 +16,7 @@ import useVideos from "@/hooks/useVideos";
 import { supabase } from "@/lib/supabase";
 import { VideoProvider, useVideo } from "@/contexts/VideoContext";
 import { useFocusEffect } from "@react-navigation/native";
+import { useLocalSearchParams } from "expo-router";
 
 const { width, height } = Dimensions.get("window");
 
@@ -29,6 +30,7 @@ export const WatchContent = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const flatListRef = useRef<FlatList>(null);
   const { setCurrentPlayingId, setIsScreenFocused } = useVideo();
+  const { scrollToId } = useLocalSearchParams<{ scrollToId: string }>();
 
   useEffect(() => {
     getCurrentUser();
@@ -47,6 +49,48 @@ export const WatchContent = () => {
       };
     }, [currentIndex, videos, setCurrentPlayingId, setIsScreenFocused])
   );
+
+  useEffect(() => {
+    if (scrollToId && videos.length > 0) {
+      console.log('Buscando video:', scrollToId);
+      const videoIndex = videos.findIndex(
+        video => video.id.toString() === scrollToId
+      );
+      console.log('Índice encontrado:', videoIndex);
+      
+      if (videoIndex !== -1 && flatListRef.current) {
+        // Asegurarnos de que el scroll se realice después de que la lista esté renderizada
+        setTimeout(() => {
+          flatListRef.current?.scrollToIndex({
+            index: videoIndex,
+            animated: true,
+            viewPosition: 0,
+            viewOffset: 0
+          });
+          setCurrentIndex(videoIndex);
+          setCurrentPlayingId(videos[videoIndex].id);
+        }, 100);
+      }
+    }
+  }, [scrollToId, videos]);
+
+  // Agregar manejador de error de scroll
+  const onScrollToIndexFailed = (info: {
+    index: number;
+    highestMeasuredFrameIndex: number;
+    averageItemLength: number;
+  }) => {
+    console.log('Scroll falló, intentando de nuevo...');
+    const wait = new Promise(resolve => setTimeout(resolve, 100));
+    wait.then(() => {
+      flatListRef.current?.scrollToIndex({
+        index: info.index,
+        animated: true,
+        viewPosition: 0,
+        viewOffset: 0
+      });
+    });
+  };
 
   const getCurrentUser = async () => {
     const {
@@ -135,6 +179,12 @@ export const WatchContent = () => {
           showsVerticalScrollIndicator={false}
           onViewableItemsChanged={onViewableItemsChanged}
           viewabilityConfig={viewabilityConfig}
+          onScrollToIndexFailed={onScrollToIndexFailed}
+          getItemLayout={(data, index) => ({
+            length: videoHeight,
+            offset: videoHeight * index,
+            index,
+          })}
         />
         <UploadVideoModal
           isVisible={isUploadModalVisible}

@@ -210,6 +210,37 @@ export default function CollaborationNotification({
     }
   };
 
+  const handleLongPress = () => {
+    Alert.alert(
+      "Eliminar notificación",
+      "¿Estás seguro de que quieres eliminar esta notificación?",
+      [
+        {
+          text: "Cancelar",
+          style: "cancel"
+        },
+        {
+          text: "Eliminar",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              const { error } = await supabase
+                .from('notificacion')
+                .delete()
+                .eq('id', notification.id);
+
+              if (error) throw error;
+              onRespond(); // Actualizar la lista
+            } catch (error) {
+              console.error('Error al eliminar notificación:', error);
+              Alert.alert('Error', 'No se pudo eliminar la notificación');
+            }
+          }
+        }
+      ]
+    );
+  };
+
   const renderButtons = () => {
     if (yaValorado || colaboracionEstado === 'aceptada') {
       return (
@@ -251,7 +282,11 @@ export default function CollaborationNotification({
   };
 
   return (
-    <>
+    <TouchableOpacity
+      onLongPress={handleLongPress}
+      delayLongPress={500}
+      activeOpacity={1}
+    >
       <View className="bg-white p-4 rounded-lg mb-2 shadow">
         <View className="flex-row items-center mb-2">
           <Image
@@ -284,6 +319,6 @@ export default function CollaborationNotification({
           usuarioId={currentUserId}
         />
       )}
-    </>
+    </TouchableOpacity>
   );
 } 

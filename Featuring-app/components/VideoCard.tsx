@@ -168,6 +168,8 @@ const VideoCard: React.FC<VideoCardProps> = ({
 
   const handleLike = async () => {
     try {
+      if (!currentUserId) return;
+
       if (isLiked) {
         const { error } = await supabase
           .from("likes_video")
@@ -198,29 +200,27 @@ const VideoCard: React.FC<VideoCardProps> = ({
 
         setLikesCount((prev) => prev + 1);
         setIsLiked(true);
+      }
 
-        // Crear notificación de like solo si el usuario que da like no es el creador del video
-        if (currentUserId !== video.usuario_id) {
-          const { error: notificationError } = await supabase
-            .from('notificacion')
-            .insert({
-              usuario_id: video.usuario_id,
-              tipo_notificacion: 'like_video',
-              leido: false,
-              usuario_origen_id: currentUserId,
-              contenido_id: video.id
-            });
+      // Crear notificación si el like no es del dueño del video
+      if (currentUserId !== video.usuario_id) {
+        const { error: notificationError } = await supabase
+          .from('notificacion')
+          .insert({
+            usuario_id: video.usuario_id,
+            tipo_notificacion: 'like_video',
+            contenido_id: video.id,
+            mensaje: `Le ha dado me gusta a tu video`,
+            leido: false,
+            usuario_origen_id: currentUserId
+          });
 
-          if (notificationError) {
-            console.error('Error al crear notificación de like:', notificationError);
-          }
+        if (notificationError) {
+          console.error('Error al crear notificación:', notificationError);
         }
       }
     } catch (error) {
-      console.error("Error al dar/quitar like:", error);
-      // Revertir el estado en caso de error
-      setIsLiked((prev) => !prev);
-      setLikesCount((prev) => isLiked ? prev + 1 : prev - 1);
+      console.error('Error al dar like:', error);
     }
   };
 
@@ -285,9 +285,9 @@ const VideoCard: React.FC<VideoCardProps> = ({
     return `${day} de ${month} ${formattedHours}:${minutes} ${ampm}`;
   };
 
-  const handleComment = async () => {
-    if (nuevoComentario.trim()) {
-      try {
+  const handleComment = async (comentario: string) => {
+    try {
+      if (nuevoComentario.trim()) {
         const { data, error } = await supabase
           .from("comentario_video")
           .insert({
@@ -312,41 +312,38 @@ const VideoCard: React.FC<VideoCardProps> = ({
           setComentarios([data, ...comentarios]);
           setNuevoComentario("");
 
-          // Crear notificación de comentario solo si el usuario que comenta no es el creador del video
+          // Crear notificación si el comentario no es del dueño del video
           if (currentUserId !== video.usuario_id) {
             const { error: notificationError } = await supabase
               .from('notificacion')
               .insert({
                 usuario_id: video.usuario_id,
                 tipo_notificacion: 'comentario_video',
+                contenido_id: video.id,
+                mensaje: `Ha comentado en tu video: "${nuevoComentario.slice(0, 50)}${nuevoComentario.length > 50 ? '...' : ''}"`,
                 leido: false,
-                usuario_origen_id: currentUserId,
-                contenido_id: video.id
+                usuario_origen_id: currentUserId
               });
 
             if (notificationError) {
-              console.error('Error al crear notificación de comentario:', notificationError);
+              console.error('Error al crear notificación:', notificationError);
             }
           }
         }
-      } catch (error) {
-        console.error("Error al enviar el comentario:", error);
-        Alert.alert(
-          "Error",
-          "No se pudo enviar el comentario. Por favor, intenta de nuevo."
-        );
       }
+    } catch (error) {
+      console.error('Error al comentar:', error);
     }
   };
 
-  const handleCommentLike = async (comentarioId: number) => {
-    const comentario = comentarios.find((c) => c.id === comentarioId);
-    if (!comentario) return;
-
-    const newIsLiked = !comentario.isLiked;
-    const likeDelta = newIsLiked ? 1 : -1;
-
+  const handleCommentLike = async (comentarioId: number, comentarioUsuarioId: string) => {
     try {
+      const comentario = comentarios.find((c) => c.id === comentarioId);
+      if (!comentario) return;
+
+      const newIsLiked = !comentario.isLiked;
+      const likeDelta = newIsLiked ? 1 : -1;
+
       if (newIsLiked) {
         await supabase
           .from("likes_comentario_video")
@@ -354,23 +351,6 @@ const VideoCard: React.FC<VideoCardProps> = ({
             comentario_id: comentarioId,
             usuario_id: currentUserId 
           });
-
-        // Crear notificación de like en comentario solo si el usuario que da like no es el creador del comentario
-        if (currentUserId !== comentario.usuario_id) {
-          const { error: notificationError } = await supabase
-            .from('notificacion')
-            .insert({
-              usuario_id: comentario.usuario_id,
-              tipo_notificacion: 'like_comentario_video',
-              leido: false,
-              usuario_origen_id: currentUserId,
-              contenido_id: comentarioId
-            });
-
-          if (notificationError) {
-            console.error('Error al crear notificación de like en comentario:', notificationError);
-          }
-        }
       } else {
         await supabase
           .from("likes_comentario_video")
@@ -390,8 +370,26 @@ const VideoCard: React.FC<VideoCardProps> = ({
             : c
         )
       );
+
+      // Crear notificación si el like no es del dueño del comentario
+      if (currentUserId !== comentarioUsuarioId) {
+        const { error: notificationError } = await supabase
+          .from('notificacion')
+          .insert({
+            usuario_id: comentarioUsuarioId,
+            tipo_notificacion: 'like_comentario_video',
+            contenido_id: comentarioId,
+            mensaje: `Le ha dado me gusta a tu comentario en un video`,
+            leido: false,
+            usuario_origen_id: currentUserId
+          });
+
+        if (notificationError) {
+          console.error('Error al crear notificación:', notificationError);
+        }
+      }
     } catch (error) {
-      console.error("Error al dar/quitar like al comentario:", error);
+      console.error('Error al dar like al comentario:', error);
     }
   };
 
@@ -729,7 +727,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
                     <Text className="text-sm text-general-200 mt-1">{item.comentario}</Text>
                     <View className="flex-row items-center mt-2">
                       <TouchableOpacity
-                        onPress={() => handleCommentLike(item.id)}
+                        onPress={() => handleCommentLike(item.id, item.usuario_id)}
                         className="mr-4"
                       >
                         <Ionicons
@@ -761,7 +759,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
                 placeholder="Añade un comentario..."
               />
               <TouchableOpacity
-                onPress={handleComment}
+                onPress={() => handleComment(nuevoComentario)}
                 className="bg-primary-500 rounded-full px-4 py-2"
               >
                 <Text className="text-white font-JakartaBold">Enviar</Text>
