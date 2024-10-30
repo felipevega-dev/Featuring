@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import { supabase } from '@/lib/supabase';
 import CollaborationNotification from '@/components/CollaborationNotification';
+import AcceptedCollaborationNotification from '@/components/AcceptedCollaborationNotification';
 
 interface Notificacion {
   id: number;
@@ -110,12 +111,11 @@ export default function NotificacionesScreen() {
         );
       case 'colaboracion_aceptada':
         return (
-          <View className="bg-white p-4 rounded-lg mb-2 shadow">
-            <Text className="font-bold text-green-600">
-              ¡Colaboración aceptada!
-            </Text>
-            <Text>{item.mensaje}</Text>
-          </View>
+          <AcceptedCollaborationNotification
+            notification={item}
+            currentUserId={currentUserId}
+            onRespond={fetchNotificaciones}
+          />
         );
       case 'colaboracion_rechazada':
         return (
