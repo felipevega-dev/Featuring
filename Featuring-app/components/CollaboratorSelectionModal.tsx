@@ -59,8 +59,12 @@ export default function CollaboratorSelectionModal({
       if (error) throw error;
 
       const colaboradoresFormateados = data
-        .map(item => item.perfil)
-        .filter(perfil => perfil !== null) as Colaborador[];
+        .map(item => ({
+          usuario_id: item.usuario2_id,
+          username: item.perfil.username,
+          foto_perfil: item.perfil.foto_perfil
+        }))
+        .filter(Boolean);
 
       setColaboradores(colaboradoresFormateados);
     } catch (error) {
