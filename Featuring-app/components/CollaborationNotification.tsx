@@ -263,7 +263,7 @@ export default function CollaborationNotification({
             className="w-10 h-10 rounded-full mr-3"
           />
           <View className="flex-1">
-            <Text className="font-bold">
+            <Text className="font-bold text-primary-600">
               {notification.perfil?.username || 'Usuario'}
             </Text>
             <Text className="text-sm text-gray-600">{notification.mensaje}</Text>

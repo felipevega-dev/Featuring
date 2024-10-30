@@ -26,6 +26,7 @@ import * as FileSystem from "expo-file-system";
 import AudioPlayer from '@/components/AudioPlayer';
 import * as DocumentPicker from 'expo-document-picker';
 import { useUnreadMessages } from '@/contexts/UnreadMessagesContext';
+import Constants from 'expo-constants';
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -58,6 +59,8 @@ export default function ChatDetail() {
   const [isBlocked, setIsBlocked] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const { updateUnreadMessagesCount } = useUnreadMessages();
+
+  const supabaseUrl = Constants.expoConfig?.extra?.supabaseUrl;
 
   useEffect(() => {
     let refreshInterval: NodeJS.Timeout;
@@ -615,7 +618,9 @@ const checkIfUserIsBlocked = async (userId: string) => {
           </TouchableOpacity>
           {otherUserAvatar && (
             <Image
-              source={{ uri: otherUserAvatar }}
+              source={{ 
+                uri: `${supabaseUrl}/storage/v1/object/public/fotoperfil/${otherUserAvatar}`
+              }}
               className="w-10 h-10 rounded-full mr-3"
             />
           )}
@@ -661,6 +666,7 @@ const checkIfUserIsBlocked = async (userId: string) => {
               flexGrow: 1,
               justifyContent: "flex-end",
               paddingVertical: 10,
+              margin: 12,
             }}
           />
         </View>

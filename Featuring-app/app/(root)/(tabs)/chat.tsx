@@ -4,6 +4,7 @@ import { supabase } from "@/lib/supabase";
 import { useRouter } from "expo-router";
 import { FontAwesome } from "@expo/vector-icons";
 import { RealtimeChannel } from '@supabase/supabase-js';
+import Constants from 'expo-constants';
 
 interface ChatListItem {
   id: string;
@@ -22,6 +23,7 @@ export default function Chat() {
   const [refreshing, setRefreshing] = useState(false);
   const router = useRouter();
   const subscriptionRef = useRef<RealtimeChannel | null>(null);
+  const supabaseUrl = Constants.expoConfig?.extra?.supabaseUrl;
 
   useEffect(() => {
     let refreshInterval: NodeJS.Timeout;
@@ -203,7 +205,9 @@ export default function Chat() {
     >
       {item.otherUserAvatar ? (
         <Image
-          source={{ uri: item.otherUserAvatar }}
+          source={{ 
+            uri: `${supabaseUrl}/storage/v1/object/public/fotoperfil/${item.otherUserAvatar}`
+          }}
           className="w-12 h-12 rounded-full mr-4"
         />
       ) : (
