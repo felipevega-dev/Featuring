@@ -9,11 +9,13 @@ import {
   TouchableOpacity,
   Alert,
   Linking,
+  Modal,
 } from "react-native";
 import { supabase } from "@/lib/supabase";
 import { router, useLocalSearchParams } from "expo-router";
 import { icons } from "@/constants";
 import { Ionicons, FontAwesome } from "@expo/vector-icons";
+import RatingsList from '@/components/RatingsList';
 
 interface Perfil {
   username: string;
@@ -33,11 +35,37 @@ interface Perfil {
 
 const supabaseUrl = Constants.expoConfig?.extra?.supabaseUrl;
 
+// Definir la interfaz Rating
+interface Rating {
+  id: number;
+  valoracion: number;
+  comentario: string | null;
+  created_at: string;
+  perfil: {
+    username: string;
+    foto_perfil: string | null;
+  };
+}
+
+// Definir tipos para los componentes internos
+interface ProfileSectionProps {
+  icon: any; // O un tipo más específico si conoces el tipo exacto
+  title: string;
+  children: React.ReactNode;
+}
+
+interface ProfileItemProps {
+  label: string;
+  value: string | number;
+}
+
 export default function Profile() {
   const { refreshProfile } = useLocalSearchParams<{ refreshProfile: string }>();
   const [perfil, setPerfil] = useState<Perfil | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [userProfile, setUserProfile] = useState(null);
+  const [showRatings, setShowRatings] = useState(false);
+  const [ratings, setRatings] = useState<Rating[]>([]);
 
   useEffect(() => {
     fetchPerfil();
@@ -181,6 +209,35 @@ export default function Profile() {
     return `${supabaseUrl}/storage/v1/object/public/fotoperfil/${fotoPerfilPath}`;
   };
 
+  const fetchValoraciones = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: valoraciones, error } = await supabase
+        .from('valoracion_colaboracion')
+        .select(`
+          id,
+          valoracion,
+          comentario,
+          created_at,
+          usuario_id,
+          perfil:usuario_id (
+            username,
+            foto_perfil
+          )
+        `)
+        .eq('usuario_valorado_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      setRatings(valoraciones);
+    } catch (error) {
+      console.error('Error al cargar valoraciones:', error);
+    }
+  };
+
   if (isLoading) {
     return (
       <View className="flex-1 justify-center items-center bg-primary-600">
@@ -197,7 +254,7 @@ export default function Profile() {
     );
   }
 
-  function ProfileSection({ icon, title, children }) {
+  function ProfileSection({ icon, title, children }: ProfileSectionProps) {
     return (
       <View className="mb-3">
         <View className="flex-row items-center mb-2">
@@ -209,7 +266,7 @@ export default function Profile() {
     );
   }
 
-  function ProfileItem({ label, value }) {
+  function ProfileItem({ label, value }: ProfileItemProps) {
     return (
       <View className="flex-row justify-between items-center py-1">
         <Text className="text-primary-700 font-medium">{label}</Text>
@@ -268,26 +325,30 @@ export default function Profile() {
               <Text className="text-xl font-semibold text-primary-500 text-center">
                 {perfil.username}
               </Text>
-              {perfil.promedio_valoraciones > 0 && (
-                <View className="items-center mt-2">
-                  <View className="flex-row">
-                    {[1, 2, 3, 4, 5].map((star) => (
-                      <Ionicons
-                        key={star}
-                        name="star"
-                        size={16}
-                        color={star <= Math.round(perfil.promedio_valoraciones) ? "#FFD700" : "#E5E7EB"}
-                      />
-                    ))}
-                    <Text className="text-gray-600 ml-2">
-                      ({perfil.promedio_valoraciones.toFixed(1)})
-                    </Text>
-                  </View>
-                  <Text className="text-xs text-gray-500 mt-1">
-                    {perfil.total_valoraciones} valoraciones como colaborador
+              <TouchableOpacity 
+                onPress={() => {
+                  setShowRatings(true);
+                  fetchValoraciones();
+                }}
+                className="items-center mt-2"
+              >
+                <View className="flex-row">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <Ionicons
+                      key={star}
+                      name="star"
+                      size={16}
+                      color={star <= Math.round(perfil.promedio_valoraciones) ? "#FFD700" : "#E5E7EB"}
+                    />
+                  ))}
+                  <Text className="text-gray-600 ml-2">
+                    ({perfil.promedio_valoraciones.toFixed(1)})
                   </Text>
                 </View>
-              )}
+                <Text className="text-xs text-gray-500 mt-1">
+                  {perfil.total_valoraciones} valoraciones como colaborador
+                </Text>
+              </TouchableOpacity>
             </View>
             <ProfileSection
               icon={icons.usuarioperfil}
@@ -372,6 +433,24 @@ export default function Profile() {
           </View>
         </View>
       </ScrollView>
+      <Modal
+        visible={showRatings}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowRatings(false)}
+      >
+        <View className="flex-1 bg-black/50">
+          <View className="bg-white rounded-t-3xl p-4 h-3/4 mt-auto">
+            <View className="flex-row justify-between items-center mb-4">
+              <Text className="text-xl font-bold">Mis Valoraciones Recibidas</Text>
+              <TouchableOpacity onPress={() => setShowRatings(false)}>
+                <Ionicons name="close" size={24} color="#4A148C" />
+              </TouchableOpacity>
+            </View>
+            <RatingsList ratings={ratings} />
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }

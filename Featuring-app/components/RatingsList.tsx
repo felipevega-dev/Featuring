@@ -14,11 +14,7 @@ interface Rating {
   };
 }
 
-interface RatingsListProps {
-  ratings: Rating[];
-}
-
-export default function RatingsList({ ratings }: RatingsListProps) {
+export default function RatingsList({ ratings }: { ratings: Rating[] }) {
   const supabaseUrl = Constants.expoConfig?.extra?.supabaseUrl;
 
   const formatDate = (dateString: string) => {
