@@ -39,7 +39,6 @@ export default function Chat() {
           
           // Configurar refresco automático
           refreshInterval = setInterval(() => {
-            console.log('Refrescando lista de chats...');
             fetchChatList();
           }, 5000); // Actualiza cada 5 segundos
         }

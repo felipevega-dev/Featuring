@@ -108,7 +108,6 @@ export default function ChatDetail() {
 
           // 4. Iniciar el refresco automático después de la carga inicial
           refreshInterval = setInterval(async () => {
-            console.log('Refrescando mensajes...'); 
             await fetchMessages();
           }, 5000);
 

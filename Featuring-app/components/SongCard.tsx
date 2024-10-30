@@ -67,6 +67,21 @@ interface Like {
   created_at: string;
 }
 
+interface Colaboracion {
+  id: number;
+  estado: string;
+  usuario_id: string;
+  usuario_id2: string;
+  perfil?: {
+    username: string;
+    foto_perfil: string | null;
+  };
+  perfil2?: {
+    username: string;
+    foto_perfil: string | null;
+  };
+}
+
 interface SongCardProps {
   cancion: Cancion;
   currentUserId: string;
@@ -120,6 +135,7 @@ const SongCard: React.FC<SongCardProps> = ({
   const [respondingTo, setRespondingTo] = useState<{ id: number; username: string } | null>(null);
   const [respuestaTexto, setRespuestaTexto] = useState('');
   const [commentSubscription, setCommentSubscription] = useState<RealtimeChannel | null>(null);
+  const [colaboracion, setColaboracion] = useState<Colaboracion | null>(null);
   
   const supabaseUrl = Constants.expoConfig?.extra?.supabaseUrl;
   // Construir la URL pública de la foto de perfil
@@ -139,6 +155,7 @@ const SongCard: React.FC<SongCardProps> = ({
     fetchLikesAndComments();
     checkIfLiked();
     subscribeToComments();
+    fetchColaboracion();
 
     return () => {
       if (commentSubscription) {
@@ -802,6 +819,26 @@ const handleLike = async () => {
     }
   };
 
+  const fetchColaboracion = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('colaboracion')
+        .select(`
+          *,
+          perfil:usuario_id(username, foto_perfil),
+          perfil2:usuario_id2(username, foto_perfil)
+        `)
+        .eq('cancion_id', cancion.id)
+        .single();
+
+      if (!error && data) {
+        setColaboracion(data);
+      }
+    } catch (error) {
+      console.error('Error al cargar colaboración:', error);
+    }
+  };
+
   const renderComment = ({ item }: { item: Comentario }) => (
     <View key={item.id} className="mb-3 border-b border-general-300 pb-2">
       <View className="flex-row justify-between items-start mb-1">
@@ -935,11 +972,14 @@ const handleLike = async () => {
     </View>
   );
 
-  return (
-    <View className="bg-white rounded-lg shadow-md mb-4 p-4">
-      {/* Cabecera con nombre de usuario y opciones */}
+  const renderHeader = () => {
+    return (
       <View className="flex-row justify-between items-center mb-2">
-        <TouchableOpacity onPress={handleProfilePress} className="flex-row items-center">
+        {/* Usuario que subió la canción */}
+        <TouchableOpacity 
+          onPress={() => router.push(`/public-profile/${cancion.usuario_id}`)} 
+          className="flex-row items-center flex-1"
+        >
           <Image
             source={{ uri: profileImageUrl }}
             className="w-6 h-6 rounded-full mr-2"
@@ -948,10 +988,43 @@ const handleLike = async () => {
             {cancion.perfil?.username || "Usuario desconocido"}
           </Text>
         </TouchableOpacity>
-        <TouchableOpacity onPress={handleOptionsPress} className="absolute top-2 right-2">
+
+        {/* Colaborador (si existe) */}
+        {colaboracion && colaboracion.estado === 'aceptada' && (
+          <View className="flex-row items-center justify-end flex-1">
+            <Text className="text-xs font-bold text-primary-500">FEAT.</Text>
+            <TouchableOpacity 
+              onPress={() => router.push(`/public-profile/${colaboracion.usuario_id2}`)}
+              className="flex-row items-center ml-2"
+            >
+              <Text className="text-sm font-bold text-gray-700 mr-2">
+                {colaboracion.perfil2?.username || "Usuario desconocido"}
+              </Text>
+              <Image
+                source={{
+                  uri: colaboracion.perfil2?.foto_perfil
+                    ? `${supabaseUrl}/storage/v1/object/public/fotoperfil/${colaboracion.perfil2.foto_perfil}`
+                    : 'https://via.placeholder.com/30'
+                }}
+                className="w-6 h-6 rounded-full"
+              />
+            </TouchableOpacity>
+          </View>
+        )}
+
+        <TouchableOpacity 
+          onPress={handleOptionsPress} 
+          className="ml-2"
+        >
           <Ionicons name="ellipsis-vertical" size={20} color="#666" />
         </TouchableOpacity>
       </View>
+    );
+  };
+
+  return (
+    <View className="bg-white rounded-lg shadow-md mb-4 p-4">
+      {renderHeader()}
       <View className="flex-row">
         {/* Imagen de portada */}
         <View>
