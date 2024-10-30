@@ -10,6 +10,7 @@ import {
 import { supabase } from '@/lib/supabase';
 import CollaborationNotification from '@/components/CollaborationNotification';
 import AcceptedCollaborationNotification from '@/components/AcceptedCollaborationNotification';
+import NotificationItem from '@/components/NotificationItem';
 import Constants from 'expo-constants';
 
 interface Notificacion {
@@ -82,6 +83,7 @@ export default function NotificacionesScreen() {
           )
         `)
         .eq('usuario_id', user.id)
+        .eq('leido', false)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -129,127 +131,12 @@ export default function NotificacionesScreen() {
             <Text>{item.mensaje}</Text>
           </View>
         );
-      case 'like_cancion':
-        return (
-          <View className="bg-white p-4 rounded-lg mb-2 shadow">
-            <View className="flex-row items-center">
-              <Image
-                source={{
-                  uri: item.perfil?.foto_perfil
-                    ? `${supabaseUrl}/storage/v1/object/public/fotoperfil/${item.perfil.foto_perfil}`
-                    : 'https://via.placeholder.com/40'
-                }}
-                className="w-10 h-10 rounded-full mr-3"
-              />
-              <View className="flex-1">
-                <Text className="font-bold text-primary-600">
-                  {item.perfil?.username || 'Usuario'}
-                </Text>
-                <Text className="text-sm text-gray-600">
-                  {item.mensaje}
-                </Text>
-              </View>
-            </View>
-          </View>
-        );
-
-      case 'like_comentario_cancion':
-        return (
-          <View className="bg-white p-4 rounded-lg mb-2 shadow">
-            <View className="flex-row items-center">
-              <Image
-                source={{
-                  uri: item.perfil?.foto_perfil
-                    ? `${supabaseUrl}/storage/v1/object/public/fotoperfil/${item.perfil.foto_perfil}`
-                    : 'https://via.placeholder.com/40'
-                }}
-                className="w-10 h-10 rounded-full mr-3"
-              />
-              <View className="flex-1">
-                <Text className="font-bold text-primary-600">
-                  {item.perfil?.username || 'Usuario'}
-                </Text>
-                <Text className="text-sm text-gray-600">
-                  {item.mensaje}
-                </Text>
-              </View>
-            </View>
-          </View>
-        );
-      case 'like':
-        return (
-          <View className="bg-white p-4 rounded-lg mb-2 shadow">
-            <View className="flex-row items-center">
-              <Image
-                source={{
-                  uri: item.perfil?.foto_perfil
-                    ? `${supabaseUrl}/storage/v1/object/public/fotoperfil/${item.perfil.foto_perfil}`
-                    : 'https://via.placeholder.com/40'
-                }}
-                className="w-10 h-10 rounded-full mr-3"
-              />
-              <View className="flex-1">
-                <Text className="font-bold text-primary-600">
-                  {item.perfil?.username || 'Usuario'}
-                </Text>
-                <Text className="text-sm text-gray-600">
-                  {item.mensaje}
-                </Text>
-              </View>
-            </View>
-          </View>
-        );
-      case 'comentario_cancion':
-        return (
-          <View className="bg-white p-4 rounded-lg mb-2 shadow">
-            <View className="flex-row items-center">
-              <Image
-                source={{
-                  uri: item.perfil?.foto_perfil
-                    ? `${supabaseUrl}/storage/v1/object/public/fotoperfil/${item.perfil.foto_perfil}`
-                    : 'https://via.placeholder.com/40'
-                }}
-                className="w-10 h-10 rounded-full mr-3"
-              />
-              <View className="flex-1">
-                <Text className="font-bold text-primary-600">
-                  {item.perfil?.username || 'Usuario'}
-                </Text>
-                <Text className="text-sm text-gray-600">
-                  {item.mensaje}
-                </Text>
-              </View>
-            </View>
-          </View>
-        );
-      case 'match':
-        return (
-          <View className="bg-white p-4 rounded-lg mb-2 shadow">
-            <View className="flex-row items-center">
-              <Image
-                source={{
-                  uri: item.perfil?.foto_perfil
-                    ? `${supabaseUrl}/storage/v1/object/public/fotoperfil/${item.perfil.foto_perfil}`
-                    : 'https://via.placeholder.com/40'
-                }}
-                className="w-10 h-10 rounded-full mr-3"
-              />
-              <View className="flex-1">
-                <Text className="font-bold text-primary-600">
-                  {item.perfil?.username || 'Usuario'}
-                </Text>
-                <Text className="text-sm text-gray-600">
-                  {item.mensaje}
-                </Text>
-              </View>
-            </View>
-          </View>
-        );
       default:
         return (
-          <View className="bg-white p-4 rounded-lg mb-2 shadow">
-            <Text>{item.mensaje}</Text>
-          </View>
+          <NotificationItem
+            notification={item}
+            onNotificationRead={fetchNotificaciones}
+          />
         );
     }
   };

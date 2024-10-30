@@ -15,20 +15,17 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        const { data, error } = await supabase
+        const { count, error } = await supabase
           .from('notificacion')
-          .select('id', { count: 'exact' })
+          .select('*', { count: 'exact' })
           .eq('usuario_id', user.id)
-          .eq('leido', false);  // Cambiado de 'leida' a 'leido'
+          .eq('leido', false);  // Solo contar las no leídas
 
         if (error) {
-          console.error('Error detallado al obtener el conteo de notificaciones:', error);
+          console.error('Error al obtener el conteo de notificaciones:', error);
         } else {
-          setUnreadCount(data?.length || 0);
+          setUnreadCount(count || 0);
         }
-      } else {
-        console.log('No hay usuario autenticado');
-        setUnreadCount(0);
       }
     } catch (error) {
       console.error('Error en updateUnreadCount:', error);

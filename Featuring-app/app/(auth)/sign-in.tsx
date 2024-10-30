@@ -156,7 +156,7 @@ const SignIn = () => {
               onChangeText={(value) => setForm({ ...form, password: value })}
             />
             <TouchableOpacity
-              className="absolute right-3 top-1/2"
+              className="absolute right-3 top-10"
               onPress={() => setShowPassword(!showPassword)}
             >
               <Image

@@ -22,7 +22,7 @@ const Onboarding = () => {
     <SafeAreaView className="flex-1 bg-white">
       <TouchableOpacity
         onPress={() => router.replace("/(auth)/sign-up")}
-        className="absolute top-5 right-0 p-5 z-10"
+        className="absolute top-5 right-0 p-6 z-10"
       >
         <Text className="text-secondary-500 text-lg font-JakartaBold">Saltar</Text>
       </TouchableOpacity>
@@ -56,7 +56,7 @@ const Onboarding = () => {
         </Swiper>
       </View>
 
-      <View className="px-5 pb-12">
+      <View className="px-5 pb-10">
         <CustomButton
           title={isLastSlide ? "Comencemos" : "Siguiente"}
           onPress={() =>

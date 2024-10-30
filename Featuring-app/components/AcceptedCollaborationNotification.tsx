@@ -54,7 +54,7 @@ export default function AcceptedCollaborationNotification({
           .delete()
           .eq('id', notification.id);
         
-        onRespond(); // Actualizar la lista de notificaciones
+        onRespond();
         return;
       }
 
@@ -65,32 +65,32 @@ export default function AcceptedCollaborationNotification({
         .eq('cancion_id', notification.contenido_id)
         .single();
 
-      if (colaboracionError) throw colaboracionError;
+      if (colaboracionError) {
+        console.error('Error al obtener colaboración:', colaboracionError);
+        return;
+      }
 
       if (colaboracionData) {
         setColaboracionId(colaboracionData.id);
 
-        // Obtener el ID del otro usuario
-        const otroUsuarioId = colaboracionData.usuario_id === currentUserId 
-          ? colaboracionData.usuario_id2 
-          : colaboracionData.usuario_id;
-
-        // Verificar si ya existe una valoración entre estos usuarios
+        // Verificar si ya existe una valoración de este usuario
         const { data: valoracionData, error: valoracionError } = await supabase
           .from('valoracion_colaboracion')
           .select('id')
           .eq('usuario_id', currentUserId)
-          .in('colaboracion_id', (
-            supabase
-              .from('colaboracion')
-              .select('id')
-              .or(`usuario_id.eq.${currentUserId},usuario_id2.eq.${currentUserId}`)
-              .or(`usuario_id.eq.${otroUsuarioId},usuario_id2.eq.${otroUsuarioId}`)
-          ))
+          .eq('colaboracion_id', colaboracionData.id)
           .single();
 
         if (!valoracionError && valoracionData) {
           setYaValorado(true);
+          
+          // Si ya está valorado, marcar la notificación como leída
+          await supabase
+            .from('notificacion')
+            .update({ leido: true })
+            .eq('id', notification.id);
+            
+          onRespond();
         }
       }
     } catch (error) {

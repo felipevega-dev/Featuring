@@ -214,7 +214,7 @@ export default function SignUp() {
           >
             <Image
               source={showPassword ? icons.hidePassword : icons.showPassword}
-              className="w-5 h-5"
+              className="w-6 h-6"
             />
           </TouchableOpacity>
         </View>
@@ -241,7 +241,7 @@ export default function SignUp() {
           >
             <Image
               source={showConfirmPassword ? icons.hidePassword : icons.showPassword}
-              className="w-5 h-5"
+              className="w-6 h-6"
             />
           </TouchableOpacity>
         </View>
@@ -263,13 +263,13 @@ export default function SignUp() {
         
         <OAuth />
         
-        <View className="flex-row items-center justify-center mt-3">
-          <Text className="font-JakartaMedium text-basetext-md text-general-200">
-            ¿Ya estás registrado?
-          </Text>
+        <View className="flex-1 items-center justify-center mt-1">
+            <Text className="font-JakartaMedium text-base sm:text-md text-general-200">
+              ¿Ya estás registrado?
+            </Text>
           <Link href="/sign-in" asChild>
             <TouchableOpacity>
-              <Text className="font-JakartaMedium text-base text-md text-secondary-500 ml-1">
+              <Text className="font-JakartaMedium text-base sm:text-lg text-secondary-500 ml-1">
                 Iniciar sesión
               </Text>
             </TouchableOpacity>
