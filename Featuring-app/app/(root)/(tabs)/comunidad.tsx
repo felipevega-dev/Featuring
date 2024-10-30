@@ -108,31 +108,44 @@ const Comunidad = () => {
       if (fetchCancionError) throw fetchCancionError;
 
       if (cancionData) {
-        // 1. Eliminar colaboraciones asociadas
+        // 1. Eliminar notificaciones relacionadas con la canción
+        const { error: notificacionesError } = await supabase
+          .from("notificacion")
+          .delete()
+          .eq("contenido_id", cancionId)
+          .in("tipo_notificacion", [
+            'solicitud_colaboracion',
+            'colaboracion_aceptada',
+            'colaboracion_rechazada'
+          ]);
+
+        if (notificacionesError) throw notificacionesError;
+
+        // 2. Eliminar colaboraciones asociadas
         await supabase
           .from("colaboracion")
           .delete()
           .eq("cancion_id", cancionId);
 
-        // 2. Eliminar valoraciones de la canción
+        // 3. Eliminar valoraciones de la canción
         await supabase
           .from("valoracion_cancion")
           .delete()
           .eq("cancion_id", cancionId);
 
-        // 3. Eliminar comentarios de la canción
+        // 4. Eliminar comentarios de la canción
         await supabase
           .from("comentario_cancion")
           .delete()
           .eq("cancion_id", cancionId);
 
-        // 4. Eliminar likes de la canción
+        // 5. Eliminar likes de la canción
         await supabase
           .from("likes_cancion")
           .delete()
           .eq("cancion_id", cancionId);
 
-        // 5. Eliminar archivo de audio del storage
+        // 6. Eliminar archivo de audio del storage
         if (cancionData.archivo_audio) {
           const audioFileName = cancionData.archivo_audio.split("/").pop();
           if (audioFileName) {
@@ -142,7 +155,7 @@ const Comunidad = () => {
           }
         }
 
-        // 6. Eliminar carátula del storage
+        // 7. Eliminar carátula del storage
         if (cancionData.caratula) {
           const caratulaFileName = cancionData.caratula.split("/").pop();
           if (caratulaFileName) {
@@ -152,7 +165,7 @@ const Comunidad = () => {
           }
         }
 
-        // 7. Finalmente, eliminar la canción
+        // 8. Finalmente, eliminar la canción
         const { error: deleteCancionError } = await supabase
           .from("cancion")
           .delete()
@@ -162,7 +175,7 @@ const Comunidad = () => {
           throw deleteCancionError;
         }
 
-        // 8. Actualizar los estados locales
+        // 9. Actualizar los estados locales
         setAllCanciones(prev => prev.filter(cancion => cancion.id !== cancionId));
         setFilteredCanciones(prev => prev.filter(cancion => cancion.id !== cancionId));
         

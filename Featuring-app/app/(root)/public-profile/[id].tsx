@@ -31,6 +31,8 @@ interface Perfil {
   habilidades: string[];
   redes_sociales: { nombre: string; url: string }[];
   nacionalidad: string; // Añadir esta línea
+  promedio_valoraciones: number;
+  total_valoraciones: number;
 }
 
 interface Cancion {
@@ -76,6 +78,7 @@ export default function PublicProfile() {
           edad,
           biografia,
           nacionalidad,
+          promedio_valoraciones,
           perfil_genero (genero),
           perfil_habilidad (habilidad),
           red_social (nombre, url)
@@ -85,14 +88,23 @@ export default function PublicProfile() {
 
       if (error) throw error;
 
+      const { count: totalValoraciones, error: countError } = await supabase
+        .from('valoracion_colaboracion')
+        .select('id', { count: 'exact' })
+        .eq('usuario_id', id);
+
+      if (countError) throw countError;
+
       if (data) {
         const perfilData: Perfil = {
           ...data,
-          full_name: data.username, // Asumiendo que no tenemos acceso al full_name en este contexto
+          full_name: data.username,
           generos: data.perfil_genero.map((g) => g.genero),
           habilidades: data.perfil_habilidad.map((h) => h.habilidad),
           redes_sociales: data.red_social,
           nacionalidad: data.nacionalidad,
+          promedio_valoraciones: data.promedio_valoraciones,
+          total_valoraciones: totalValoraciones
         };
         setPerfil(perfilData);
       }
@@ -151,6 +163,33 @@ export default function PublicProfile() {
   const handleRedSocialPress = (url: string) => {
     Linking.openURL(url).catch((err) =>
       console.error("Error al abrir el enlace:", err)
+    );
+  };
+
+  const renderValoracionPromedio = () => {
+    if (!perfil?.promedio_valoraciones) return null;
+
+    return (
+      <ProfileSection icon={icons.star} title="Valoración como Colaborador">
+        <View className="flex-row items-center">
+          <View className="flex-row mr-2">
+            {[1, 2, 3, 4, 5].map((star) => (
+              <Ionicons
+                key={star}
+                name="star"
+                size={20}
+                color={star <= Math.round(perfil.promedio_valoraciones) ? "#FFD700" : "#E5E7EB"}
+              />
+            ))}
+          </View>
+          <Text className="text-gray-600">
+            ({perfil.promedio_valoraciones.toFixed(1)})
+          </Text>
+        </View>
+        <Text className="text-sm text-gray-500 mt-1">
+          Basado en valoraciones de colaboraciones previas
+        </Text>
+      </ProfileSection>
     );
   };
 
@@ -223,6 +262,26 @@ export default function PublicProfile() {
                     <Text className="text-xl font-semibold text-primary-500 text-center">
                         {perfil.username}
                     </Text>
+                    {perfil.promedio_valoraciones > 0 && (
+                        <View className="items-center mt-2">
+                        <View className="flex-row">
+                            {[1, 2, 3, 4, 5].map((star) => (
+                            <Ionicons
+                                key={star}
+                                name="star"
+                                size={16}
+                                color={star <= Math.round(perfil.promedio_valoraciones) ? "#FFD700" : "#E5E7EB"}
+                            />
+                            ))}
+                            <Text className="text-gray-600 ml-2">
+                                ({perfil.promedio_valoraciones.toFixed(1)})
+                            </Text>
+                        </View>
+                        <Text className="text-xs text-gray-500 mt-1">
+                            {perfil.total_valoraciones} valoraciones como colaborador
+                        </Text>
+                        </View>
+                    )}
                     </View>
 
                     <ProfileSection icon={icons.usuarioperfil} title="Información Personal">
@@ -279,6 +338,8 @@ export default function PublicProfile() {
                         )}
                     </View>
                     </ProfileSection>
+
+                    {renderValoracionPromedio()}
                 </View>
 
                 <View className="flex-row justify-around mb-4">

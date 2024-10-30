@@ -322,7 +322,8 @@ const handleLike = async () => {
             tipo_notificacion: 'like_cancion',
             leido: false,
             usuario_origen_id: currentUserId,
-            contenido_id: cancion.id
+            contenido_id: cancion.id,
+            mensaje: `Le ha dado me gusta a tu canción "${cancion.titulo}"`
           });
 
         if (notificationError) {
@@ -381,7 +382,8 @@ const handleLike = async () => {
                 tipo_notificacion: 'comentario_cancion',
                 leido: false,
                 usuario_origen_id: currentUserId,
-                contenido_id: cancion.id // Usamos el ID de la canción en lugar del comentario
+                contenido_id: cancion.id,
+                mensaje: `Ha comentado en tu canción "${cancion.titulo}": "${nuevoComentario.slice(0, 50)}${nuevoComentario.length > 50 ? '...' : ''}"`
               });
 
             if (notificationError) {
@@ -440,7 +442,8 @@ const handleLike = async () => {
               tipo_notificacion: 'like_comentario_cancion',
               leido: false,
               usuario_origen_id: currentUserId,
-              contenido_id: comentarioId
+              contenido_id: comentarioId,
+              mensaje: `Le ha dado me gusta a tu comentario en "${cancion.titulo}"`
             });
 
           if (notificationError) {
@@ -802,7 +805,8 @@ const handleLike = async () => {
               tipo_notificacion: 'respuesta_comentario',
               leido: false,
               usuario_origen_id: currentUserId,
-              contenido_id: cancion.id
+              contenido_id: cancion.id,
+              mensaje: `Ha respondido a tu comentario en "${cancion.titulo}": "${respuestaTexto.slice(0, 50)}${respuestaTexto.length > 50 ? '...' : ''}"`
             });
 
           if (notificationError) {

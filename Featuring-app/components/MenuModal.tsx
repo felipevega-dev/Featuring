@@ -165,40 +165,46 @@ export default function MenuModal({
             borderColor: '#00BFA5',
           }}
         >
-          <View className="flex-1 p-4">
-            <View className="flex-row justify-between items-center mb-6">
-              <Text className="text-xl font-bold">Menú</Text>
-              <TouchableOpacity onPress={onClose}>
-                <Ionicons name="close" size={24} color="#666" />
-              </TouchableOpacity>
-            </View>
+          <TouchableOpacity
+            activeOpacity={1}
+            onPress={(e) => e.stopPropagation()}
+            className="flex-1"
+          >
+            <View className="flex-1 p-4">
+              <View className="flex-row justify-between items-center mb-6">
+                <Text className="text-xl font-bold">Menú</Text>
+                <TouchableOpacity onPress={onClose}>
+                  <Ionicons name="close" size={24} color="#666" />
+                </TouchableOpacity>
+              </View>
 
-            {menuItems.map((item, index) => (
-              <TouchableOpacity
-                key={index}
-                onPress={() => {
-                  item.onPress();
-                  router.setParams({ activeTab: null });
-                }}
-                className={`flex-row items-center py-4 ${
-                  index < menuItems.length - 1 ? 'border-b border-gray-200' : ''
-                }`}
-              >
-                <Ionicons
-                  name={item.icon as any}
-                  size={24}
-                  color={item.danger ? '#DC2626' : '#6D29D2'}
-                />
-                <Text
-                  className={`ml-4 text-lg ${
-                    item.danger ? 'text-red-600' : 'text-gray-800'
+              {menuItems.map((item, index) => (
+                <TouchableOpacity
+                  key={index}
+                  onPress={() => {
+                    item.onPress();
+                    onClose();
+                  }}
+                  className={`flex-row items-center py-4 ${
+                    index < menuItems.length - 1 ? 'border-b border-gray-200' : ''
                   }`}
                 >
-                  {item.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+                  <Ionicons
+                    name={item.icon as any}
+                    size={24}
+                    color={item.danger ? '#DC2626' : '#6D29D2'}
+                  />
+                  <Text
+                    className={`ml-4 text-lg ${
+                      item.danger ? 'text-red-600' : 'text-gray-800'
+                    }`}
+                  >
+                    {item.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </TouchableOpacity>
         </Animated.View>
       </View>
     </Modal>

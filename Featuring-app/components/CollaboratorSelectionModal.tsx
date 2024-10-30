@@ -7,6 +7,7 @@ import {
   FlatList,
   Image,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { supabase } from '@/lib/supabase';
 import Constants from 'expo-constants';
@@ -74,9 +75,37 @@ export default function CollaboratorSelectionModal({
     }
   };
 
+  const handleSelectCollaborator = async (colaborador: Colaborador) => {
+    try {
+      // Solo verificamos si hay una colaboración pendiente
+      const { data: existingCollaboration, error: checkError } = await supabase
+        .from('colaboracion')
+        .select('id, estado')
+        .or(`usuario_id.eq.${currentUserId},usuario_id2.eq.${currentUserId}`)
+        .or(`usuario_id.eq.${colaborador.usuario_id},usuario_id2.eq.${colaborador.usuario_id}`)
+        .eq('estado', 'pendiente')
+        .single();
+
+      if (existingCollaboration) {
+        Alert.alert(
+          "Colaboración Pendiente",
+          "Ya tienes una colaboración pendiente con este usuario. Espera a que sea aceptada o rechazada antes de crear una nueva.",
+          [{ text: "Entendido", style: "default" }]
+        );
+        return;
+      }
+
+      // Si no hay colaboración pendiente, proceder con la selección
+      onSelect(colaborador);
+    } catch (error) {
+      console.error('Error al verificar colaboraciones:', error);
+      Alert.alert('Error', 'No se pudo verificar el historial de colaboraciones');
+    }
+  };
+
   const renderItem = ({ item }: { item: Colaborador }) => (
     <TouchableOpacity
-      onPress={() => onSelect(item)}
+      onPress={() => handleSelectCollaborator(item)}
       className="flex-row items-center p-4 border-b border-gray-200"
     >
       <Image

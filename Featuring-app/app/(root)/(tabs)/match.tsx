@@ -21,6 +21,7 @@ import { icons } from "@/constants";
 import { useRouter } from "expo-router";
 import * as Location from "expo-location";
 import { useLocalSearchParams } from 'expo-router';
+import Constants from "expo-constants";
 
 const SWIPE_THRESHOLD = 120;
 
@@ -58,12 +59,12 @@ const Card: React.FC<CardProps> = ({
   const [modalVisible, setModalVisible] = useState(false);
 
   // Actualizar la URL del bucket de Supabase
+  const supabaseUrl = Constants.expoConfig?.extra?.supabaseUrl;
   const getProfileImageUrl = (fotoPerfilPath: string | null) => {
     if (!fotoPerfilPath) {
       return null;
     }
-    return `https://eizcbcljfpartgeausfy.supabase.co/storage/v1/object/public/fotoperfil/${fotoPerfilPath}`;
-
+    return `${supabaseUrl}/storage/v1/object/public/fotoperfil/${fotoPerfilPath}`;
   };
 
   // Usar la nueva función para obtener la URL
@@ -473,7 +474,7 @@ const Match = () => {
         .eq("id", connectionId);
 
       if (error) throw error;
-      console.log(`Conexi��n ${connectionId} actualizada a estado: ${status}`);
+      console.log(`Conexión ${connectionId} actualizada a estado: ${status}`);
     } catch (error) {
       console.error("Error al actualizar el estado de la conexión:", error);
     }
@@ -521,23 +522,30 @@ const Match = () => {
   const handleLike = async (likedUserId: string) => {
     if (currentUserId) {
       try {
+        // Obtener el username del usuario que da like
+        const { data: userData, error: userError } = await supabase
+          .from('perfil')
+          .select('username')
+          .eq('usuario_id', currentUserId)
+          .single();
+
+        if (userError) throw userError;
+
         const isMatch = await saveConnection(currentUserId, likedUserId);
 
-        console.log('Intentando crear notificación de like');
-        const { data: notificationData, error: notificationError } = await supabase
+        // Crear notificación de like
+        const { error: notificationError } = await supabase
           .from('notificacion')
           .insert({
             usuario_id: likedUserId,
             tipo_notificacion: 'like',
             leido: false,
-            usuario_origen_id: currentUserId  // Añadimos el ID del usuario que dio el like
-          })
-          .select();
+            usuario_origen_id: currentUserId,
+            mensaje: `${userData.username} te ha dado like`
+          });
 
         if (notificationError) {
           console.error('Error al crear notificación de like:', notificationError);
-        } else {
-          console.log('Notificación de like creada:', notificationData);
         }
 
         setCards((prevCards) => {
@@ -547,27 +555,37 @@ const Match = () => {
 
         if (isMatch) {
           showMatchAlert(likedUserId);
-          console.log('Intentando crear notificaciones de match');
-          const { data: matchNotifications, error: matchNotificationError } = await supabase
+          // Obtener el username del usuario que recibe el match
+          const { data: matchedUserData, error: matchedUserError } = await supabase
+            .from('perfil')
+            .select('username')
+            .eq('usuario_id', likedUserId)
+            .single();
+
+          if (matchedUserError) throw matchedUserError;
+
+          // Crear notificaciones de match para ambos usuarios
+          const { error: matchNotificationError } = await supabase
             .from('notificacion')
             .insert([
               {
                 usuario_id: likedUserId,
                 tipo_notificacion: 'match',
-                usuario_origen_id: currentUserId
+                usuario_origen_id: currentUserId,
+                mensaje: `¡Has hecho match con ${userData.username}!`,
+                leido: false
               },
               {
                 usuario_id: currentUserId,
                 tipo_notificacion: 'match',
-                usuario_origen_id: likedUserId
+                usuario_origen_id: likedUserId,
+                mensaje: `¡Has hecho match con ${matchedUserData.username}!`,
+                leido: false
               }
-            ])
-            .select();
+            ]);
 
           if (matchNotificationError) {
             console.error('Error al crear notificaciones de match:', matchNotificationError);
-          } else {
-            console.log('Notificaciones de match creadas:', matchNotifications);
           }
         }
 

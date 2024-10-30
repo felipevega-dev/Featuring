@@ -27,6 +27,8 @@ interface Perfil {
   habilidades: string[];
   redes_sociales: { nombre: string; url: string }[];
   nacionalidad: string;
+  promedio_valoraciones: number;
+  total_valoraciones: number;
 }
 
 const supabaseUrl = Constants.expoConfig?.extra?.supabaseUrl;
@@ -64,13 +66,21 @@ export default function Profile() {
           biografia,
           perfil_genero (genero),
           perfil_habilidad (habilidad),
-          red_social (nombre, url)
+          red_social (nombre, url),
+          promedio_valoraciones
         `
         )
         .eq("usuario_id", user.id)
         .single();
 
       if (error) throw error;
+
+      const { count: totalValoraciones, error: countError } = await supabase
+        .from('valoracion_colaboracion')
+        .select('id', { count: 'exact' })
+        .eq('usuario_id', user.id);
+
+      if (countError) throw countError;
 
       if (data) {
         const perfilData = {
@@ -79,6 +89,7 @@ export default function Profile() {
           generos: data.perfil_genero.map((g) => g.genero),
           habilidades: data.perfil_habilidad.map((h) => h.habilidad),
           redes_sociales: data.red_social,
+          total_valoraciones: totalValoraciones
         };
 
         setPerfil(perfilData);
@@ -252,6 +263,26 @@ export default function Profile() {
               <Text className="text-xl font-semibold text-primary-500 text-center">
                 {perfil.username}
               </Text>
+              {perfil.promedio_valoraciones > 0 && (
+                <View className="items-center mt-2">
+                  <View className="flex-row">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <Ionicons
+                        key={star}
+                        name="star"
+                        size={16}
+                        color={star <= Math.round(perfil.promedio_valoraciones) ? "#FFD700" : "#E5E7EB"}
+                      />
+                    ))}
+                    <Text className="text-gray-600 ml-2">
+                      ({perfil.promedio_valoraciones.toFixed(1)})
+                    </Text>
+                  </View>
+                  <Text className="text-xs text-gray-500 mt-1">
+                    {perfil.total_valoraciones} valoraciones como colaborador
+                  </Text>
+                </View>
+              )}
             </View>
             <ProfileSection
               icon={icons.usuarioperfil}

@@ -40,10 +40,28 @@ export default function AcceptedCollaborationNotification({
 
   const verificarEstadoValoracion = async () => {
     try {
+      // Primero verificar si la canción aún existe
+      const { data: cancionData, error: cancionError } = await supabase
+        .from('cancion')
+        .select('id')
+        .eq('id', notification.contenido_id)
+        .single();
+
+      if (cancionError || !cancionData) {
+        // Si la canción no existe, eliminar la notificación
+        await supabase
+          .from('notificacion')
+          .delete()
+          .eq('id', notification.id);
+        
+        onRespond(); // Actualizar la lista de notificaciones
+        return;
+      }
+
       // Obtener la colaboración
       const { data: colaboracionData, error: colaboracionError } = await supabase
         .from('colaboracion')
-        .select('id')
+        .select('id, usuario_id, usuario_id2')
         .eq('cancion_id', notification.contenido_id)
         .single();
 
@@ -52,12 +70,23 @@ export default function AcceptedCollaborationNotification({
       if (colaboracionData) {
         setColaboracionId(colaboracionData.id);
 
-        // Verificar si ya existe una valoración
+        // Obtener el ID del otro usuario
+        const otroUsuarioId = colaboracionData.usuario_id === currentUserId 
+          ? colaboracionData.usuario_id2 
+          : colaboracionData.usuario_id;
+
+        // Verificar si ya existe una valoración entre estos usuarios
         const { data: valoracionData, error: valoracionError } = await supabase
           .from('valoracion_colaboracion')
           .select('id')
-          .eq('colaboracion_id', colaboracionData.id)
           .eq('usuario_id', currentUserId)
+          .in('colaboracion_id', (
+            supabase
+              .from('colaboracion')
+              .select('id')
+              .or(`usuario_id.eq.${currentUserId},usuario_id2.eq.${currentUserId}`)
+              .or(`usuario_id.eq.${otroUsuarioId},usuario_id2.eq.${otroUsuarioId}`)
+          ))
           .single();
 
         if (!valoracionError && valoracionData) {
@@ -97,8 +126,8 @@ export default function AcceptedCollaborationNotification({
             <Text className="text-white text-center">Valorar colaboración</Text>
           </TouchableOpacity>
         ) : (
-          <Text className="text-gray-500 text-center mt-2">
-            Ya has valorado esta colaboración
+          <Text className="text-yellow-500 text-center mt-2">
+            Ya has valorado a este colaborador
           </Text>
         )}
       </View>

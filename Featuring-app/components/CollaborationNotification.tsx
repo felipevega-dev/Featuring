@@ -74,6 +74,19 @@ export default function CollaborationNotification({
 
   const handleAccept = async () => {
     try {
+      // Verificar si ya existe una valoración previa
+      const { data: valoracionPrevia, error: valoracionError } = await supabase
+        .from('valoracion_colaboracion')
+        .select('id')
+        .eq('usuario_id', currentUserId)
+        .in('colaboracion_id', (
+          supabase
+            .from('colaboracion')
+            .select('id')
+            .eq('cancion_id', notification.contenido_id)
+        ))
+        .single();
+
       // Actualizar el estado de la colaboración
       const { data: colaboracionData, error: collaborationError } = await supabase
         .from('colaboracion')
@@ -107,8 +120,8 @@ export default function CollaborationNotification({
 
       Alert.alert('Éxito', 'Has aceptado la colaboración');
       
-      // Mostrar el modal de valoración
-      if (colaboracionData) {
+      // Mostrar el modal de valoración solo si no existe una valoración previa
+      if (!valoracionPrevia && colaboracionData) {
         setColaboracionId(colaboracionData.id);
         setIsRatingModalVisible(true);
       }
@@ -122,7 +135,16 @@ export default function CollaborationNotification({
 
   const handleReject = async () => {
     try {
-      // Actualizar el estado de la colaboración
+      // 1. Obtener información de la canción
+      const { data: cancionData, error: cancionError } = await supabase
+        .from('cancion')
+        .select('*')
+        .eq('id', notification.contenido_id)
+        .single();
+
+      if (cancionError) throw cancionError;
+
+      // 2. Actualizar el estado de la colaboración a 'rechazada' en lugar de eliminarla
       const { error: collaborationError } = await supabase
         .from('colaboracion')
         .update({ estado: 'rechazada' })
@@ -131,7 +153,36 @@ export default function CollaborationNotification({
 
       if (collaborationError) throw collaborationError;
 
-      // Marcar la notificación como leída
+      // 3. Eliminar archivos de la canción
+      if (cancionData) {
+        if (cancionData.archivo_audio) {
+          const audioFileName = cancionData.archivo_audio.split("/").pop();
+          if (audioFileName) {
+            await supabase.storage
+              .from("canciones")
+              .remove([`${cancionData.usuario_id}/${audioFileName}`]);
+          }
+        }
+
+        if (cancionData.caratula) {
+          const caratulaFileName = cancionData.caratula.split("/").pop();
+          if (caratulaFileName) {
+            await supabase.storage
+              .from("caratulas")
+              .remove([`${cancionData.usuario_id}/${caratulaFileName}`]);
+          }
+        }
+      }
+
+      // 4. Eliminar la canción
+      const { error: deleteCancionError } = await supabase
+        .from('cancion')
+        .delete()
+        .eq('id', notification.contenido_id);
+
+      if (deleteCancionError) throw deleteCancionError;
+
+      // 5. Marcar la notificación como leída
       const { error: notificationError } = await supabase
         .from('notificacion')
         .update({ leido: true })
@@ -139,19 +190,19 @@ export default function CollaborationNotification({
 
       if (notificationError) throw notificationError;
 
-      // Crear notificación de respuesta
+      // 6. Crear notificación de rechazo
       await supabase
         .from('notificacion')
         .insert({
           usuario_id: notification.usuario_origen_id,
           tipo_notificacion: 'colaboracion_rechazada',
           contenido_id: notification.contenido_id,
-          mensaje: 'Tu solicitud de colaboración ha sido rechazada',
+          mensaje: 'Tu solicitud de colaboración ha sido rechazada.',
           leido: false,
           usuario_origen_id: currentUserId
         });
 
-      Alert.alert('Notificación', 'Has rechazado la colaboración');
+      Alert.alert('Notificación', 'Has rechazado la colaboración.');
       onRespond();
     } catch (error) {
       console.error('Error al rechazar la colaboración:', error);
@@ -160,13 +211,22 @@ export default function CollaborationNotification({
   };
 
   const renderButtons = () => {
-    if (yaValorado || colaboracionEstado === 'aceptada' || colaboracionEstado === 'rechazada') {
+    if (yaValorado || colaboracionEstado === 'aceptada') {
       return (
-        <View className="bg-gray-100 p-2 rounded">
-          <Text className="text-center text-gray-600">
-            {yaValorado ? 'Ya has valorado esta colaboración' : 
-             colaboracionEstado === 'aceptada' ? 'Colaboración aceptada' : 
-             'Colaboración rechazada'}
+        <View className="bg-yellow-300 p-2 rounded">
+          <Text className="text-center text-yellow-600">
+            {yaValorado ? 'Ya has valorado a este usuario' : 'Colaboración aceptada'}
+          </Text>
+        </View>
+      );
+    }
+
+
+    if (colaboracionEstado === 'rechazada') {
+      return (
+        <View className="bg-red-100 p-2 rounded">
+          <Text className="text-center text-red-600">
+            Has rechazado esta colaboración
           </Text>
         </View>
       );

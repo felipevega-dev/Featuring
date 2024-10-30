@@ -5,10 +5,12 @@ import {
   FlatList,
   RefreshControl,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { supabase } from '@/lib/supabase';
 import CollaborationNotification from '@/components/CollaborationNotification';
 import AcceptedCollaborationNotification from '@/components/AcceptedCollaborationNotification';
+import Constants from 'expo-constants';
 
 interface Notificacion {
   id: number;
@@ -29,6 +31,7 @@ export default function NotificacionesScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const supabaseUrl = Constants.expoConfig?.extra?.supabaseUrl;
 
   useEffect(() => {
     getCurrentUser();
@@ -124,6 +127,98 @@ export default function NotificacionesScreen() {
               Colaboración rechazada
             </Text>
             <Text>{item.mensaje}</Text>
+          </View>
+        );
+      case 'like_cancion':
+        return (
+          <View className="bg-white p-4 rounded-lg mb-2 shadow">
+            <View className="flex-row items-center">
+              <Image
+                source={{
+                  uri: item.perfil?.foto_perfil
+                    ? `${supabaseUrl}/storage/v1/object/public/fotoperfil/${item.perfil.foto_perfil}`
+                    : 'https://via.placeholder.com/40'
+                }}
+                className="w-10 h-10 rounded-full mr-3"
+              />
+              <View className="flex-1">
+                <Text className="font-bold">
+                  {item.perfil?.username || 'Usuario'}
+                </Text>
+                <Text className="text-sm text-gray-600">
+                  {item.mensaje}
+                </Text>
+              </View>
+            </View>
+          </View>
+        );
+      case 'comentario_cancion':
+        return (
+          <View className="bg-white p-4 rounded-lg mb-2 shadow">
+            <View className="flex-row items-center">
+              <Image
+                source={{
+                  uri: item.perfil?.foto_perfil
+                    ? `${supabaseUrl}/storage/v1/object/public/fotoperfil/${item.perfil.foto_perfil}`
+                    : 'https://via.placeholder.com/40'
+                }}
+                className="w-10 h-10 rounded-full mr-3"
+              />
+              <View className="flex-1">
+                <Text className="font-bold">
+                  {item.perfil?.username || 'Usuario'}
+                </Text>
+                <Text className="text-sm text-gray-600">
+                  {item.mensaje}
+                </Text>
+              </View>
+            </View>
+          </View>
+        );
+      case 'like_comentario_cancion':
+        return (
+          <View className="bg-white p-4 rounded-lg mb-2 shadow">
+            <View className="flex-row items-center">
+              <Image
+                source={{
+                  uri: item.perfil?.foto_perfil
+                    ? `${supabaseUrl}/storage/v1/object/public/fotoperfil/${item.perfil.foto_perfil}`
+                    : 'https://via.placeholder.com/40'
+                }}
+                className="w-10 h-10 rounded-full mr-3"
+              />
+              <View className="flex-1">
+                <Text className="font-bold">
+                  {item.perfil?.username || 'Usuario'}
+                </Text>
+                <Text className="text-sm text-gray-600">
+                  {item.mensaje}
+                </Text>
+              </View>
+            </View>
+          </View>
+        );
+      case 'match':
+        return (
+          <View className="bg-white p-4 rounded-lg mb-2 shadow">
+            <View className="flex-row items-center">
+              <Image
+                source={{
+                  uri: item.perfil?.foto_perfil
+                    ? `${supabaseUrl}/storage/v1/object/public/fotoperfil/${item.perfil.foto_perfil}`
+                    : 'https://via.placeholder.com/40'
+                }}
+                className="w-10 h-10 rounded-full mr-3"
+              />
+              <View className="flex-1">
+                <Text className="font-bold">
+                  {item.perfil?.username || 'Usuario'}
+                </Text>
+                <Text className="text-sm text-gray-600">
+                  {item.mensaje}
+                </Text>
+              </View>
+            </View>
           </View>
         );
       default:

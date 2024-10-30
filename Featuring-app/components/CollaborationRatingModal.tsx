@@ -34,7 +34,40 @@ export default function CollaborationRatingModal({
     }
 
     try {
-      const { error } = await supabase
+      const { data: colaboracionData, error: colaboracionError } = await supabase
+        .from('colaboracion')
+        .select('usuario_id, usuario_id2')
+        .eq('id', colaboracionId)
+        .single();
+
+      if (colaboracionError) throw colaboracionError;
+
+      const otroUsuarioId = colaboracionData.usuario_id === usuarioId 
+        ? colaboracionData.usuario_id2 
+        : colaboracionData.usuario_id;
+
+      const { data: valoracionPrevia, error: valoracionError } = await supabase
+        .from('valoracion_colaboracion')
+        .select('id')
+        .eq('usuario_id', usuarioId)
+        .in('colaboracion_id', (
+          supabase
+            .from('colaboracion')
+            .select('id')
+            .or(`usuario_id.eq.${usuarioId},usuario_id2.eq.${usuarioId}`)
+            .or(`usuario_id.eq.${otroUsuarioId},usuario_id2.eq.${otroUsuarioId}`)
+        ))
+        .single();
+
+      if (!valoracionError && valoracionPrevia) {
+        Alert.alert(
+          'Valoración no permitida',
+          'Ya has valorado a este usuario anteriormente. Solo se permite una valoración por colaborador.'
+        );
+        return;
+      }
+
+      const { error: insertError } = await supabase
         .from('valoracion_colaboracion')
         .insert({
           colaboracion_id: colaboracionId,
@@ -42,7 +75,7 @@ export default function CollaborationRatingModal({
           valoracion: rating,
         });
 
-      if (error) throw error;
+      if (insertError) throw insertError;
 
       Alert.alert('Éxito', 'Tu valoración ha sido registrada');
       onClose();
