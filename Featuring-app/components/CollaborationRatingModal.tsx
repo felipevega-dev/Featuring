@@ -15,6 +15,7 @@ interface CollaborationRatingModalProps {
   onClose: () => void;
   colaboracionId: number;
   colaboradorUsername: string;
+  colaboradorId: string;
   usuarioId: string;
 }
 
@@ -23,6 +24,7 @@ export default function CollaborationRatingModal({
   onClose,
   colaboracionId,
   colaboradorUsername,
+  colaboradorId,
   usuarioId,
 }: CollaborationRatingModalProps) {
   const [rating, setRating] = useState(0);
@@ -51,11 +53,24 @@ export default function CollaborationRatingModal({
         return;
       }
 
+      const { data: colaboracion, error: colaboracionError } = await supabase
+        .from('colaboracion')
+        .select('usuario_id, usuario_id2')
+        .eq('id', colaboracionId)
+        .single();
+
+      if (colaboracionError) throw colaboracionError;
+
+      const usuarioValorado = colaboracion.usuario_id === usuarioId 
+        ? colaboracion.usuario_id2 
+        : colaboracion.usuario_id;
+
       const { error: insertError } = await supabase
         .from('valoracion_colaboracion')
         .insert({
           colaboracion_id: colaboracionId,
           usuario_id: usuarioId,
+          usuario_valorado_id: usuarioValorado,
           valoracion: rating,
           comentario: comentario.trim() || null,
         });

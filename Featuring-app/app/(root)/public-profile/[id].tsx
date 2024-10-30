@@ -53,6 +53,17 @@ interface Video {
     perfil: Perfil;
   }
 
+interface Rating {
+  id: number;
+  valoracion: number;
+  comentario: string | null;
+  created_at: string;
+  perfil: {
+    username: string;
+    foto_perfil: string | null;
+  };
+}
+
 export default function PublicProfile() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [perfil, setPerfil] = useState<Perfil | null>(null);
@@ -92,22 +103,27 @@ export default function PublicProfile() {
 
       if (error) throw error;
 
-      const { count: totalValoraciones, error: countError } = await supabase
+      // Obtener el promedio y total de valoraciones usando usuario_valorado_id
+      const { data: valoracionesData, error: valoracionesError } = await supabase
         .from('valoracion_colaboracion')
-        .select('id', { count: 'exact' })
-        .eq('usuario_id', id);
+        .select('valoracion')
+        .eq('usuario_valorado_id', id);
 
-      if (countError) throw countError;
+      if (valoracionesError) throw valoracionesError;
+
+      const totalValoraciones = valoracionesData?.length || 0;
+      const sumaValoraciones = valoracionesData?.reduce((sum, val) => sum + val.valoracion, 0) || 0;
+      const promedioValoraciones = totalValoraciones > 0 ? sumaValoraciones / totalValoraciones : 0;
 
       if (data) {
-        const perfilData: Perfil = {
+        const perfilData = {
           ...data,
           full_name: data.username,
           generos: data.perfil_genero.map((g) => g.genero),
           habilidades: data.perfil_habilidad.map((h) => h.habilidad),
           redes_sociales: data.red_social,
           nacionalidad: data.nacionalidad,
-          promedio_valoraciones: data.promedio_valoraciones,
+          promedio_valoraciones: promedioValoraciones,
           total_valoraciones: totalValoraciones
         };
         setPerfil(perfilData);
@@ -141,30 +157,9 @@ export default function PublicProfile() {
         .eq("usuario_id", id);
 
       if (error) throw error;
-      setVideos(data || []);
+      //setVideos(data || []);
     } catch (error) {
       console.error("Error al obtener los videos:", error);
-    }
-  };
-
-  const fetchRatings = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('valoracion_colaboracion')
-        .select(`
-          *,
-          perfil:usuario_id (
-            username,
-            foto_perfil
-          )
-        `)
-        .eq('usuario_valorado_id', id)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setRatings(data || []);
-    } catch (error) {
-      console.error('Error al cargar valoraciones:', error);
     }
   };
 
@@ -191,36 +186,8 @@ export default function PublicProfile() {
     );
   };
 
-  const renderValoracionPromedio = () => {
-    if (!perfil?.promedio_valoraciones) return null;
-
-    return (
-      <ProfileSection icon={icons.star} title="Valoración como Colaborador">
-        <View className="flex-row items-center">
-          <View className="flex-row mr-2">
-            {[1, 2, 3, 4, 5].map((star) => (
-              <Ionicons
-                key={star}
-                name="star"
-                size={20}
-                color={star <= Math.round(perfil.promedio_valoraciones) ? "#FFD700" : "#E5E7EB"}
-              />
-            ))}
-          </View>
-          <Text className="text-gray-600">
-            ({perfil.promedio_valoraciones.toFixed(1)})
-          </Text>
-        </View>
-        <Text className="text-sm text-gray-500 mt-1">
-          Basado en valoraciones de colaboraciones previas
-        </Text>
-      </ProfileSection>
-    );
-  };
-
   const fetchValoraciones = async () => {
     try {
-      // Esta consulta obtiene todas las valoraciones donde el usuario fue valorado
       const { data: valoraciones, error } = await supabase
         .from('valoracion_colaboracion')
         .select(`
@@ -239,21 +206,22 @@ export default function PublicProfile() {
           )
         `)
         .or(`colaboracion.usuario_id.eq.${id},colaboracion.usuario_id2.eq.${id}`)
-        // Solo obtener valoraciones donde el usuario valorado es el del perfil
         .neq('usuario_id', id);
 
       if (error) throw error;
 
-      // Procesar las valoraciones para mostrar solo las que son para este usuario
-      const valoracionesFiltradas = valoraciones.map(val => ({
+      const valoracionesFormateadas: Rating[] = valoraciones.map(val => ({
         id: val.id,
         valoracion: val.valoracion,
         comentario: val.comentario,
         created_at: val.created_at,
-        perfil: val.perfil
+        perfil: {
+          username: val.perfil.username,
+          foto_perfil: val.perfil.foto_perfil
+        }
       }));
 
-      setRatings(valoracionesFiltradas);
+      setRatings(valoracionesFormateadas);
     } catch (error) {
       console.error('Error al cargar valoraciones:', error);
     }
@@ -411,7 +379,6 @@ export default function PublicProfile() {
                     </View>
                     </ProfileSection>
 
-                    {renderValoracionPromedio()}
                 </View>
 
                 <View className="flex-row justify-around mb-4">
@@ -449,7 +416,25 @@ export default function PublicProfile() {
                 </View>
             </ScrollView>
             </View>
+            <Modal
+              visible={showRatings}
+              transparent={true}
+              animationType="slide"
+              onRequestClose={() => setShowRatings(false)}
+            >
+              <View className="flex-1 bg-black/50">
+                <View className="bg-white rounded-t-3xl p-4 h-3/4 mt-auto">
+                  <View className="flex-row justify-between items-center mb-4">
+                    <Text className="text-xl font-bold">Valoraciones</Text>
+                    <TouchableOpacity onPress={() => setShowRatings(false)}>
+                      <Ionicons name="close" size={24} color="#4A148C" />
+                    </TouchableOpacity>
+                  </View>
+                  <RatingsList ratings={ratings} />
+                </View>
+              </View>
+            </Modal>
         </VideoProvider>
     </AudioPlayerProvider>
-  );
+  )
 }

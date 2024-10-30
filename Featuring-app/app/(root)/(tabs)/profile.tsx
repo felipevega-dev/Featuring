@@ -75,12 +75,16 @@ export default function Profile() {
 
       if (error) throw error;
 
-      const { count: totalValoraciones, error: countError } = await supabase
+      const { data: valoracionesData, error: valoracionesError } = await supabase
         .from('valoracion_colaboracion')
-        .select('id', { count: 'exact' })
-        .eq('usuario_id', user.id);
+        .select('valoracion')
+        .eq('usuario_valorado_id', user.id);
 
-      if (countError) throw countError;
+      if (valoracionesError) throw valoracionesError;
+
+      const totalValoraciones = valoracionesData?.length || 0;
+      const sumaValoraciones = valoracionesData?.reduce((sum, val) => sum + val.valoracion, 0) || 0;
+      const promedioValoraciones = totalValoraciones > 0 ? sumaValoraciones / totalValoraciones : 0;
 
       if (data) {
         const perfilData = {
@@ -89,6 +93,7 @@ export default function Profile() {
           generos: data.perfil_genero.map((g) => g.genero),
           habilidades: data.perfil_habilidad.map((h) => h.habilidad),
           redes_sociales: data.red_social,
+          promedio_valoraciones: promedioValoraciones,
           total_valoraciones: totalValoraciones
         };
 

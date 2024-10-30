@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, Dimensions, SafeAreaView, FlatList, TextInput } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { supabase } from '@/lib/supabase';
-import { Video as ExpoVideo } from 'expo-av';
+import { Video as ExpoVideo, ResizeMode } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import Constants from 'expo-constants';
@@ -121,14 +121,14 @@ export default function VideoDetail() {
 
   const fetchLikesCount = async () => {
     try {
-      const { data: { likes_count } } = await supabase
+      const { data: likes_count } = await supabase
         .from('likes')
         .select('likes_count')
         .eq('video_id', id)
         .single();
 
       if (likes_count) {
-        setLikesCount(likes_count);
+        setLikesCount(likes_count.likes_count);
       }
     } catch (error) {
       console.error('Error al cargar el número de likes:', error);
@@ -137,7 +137,7 @@ export default function VideoDetail() {
 
   const fetchComentarios = async () => {
     try {
-      const { data: { comentarios } } = await supabase
+      const { data: comentarios } = await supabase
         .from('comentarios')
         .select(`
           *,
@@ -219,7 +219,7 @@ export default function VideoDetail() {
           shouldPlay
           isLooping
           style={{ width: '100%', height: '100%' }}
-          resizeMode="contain"
+          resizeMode={ResizeMode.CONTAIN}
         />
 
         <View className="absolute bottom-20 left-4">

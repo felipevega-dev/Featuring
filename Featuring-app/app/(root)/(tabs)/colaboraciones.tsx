@@ -50,6 +50,7 @@ export default function ColaboracionesScreen() {
   const [selectedColaboracion, setSelectedColaboracion] = useState<{
     id: number;
     otherUsername: string;
+    otherUserId: string;
   } | null>(null);
 
   useEffect(() => {
@@ -217,7 +218,8 @@ export default function ColaboracionesScreen() {
             onPress={() => {
               setSelectedColaboracion({
                 id: item.id,
-                otherUsername: otherUserProfile.username
+                otherUsername: otherUserProfile.username,
+                otherUserId: otherUserId
               });
               setIsRatingModalVisible(true);
             }}
@@ -275,11 +277,11 @@ export default function ColaboracionesScreen() {
           onClose={() => {
             setIsRatingModalVisible(false);
             setSelectedColaboracion(null);
-            // Refrescar la lista para actualizar el estado de las valoraciones
             fetchColaboraciones();
           }}
           colaboracionId={selectedColaboracion.id}
           colaboradorUsername={selectedColaboracion.otherUsername}
+          colaboradorId={selectedColaboracion.otherUserId}
           usuarioId={currentUserId || ''}
         />
       )}
