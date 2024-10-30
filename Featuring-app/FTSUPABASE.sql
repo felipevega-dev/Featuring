@@ -244,13 +244,15 @@ CREATE TABLE
 CREATE TABLE
   colaboracion (
     id BIGSERIAL PRIMARY KEY,
-    cancion_id BIGINT,
+    cancion_id BIGINT NOT NULL,
     usuario_id UUID NOT NULL,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
+    usuario_id2 UUID NOT NULL,
     estado TEXT DEFAULT 'pendiente',
+    created_at TIMESTAMPTZ DEFAULT NOW(),
     CONSTRAINT check_estado CHECK (estado IN ('pendiente', 'aceptada', 'rechazada')),
     CONSTRAINT fk_usuario_colaboracion FOREIGN KEY (usuario_id) REFERENCES perfil (usuario_id) ON DELETE CASCADE,
-    CONSTRAINT fk_cancion_colaboracion FOREIGN KEY (cancion_id) REFERENCES cancion (id) ON DELETE SET NULL,
+    CONSTRAINT fk_usuario2_colaboracion FOREIGN KEY (usuario_id2) REFERENCES perfil (usuario_id) ON DELETE CASCADE,
+    CONSTRAINT fk_cancion_colaboracion FOREIGN KEY (cancion_id) REFERENCES cancion (id) ON DELETE CASCADE
   );
 
 -- Tabla reporte

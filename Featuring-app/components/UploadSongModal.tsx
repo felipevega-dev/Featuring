@@ -137,14 +137,16 @@ export default function UploadSongModal({
       const sanitizedCoverImageName = sanitizeFileName(coverImageName);
 
       // Subir archivo de audio
-      const { data: audioData, error: audioUploadError } =
-        await supabase.storage
-          .from("canciones")
-          .upload(`${user.id}/${sanitizedAudioFileName}`, {
-            uri: audioFile,
-            name: sanitizedAudioFileName,
-            type: "audio/*",
-          });
+      const formData = new FormData();
+      formData.append('file', {
+        uri: audioFile,
+        name: sanitizedAudioFileName,
+        type: 'audio/mpeg'
+      } as any);
+
+      const { data: audioData, error: audioUploadError } = await supabase.storage
+        .from("canciones")
+        .upload(`${user.id}/${sanitizedAudioFileName}`, formData);
       if (audioUploadError) throw audioUploadError;
 
       // Obtener URL pública del archivo de audio
@@ -155,14 +157,16 @@ export default function UploadSongModal({
         .getPublicUrl(`${user.id}/${sanitizedAudioFileName}`);
 
       // Subir imagen de portada
-      const { data: imageData, error: imageUploadError } =
-        await supabase.storage
-          .from("caratulas")
-          .upload(`${user.id}/${sanitizedCoverImageName}`, {
-            uri: coverImage,
-            name: sanitizedCoverImageName,
-            type: "image/*",
-          });
+      const imageFormData = new FormData();
+      imageFormData.append('file', {
+        uri: coverImage,
+        name: sanitizedCoverImageName,
+        type: 'image/jpeg'
+      } as any);
+
+      const { data: imageData, error: imageUploadError } = await supabase.storage
+        .from("caratulas")
+        .upload(`${user.id}/${sanitizedCoverImageName}`, imageFormData);
       if (imageUploadError) throw imageUploadError;
 
       // Obtener URL pública de la imagen de portada
@@ -193,7 +197,8 @@ export default function UploadSongModal({
           .from("colaboracion")
           .insert({
             cancion_id: songData.id,
-            usuario_id: selectedCollaborator.usuario_id,
+            usuario_id: user.id,
+            usuario_id2: selectedCollaborator.usuario_id,
             estado: 'pendiente'
           });
 

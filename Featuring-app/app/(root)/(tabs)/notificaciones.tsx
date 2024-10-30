@@ -1,122 +1,158 @@
-import React, { useState, useEffect } from 'react';
-import { FlatList, Text, View, RefreshControl, StatusBar } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { supabase } from "@/lib/supabase";
-import { useNotification } from '@/contexts/NotificationContext';
+import React, { useEffect, useState } from 'react';
+import {
+  View,
+  Text,
+  FlatList,
+  RefreshControl,
+  ActivityIndicator,
+} from 'react-native';
+import { supabase } from '@/lib/supabase';
+import CollaborationNotification from '@/components/CollaborationNotification';
 
 interface Notificacion {
-  id: string;
-  usuario_id: string;
+  id: number;
   tipo_notificacion: string;
+  usuario_origen_id: string;
+  contenido_id: number;
+  mensaje: string;
+  leido: boolean;
   created_at: string;
-  contenido_id: string | null;
-  usuario_origen_id: string | null;
-  perfil: {
+  perfil?: {
     username: string;
-  } | null;
+    foto_perfil: string | null;
+  };
 }
 
-const Notificaciones = () => {
+export default function NotificacionesScreen() {
   const [notificaciones, setNotificaciones] = useState<Notificacion[]>([]);
-  const [refreshing, setRefreshing] = useState(false);
-  const { updateUnreadCount } = useNotification();
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  useEffect(() => {
+    fetchNotificaciones();
+    suscribirseANotificaciones();
+  }, []);
+
+  const suscribirseANotificaciones = () => {
+    const subscription = supabase
+      .channel('notificaciones_cambios')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'notificacion'
+        },
+        () => {
+          fetchNotificaciones();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  };
 
   const fetchNotificaciones = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
       const { data, error } = await supabase
         .from('notificacion')
         .select(`
           *,
-          perfil:usuario_origen_id (username)
+          perfil:usuario_origen_id (
+            username,
+            foto_perfil
+          )
         `)
         .eq('usuario_id', user.id)
         .order('created_at', { ascending: false });
 
-      if (error) {
-        console.error('Error fetching notificaciones:', error);
-      } else {
-        console.log('Notificaciones obtenidas:', JSON.stringify(data, null, 2));
-        setNotificaciones(data);
+      if (error) throw error;
 
-        const { error: updateError } = await supabase
-          .from('notificacion')
-          .update({ leido: true })
-          .eq('usuario_id', user.id)
-          .eq('leido', false);
-
-        if (updateError) {
-          console.error('Error al marcar notificaciones como leídas:', updateError);
-        } else {
-          console.log('Notificaciones marcadas como leídas');
-          updateUnreadCount();
-        }
-      }
-    } else {
-      console.log('No se encontró usuario autenticado');
+      setNotificaciones(data || []);
+    } catch (error) {
+      console.error('Error al cargar notificaciones:', error);
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
     }
   };
 
-  useEffect(() => {
+  const handleRefresh = () => {
+    setIsRefreshing(true);
     fetchNotificaciones();
-  }, []);
+  };
 
-  const onRefresh = React.useCallback(() => {
-    setRefreshing(true);
-    fetchNotificaciones().then(() => setRefreshing(false));
-  }, []);
+  const renderNotificacion = ({ item }: { item: Notificacion }) => {
+    switch (item.tipo_notificacion) {
+      case 'solicitud_colaboracion':
+        return (
+          <CollaborationNotification
+            notification={item}
+            onRespond={fetchNotificaciones}
+          />
+        );
+      case 'colaboracion_aceptada':
+        return (
+          <View className="bg-white p-4 rounded-lg mb-2 shadow">
+            <Text className="font-bold text-green-600">
+              ¡Colaboración aceptada!
+            </Text>
+            <Text>{item.mensaje}</Text>
+          </View>
+        );
+      case 'colaboracion_rechazada':
+        return (
+          <View className="bg-white p-4 rounded-lg mb-2 shadow">
+            <Text className="font-bold text-red-600">
+              Colaboración rechazada
+            </Text>
+            <Text>{item.mensaje}</Text>
+          </View>
+        );
+      default:
+        return (
+          <View className="bg-white p-4 rounded-lg mb-2 shadow">
+            <Text>{item.mensaje}</Text>
+          </View>
+        );
+    }
+  };
 
-  const renderNotificacion = ({ item }: { item: Notificacion }) => (
-    <View className="bg-gray-100 p-3 mb-2 rounded-lg">
-      <Text className="font-JakartaSemiBold text-sm">
-        {item.tipo_notificacion === 'like' && item.perfil
-          ? `${item.perfil.username} te ha dado like, ¡conecta!`
-          : item.tipo_notificacion === 'match' && item.perfil
-          ? `Conectaste con ${item.perfil.username}, ¡empieza a colaborar!`
-          : item.tipo_notificacion === 'like_video' && item.perfil
-          ? `${item.perfil.username} ha dado like a tu video`
-          : item.tipo_notificacion === 'comentario_video' && item.perfil
-          ? `${item.perfil.username} ha comentado tu video`
-          : item.tipo_notificacion === 'like_comentario_video' && item.perfil
-          ? `A ${item.perfil.username} le gustó tu comentario en un video`
-          : item.tipo_notificacion === 'like_cancion' && item.perfil
-          ? `A ${item.perfil.username} le gustó tu publicación`
-          : item.tipo_notificacion === 'comentario_cancion' && item.perfil
-          ? `${item.perfil.username} ha comentado tu publicación`
-          : item.tipo_notificacion === 'like_comentario_cancion' && item.perfil
-          ? `A ${item.perfil.username} le gustó tu comentario en una canción`
-          : item.tipo_notificacion === 'respuesta_comentario' && item.perfil
-          ? `${item.perfil.username} ha respondido a tu comentario`
-          : item.tipo_notificacion}
-      </Text>
-      <Text className="text-gray-400 mt-1 text-xs">
-        {new Date(item.created_at).toLocaleString()}
-      </Text>
-    </View>
-  );
+  if (isLoading) {
+    return (
+      <View className="flex-1 justify-center items-center">
+        <ActivityIndicator size="large" color="#6D29D2" />
+      </View>
+    );
+  }
 
   return (
-    <SafeAreaView className="flex-1 bg-white" edges={['top']}>
-      <StatusBar barStyle="dark-content" backgroundColor="white" />
-      <View className="flex-1 px-4">
-        <Text className="text-2xl font-JakartaBold mb-2">Notificaciones</Text>
-        <FlatList
-          data={notificaciones}
-          renderItem={renderNotificacion}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={{ paddingBottom: 20 }}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-          }
-          ListEmptyComponent={
-            <Text className="text-center text-gray-500 mt-4">
+    <View className="flex-1 bg-gray-100">
+      <FlatList
+        data={notificaciones}
+        renderItem={renderNotificacion}
+        keyExtractor={(item) => item.id.toString()}
+        contentContainerStyle={{ padding: 16 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={handleRefresh}
+            colors={["#6D29D2"]}
+          />
+        }
+        ListEmptyComponent={
+          <View className="flex-1 justify-center items-center p-4">
+            <Text className="text-gray-500 text-center">
               No tienes notificaciones
             </Text>
-          }
-        />
-      </View>
-    </SafeAreaView>
+          </View>
+        }
+      />
+    </View>
   );
-};
-
-export default Notificaciones;
+}
