@@ -313,6 +313,7 @@ CREATE TABLE
     colaboracion_id BIGINT NOT NULL,
     usuario_id UUID NOT NULL,
     valoracion INT CHECK (valoracion BETWEEN 1 AND 5),
+    comentario TEXT CHECK (length(comentario) <= 200),
     created_at TIMESTAMPTZ DEFAULT NOW(),
     CONSTRAINT fk_colaboracion_valoracion FOREIGN KEY (colaboracion_id) REFERENCES colaboracion (id) ON DELETE CASCADE,
     CONSTRAINT fk_usuario_valoracion_colaboracion FOREIGN KEY (usuario_id) REFERENCES perfil (usuario_id) ON DELETE CASCADE,

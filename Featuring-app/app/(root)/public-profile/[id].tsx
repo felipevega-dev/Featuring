@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   FlatList,
   Linking,
+  Modal,
 } from "react-native";
 import { supabase } from "@/lib/supabase";
 import { useLocalSearchParams, router } from "expo-router";
@@ -17,6 +18,7 @@ import SongCard from "@/components/SongCard";
 import VideoCard from "@/components/VideoCard";
 import { AudioPlayerProvider } from "@/contexts/AudioPlayerContext";
 import { VideoProvider } from "@/contexts/VideoContext";
+import RatingsList from '@/components/RatingsList';
 
 interface Perfil {
   usuario_id: string;
@@ -58,6 +60,8 @@ export default function PublicProfile() {
   const [videos, setVideos] = useState<Video[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'canciones' | 'videos'>('canciones');
+  const [showRatings, setShowRatings] = useState(false);
+  const [ratings, setRatings] = useState<Rating[]>([]);
 
   useEffect(() => {
     fetchPerfil();
@@ -143,6 +147,27 @@ export default function PublicProfile() {
     }
   };
 
+  const fetchRatings = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('valoracion_colaboracion')
+        .select(`
+          *,
+          perfil:usuario_id (
+            username,
+            foto_perfil
+          )
+        `)
+        .eq('usuario_valorado_id', id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setRatings(data || []);
+    } catch (error) {
+      console.error('Error al cargar valoraciones:', error);
+    }
+  };
+
   const getRedSocialIcon = (nombre: string) => {
     switch (nombre.toLowerCase()) {
       case "soundcloud":
@@ -191,6 +216,53 @@ export default function PublicProfile() {
         </Text>
       </ProfileSection>
     );
+  };
+
+  const fetchValoraciones = async () => {
+    try {
+      // Esta consulta obtiene todas las valoraciones donde el usuario fue valorado
+      const { data: valoraciones, error } = await supabase
+        .from('valoracion_colaboracion')
+        .select(`
+          id,
+          valoracion,
+          comentario,
+          created_at,
+          colaboracion!inner (
+            id,
+            usuario_id,
+            usuario_id2
+          ),
+          perfil:usuario_id (
+            username,
+            foto_perfil
+          )
+        `)
+        .or(`colaboracion.usuario_id.eq.${id},colaboracion.usuario_id2.eq.${id}`)
+        // Solo obtener valoraciones donde el usuario valorado es el del perfil
+        .neq('usuario_id', id);
+
+      if (error) throw error;
+
+      // Procesar las valoraciones para mostrar solo las que son para este usuario
+      const valoracionesFiltradas = valoraciones.map(val => ({
+        id: val.id,
+        valoracion: val.valoracion,
+        comentario: val.comentario,
+        created_at: val.created_at,
+        perfil: val.perfil
+      }));
+
+      setRatings(valoracionesFiltradas);
+    } catch (error) {
+      console.error('Error al cargar valoraciones:', error);
+    }
+  };
+
+  // Llamar a fetchValoraciones cuando se abre el modal de valoraciones
+  const handleShowRatings = () => {
+    fetchValoraciones();
+    setShowRatings(true);
   };
 
   if (isLoading) {
@@ -262,26 +334,26 @@ export default function PublicProfile() {
                     <Text className="text-xl font-semibold text-primary-500 text-center">
                         {perfil.username}
                     </Text>
-                    {perfil.promedio_valoraciones > 0 && (
-                        <View className="items-center mt-2">
+                    <TouchableOpacity onPress={handleShowRatings}>
+                      <View className="items-center mt-2">
                         <View className="flex-row">
-                            {[1, 2, 3, 4, 5].map((star) => (
+                          {[1, 2, 3, 4, 5].map((star) => (
                             <Ionicons
-                                key={star}
-                                name="star"
-                                size={16}
-                                color={star <= Math.round(perfil.promedio_valoraciones) ? "#FFD700" : "#E5E7EB"}
+                              key={star}
+                              name="star"
+                              size={16}
+                              color={star <= Math.round(perfil.promedio_valoraciones) ? "#FFD700" : "#E5E7EB"}
                             />
-                            ))}
-                            <Text className="text-gray-600 ml-2">
-                                ({perfil.promedio_valoraciones.toFixed(1)})
-                            </Text>
+                          ))}
+                          <Text className="text-gray-600 ml-2">
+                            ({perfil.promedio_valoraciones.toFixed(1)})
+                          </Text>
                         </View>
                         <Text className="text-xs text-gray-500 mt-1">
-                            {perfil.total_valoraciones} valoraciones como colaborador
+                          {perfil.total_valoraciones} valoraciones como colaborador
                         </Text>
-                        </View>
-                    )}
+                      </View>
+                    </TouchableOpacity>
                     </View>
 
                     <ProfileSection icon={icons.usuarioperfil} title="Información Personal">

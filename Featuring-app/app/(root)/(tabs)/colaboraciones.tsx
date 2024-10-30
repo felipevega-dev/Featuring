@@ -12,10 +12,13 @@ import { supabase } from '@/lib/supabase';
 import Constants from 'expo-constants';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import CollaborationRatingModal from '@/components/CollaborationRatingModal';
 
 interface Colaboracion {
   id: number;
   cancion_id: number;
+  usuario_id: string;
+  usuario_id2: string;
   estado: string;
   created_at: string;
   cancion: {
@@ -33,12 +36,21 @@ interface Colaboracion {
   valoracion?: number;
 }
 
+interface RenderItemProps {
+  item: Colaboracion;
+}
+
 export default function ColaboracionesScreen() {
   const [colaboraciones, setColaboraciones] = useState<Colaboracion[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const supabaseUrl = Constants.expoConfig?.extra?.supabaseUrl;
+  const [isRatingModalVisible, setIsRatingModalVisible] = useState(false);
+  const [selectedColaboracion, setSelectedColaboracion] = useState<{
+    id: number;
+    otherUsername: string;
+  } | null>(null);
 
   useEffect(() => {
     getCurrentUser();
@@ -101,11 +113,35 @@ export default function ColaboracionesScreen() {
     }
   };
 
-  const renderItem = ({ item }: { item: Colaboracion }) => {
+  const checkIfRated = async (colaboracionId: number) => {
+    try {
+      const { data, error } = await supabase
+        .from('valoracion_colaboracion')
+        .select('id')
+        .eq('colaboracion_id', colaboracionId)
+        .eq('usuario_id', currentUserId)
+        .single();
+
+      return !error && data;
+    } catch (error) {
+      console.error('Error al verificar valoración:', error);
+      return false;
+    }
+  };
+
+  const RenderColaboracionItem = ({ item }: RenderItemProps) => {
+    const [hasRated, setHasRated] = useState(false);
     const isCreator = item.usuario_id === currentUserId;
-    
     const otherUserProfile = isCreator ? item.perfil2 : item.perfil;
     const otherUserId = isCreator ? item.usuario_id2 : item.usuario_id;
+
+    useEffect(() => {
+      const checkRating = async () => {
+        const rated = await checkIfRated(item.id);
+        setHasRated(!!rated);
+      };
+      checkRating();
+    }, [item.id]);
 
     return (
       <View className="bg-white p-4 rounded-lg mb-3 shadow">
@@ -175,6 +211,27 @@ export default function ColaboracionesScreen() {
             </View>
           </View>
         )}
+
+        {item.estado === 'aceptada' && !hasRated && (
+          <TouchableOpacity
+            onPress={() => {
+              setSelectedColaboracion({
+                id: item.id,
+                otherUsername: otherUserProfile.username
+              });
+              setIsRatingModalVisible(true);
+            }}
+            className="bg-primary-500 p-2 rounded mt-2"
+          >
+            <Text className="text-white text-center">Valorar colaboración</Text>
+          </TouchableOpacity>
+        )}
+
+        {hasRated && (
+          <Text className="text-gray-500 text-center mt-2">
+            Ya has valorado esta colaboración
+          </Text>
+        )}
       </View>
     );
   };
@@ -191,7 +248,7 @@ export default function ColaboracionesScreen() {
     <View className="flex-1 bg-gray-100 p-4">
       <FlatList
         data={colaboraciones}
-        renderItem={renderItem}
+        renderItem={({ item }) => <RenderColaboracionItem item={item} />}
         keyExtractor={(item) => item.id.toString()}
         refreshControl={
           <RefreshControl
@@ -211,6 +268,21 @@ export default function ColaboracionesScreen() {
           </View>
         }
       />
+
+      {selectedColaboracion && (
+        <CollaborationRatingModal
+          isVisible={isRatingModalVisible}
+          onClose={() => {
+            setIsRatingModalVisible(false);
+            setSelectedColaboracion(null);
+            // Refrescar la lista para actualizar el estado de las valoraciones
+            fetchColaboraciones();
+          }}
+          colaboracionId={selectedColaboracion.id}
+          colaboradorUsername={selectedColaboracion.otherUsername}
+          usuarioId={currentUserId || ''}
+        />
+      )}
     </View>
   );
 } 

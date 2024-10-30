@@ -5,6 +5,7 @@ import {
   Text,
   TouchableOpacity,
   Alert,
+  TextInput,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@/lib/supabase';
@@ -26,6 +27,7 @@ export default function CollaborationRatingModal({
 }: CollaborationRatingModalProps) {
   const [rating, setRating] = useState(0);
   const [hoveredRating, setHoveredRating] = useState(0);
+  const [comentario, setComentario] = useState('');
 
   const handleRate = async () => {
     if (rating === 0) {
@@ -55,6 +57,7 @@ export default function CollaborationRatingModal({
           colaboracion_id: colaboracionId,
           usuario_id: usuarioId,
           valoracion: rating,
+          comentario: comentario.trim() || null,
         });
 
       if (insertError) throw insertError;
@@ -107,6 +110,16 @@ export default function CollaborationRatingModal({
           <View className="flex-row justify-center space-x-2 mb-6">
             {renderStars()}
           </View>
+
+          <TextInput
+            className="border border-gray-300 rounded-lg p-3 mb-6"
+            placeholder="Deja un comentario sobre tu experiencia (opcional)"
+            value={comentario}
+            onChangeText={setComentario}
+            multiline
+            numberOfLines={3}
+            textAlignVertical="top"
+          />
 
           <View className="flex-row justify-end space-x-4">
             <TouchableOpacity
