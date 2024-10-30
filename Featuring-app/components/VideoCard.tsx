@@ -8,7 +8,6 @@ import {
   TextInput,
   FlatList,
   Alert,
-  Animated,
 } from "react-native";
 import { Video as ExpoVideo, ResizeMode } from "expo-av";
 import { Ionicons } from "@expo/vector-icons";
@@ -16,6 +15,7 @@ import { supabase } from "@/lib/supabase";
 import { Image } from "expo-image";
 import { useVideo } from "@/contexts/VideoContext";
 import Constants from "expo-constants";
+import { useLocalSearchParams } from 'expo-router';
 
 const { width, height } = Dimensions.get("window");
 
@@ -89,12 +89,8 @@ const VideoCard: React.FC<VideoCardProps> = ({
   const [likesCount, setLikesCount] = useState(0);
   const [showComments, setShowComments] = useState(false);
   const [comentarios, setComentarios] = useState<Comentario[]>([]);
-  const [comentarioLikes, setComentarioLikes] = useState<{
-    [key: number]: ComentarioLike[];
-  }>({});
   const [nuevoComentario, setNuevoComentario] = useState("");
   const videoRef = useRef<ExpoVideo>(null);
-  const fadeAnim = useRef(new Animated.Value(1)).current;
   const [showPlayPauseIcon, setShowPlayPauseIcon] = useState(false);
   const [showOptionsModal, setShowOptionsModal] = useState(false);
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
@@ -103,6 +99,13 @@ const VideoCard: React.FC<VideoCardProps> = ({
   const [selectedReportReason, setSelectedReportReason] = useState<string | null>(null);
   const [isReportConfirmationVisible, setIsReportConfirmationVisible] = useState(false);
   const [userReportCount, setUserReportCount] = useState(0);
+  const [showRegularComments, setShowRegularComments] = useState(false);
+  const [showNotificationComments, setShowNotificationComments] = useState(false);
+
+  const { scrollToId, showComments: shouldShowComments } = useLocalSearchParams<{
+    scrollToId?: string;
+    showComments?: string;
+  }>();
 
   useEffect(() => {
     if (isActive && isScreenFocused && currentPlayingId === video.id) {
@@ -120,6 +123,14 @@ const VideoCard: React.FC<VideoCardProps> = ({
     fetchComentarios();
   }, [video.id]);
 
+  useEffect(() => {
+    if (shouldShowComments === 'true' && scrollToId === video.id.toString()) {
+      console.log('Abriendo comentarios para video:', video.id);
+      setShowNotificationComments(true);
+      fetchComentarios();
+    }
+  }, [shouldShowComments, scrollToId, video.id]);
+
   const togglePlayPause = async () => {
     try {
       if (isPlaying) {
@@ -131,18 +142,6 @@ const VideoCard: React.FC<VideoCardProps> = ({
       }
       setIsPlaying(!isPlaying);
       setShowPlayPauseIcon(true);
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: true,
-      }).start(() => {
-        Animated.timing(fadeAnim, {
-          toValue: 0,
-          duration: 300,
-          delay: 1000,
-          useNativeDriver: true,
-        }).start();
-      });
     } catch (error) {
       console.error("Error toggling play/pause:", error);
     }
@@ -226,48 +225,43 @@ const VideoCard: React.FC<VideoCardProps> = ({
 
   const fetchComentarios = async () => {
     try {
-      // Primero obtenemos los comentarios con sus perfiles
+      // 1. Obtener los comentarios
       const { data: comentariosData, error: comentariosError } = await supabase
         .from("comentario_video")
-        .select(
-          `
+        .select(`
           *,
-          perfil:perfil (
+          perfil (
             username,
             foto_perfil
           )
-        `
-        )
+        `)
         .eq("video_id", video.id)
         .order("created_at", { ascending: false });
 
       if (comentariosError) throw comentariosError;
 
-      // Luego obtenemos los likes de los comentarios
-      const { data: likesData, error: likesError } = await supabase
-        .from("likes_comentario_video")  // Asumiendo que esta es la tabla correcta para likes de comentarios
-        .select("*")
-        .in(
-          "comentario_id", 
-          comentariosData?.map(c => c.id) || []
-        );
+      if (comentariosData) {
+        // 2. Obtener los likes de los comentarios
+        const comentariosIds = comentariosData.map(c => c.id);
+        const { data: likesData, error: likesError } = await supabase
+          .from("likes_comentario_video")
+          .select('*')
+          .in('comentario_id', comentariosIds);
 
-      if (likesError) throw likesError;
+        if (likesError) throw likesError;
 
-      // Combinamos la información
-      const comentariosConLikes = comentariosData?.map(comentario => {
-        const comentarioLikes = likesData?.filter(
-          like => like.comentario_id === comentario.id
-        ) || [];
-        
-        return {
-          ...comentario,
-          isLiked: comentarioLikes.some(like => like.usuario_id === currentUserId),
-          likes_count: comentarioLikes.length
-        };
-      });
+        // 3. Procesar los comentarios con sus likes
+        const comentariosProcesados = comentariosData.map(comentario => {
+          const comentarioLikes = likesData?.filter(like => like.comentario_id === comentario.id) || [];
+          return {
+            ...comentario,
+            isLiked: comentarioLikes.some(like => like.usuario_id === currentUserId),
+            likes_count: comentarioLikes.length
+          };
+        });
 
-      setComentarios(comentariosConLikes || []);
+        setComentarios(comentariosProcesados);
+      }
     } catch (error) {
       console.error("Error al obtener comentarios:", error);
     }
@@ -342,7 +336,6 @@ const VideoCard: React.FC<VideoCardProps> = ({
       if (!comentario) return;
 
       const newIsLiked = !comentario.isLiked;
-      const likeDelta = newIsLiked ? 1 : -1;
 
       if (newIsLiked) {
         await supabase
@@ -359,17 +352,21 @@ const VideoCard: React.FC<VideoCardProps> = ({
           .eq("usuario_id", currentUserId);
       }
 
-      setComentarios((prev) =>
-        prev.map((c) =>
+      // Actualizar el estado local inmediatamente
+      setComentarios(prev =>
+        prev.map(c =>
           c.id === comentarioId
             ? {
                 ...c,
                 isLiked: newIsLiked,
-                likes_count: (c.likes_count || 0) + likeDelta,
+                likes_count: newIsLiked ? (c.likes_count || 0) + 1 : (c.likes_count || 1) - 1
               }
             : c
         )
       );
+
+      // Refrescar los comentarios para asegurar datos actualizados
+      await fetchComentarios();
 
       // Crear notificación si el like no es del dueño del comentario
       if (currentUserId !== comentarioUsuarioId) {
@@ -396,7 +393,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
   const handleDeleteVideo = async () => {
     Alert.alert(
       "Eliminar video",
-      "¿Estás seguro de que quieres eliminar este video? Esta acción no se puede deshacer.",
+      "¿Ests seguro de que quieres eliminar este video? Esta acción no se puede deshacer.",
       [
         { text: "Cancelar", style: "cancel" },
         {
@@ -614,6 +611,53 @@ const VideoCard: React.FC<VideoCardProps> = ({
     'Spam o contenido engañoso'
   ];
 
+  const renderComment = ({ item }: { item: Comentario }) => {
+    const isHighlighted = item.id.toString() === scrollToId;
+    
+    return (
+      <View className={`flex-row mb-4 ${isHighlighted ? 'bg-primary-100' : ''}`}>
+        <Image
+          source={{
+            uri: item.perfil.foto_perfil
+              ? `${supabaseUrl}/storage/v1/object/public/fotoperfil/${item.perfil.foto_perfil}`
+              : "https://via.placeholder.com/50"
+          }}
+          className="w-10 h-10 rounded-full mr-3"
+        />
+        <View className="flex-1">
+          <Text className="font-JakartaBold text-sm text-primary-700">
+            {item.perfil.username}
+          </Text>
+          <Text className="text-sm text-general-200 mt-1">
+            {item.comentario}
+          </Text>
+          <View className="flex-row items-center mt-2">
+            <TouchableOpacity
+              onPress={() => handleCommentLike(item.id, item.usuario_id)}
+              className="mr-4"
+            >
+              <Ionicons
+                name={item.isLiked ? "heart" : "heart-outline"}
+                size={18}
+                color={item.isLiked ? "#E53E3E" : "#4A148C"}
+              />
+            </TouchableOpacity>
+            <Text className="text-xs text-general-200">{item.likes_count} likes</Text>
+            <Text className="text-xs text-general-200 ml-4">{formatCommentDate(item.created_at)}</Text>
+            {item.usuario_id === currentUserId && (
+              <TouchableOpacity
+                onPress={() => handleDeleteComment(item.id)}
+                className="ml-4"
+              >
+                <Ionicons name="trash-outline" size={18} color="#E53E3E" />
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+      </View>
+    );
+  };
+
   return (
     <View style={{ width, height }}>
       <TouchableOpacity onPress={togglePlayPause} style={{ flex: 1 }}>
@@ -631,13 +675,12 @@ const VideoCard: React.FC<VideoCardProps> = ({
           }}
         />
         {showPlayPauseIcon && (
-          <Animated.View
+          <View
             style={{
               position: "absolute",
               top: "45%",
               left: "50%",
               transform: [{ translateX: -25 }, { translateY: -25 }],
-              opacity: fadeAnim,
             }}
           >
             <Ionicons
@@ -645,7 +688,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
               size={50}
               color="white"
             />
-          </Animated.View>
+          </View>
         )}
       </TouchableOpacity>
 
@@ -678,7 +721,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
         </TouchableOpacity>
         <TouchableOpacity
           onPress={() => {
-            setShowComments(true);
+            setShowRegularComments(true);
             fetchComentarios();
           }}
           className="mb-4"
@@ -694,62 +737,75 @@ const VideoCard: React.FC<VideoCardProps> = ({
         </TouchableOpacity>
       </View>
 
-      {/* Modal de comentarios */}
+      {/* Modal de comentarios regular */}
       <Modal
         animationType="slide"
         transparent={true}
-        visible={showComments}
-        onRequestClose={() => setShowComments(false)}
+        visible={showRegularComments}
+        onRequestClose={() => setShowRegularComments(false)}
       >
         <View className="flex-1 bg-black bg-opacity-50 justify-end">
           <View className="bg-white rounded-t-3xl p-4 h-3/4">
             <View className="flex-row justify-between items-center mb-4">
               <Text className="text-xl font-JakartaBold text-primary-700">Comentarios</Text>
-              <TouchableOpacity onPress={() => setShowComments(false)}>
+              <TouchableOpacity onPress={() => setShowRegularComments(false)}>
                 <Ionicons name="close" size={24} color="#4A148C" />
               </TouchableOpacity>
             </View>
             <FlatList
               data={comentarios}
               keyExtractor={(item) => item.id.toString()}
-              renderItem={({ item }) => (
-                <View className="flex-row mb-4">
-                  <Image
-                    source={{
-                      uri: item.perfil.foto_perfil
-                        ? `${supabaseUrl}/storage/v1/object/public/fotoperfil/${item.perfil.foto_perfil}`
-                        : "https://via.placeholder.com/50"
-                    }}
-                    className="w-10 h-10 rounded-full mr-3"
-                  />
-                  <View className="flex-1">
-                    <Text className="font-JakartaBold text-sm text-primary-700">{item.perfil.username}</Text>
-                    <Text className="text-sm text-general-200 mt-1">{item.comentario}</Text>
-                    <View className="flex-row items-center mt-2">
-                      <TouchableOpacity
-                        onPress={() => handleCommentLike(item.id, item.usuario_id)}
-                        className="mr-4"
-                      >
-                        <Ionicons
-                          name={item.isLiked ? "heart" : "heart-outline"}
-                          size={18}
-                          color={item.isLiked ? "#E53E3E" : "#4A148C"}
-                        />
-                      </TouchableOpacity>
-                      <Text className="text-xs text-general-200">{item.likes_count} likes</Text>
-                      <Text className="text-xs text-general-200 ml-4">{formatCommentDate(item.created_at)}</Text>
-                      {item.usuario_id === currentUserId && (
-                        <TouchableOpacity
-                          onPress={() => handleDeleteComment(item.id)}
-                          className="ml-4"
-                        >
-                          <Ionicons name="trash-outline" size={18} color="#E53E3E" />
-                        </TouchableOpacity>
-                      )}
-                    </View>
-                  </View>
-                </View>
-              )}
+              renderItem={renderComment}
+              ListEmptyComponent={
+                <Text className="text-center text-gray-500">
+                  No hay comentarios aún
+                </Text>
+              }
+              className="mb-4"
+            />
+            <View className="flex-row mt-2">
+              <TextInput
+                className="flex-1 border border-general-300 rounded-full px-4 py-2 mr-2"
+                value={nuevoComentario}
+                onChangeText={setNuevoComentario}
+                placeholder="Añade un comentario..."
+              />
+              <TouchableOpacity
+                onPress={() => handleComment(nuevoComentario)}
+                className="bg-primary-500 rounded-full px-4 py-2"
+              >
+                <Text className="text-white font-JakartaBold">Enviar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal de comentarios desde notificación */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={showNotificationComments && scrollToId === video.id.toString()}
+        onRequestClose={() => setShowNotificationComments(false)}
+      >
+        <View className="flex-1 bg-black bg-opacity-50 justify-end">
+          <View className="bg-white rounded-t-3xl p-4 h-3/4">
+            <View className="flex-row justify-between items-center mb-4">
+              <Text className="text-xl font-JakartaBold text-primary-700">Comentarios</Text>
+              <TouchableOpacity onPress={() => setShowNotificationComments(false)}>
+                <Ionicons name="close" size={24} color="#4A148C" />
+              </TouchableOpacity>
+            </View>
+            <FlatList
+              data={comentarios}
+              keyExtractor={(item) => item.id.toString()}
+              renderItem={renderComment}
+              ListEmptyComponent={
+                <Text className="text-center text-gray-500">
+                  No hay comentarios aún
+                </Text>
+              }
+              className="mb-4"
             />
             <View className="flex-row mt-2">
               <TextInput

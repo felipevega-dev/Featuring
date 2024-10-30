@@ -70,7 +70,9 @@ export const NOTIFICATION_REDIRECTS: Record<NotificationType, NotificationRedire
   comentario_video: {
     route: '/(root)/(tabs)/watch',
     getParams: (notification) => ({ 
-      scrollToId: notification.contenido_id.toString()
+      scrollToId: notification.contenido_id.toString(),
+      highlightCommentId: notification.contenido_id.toString(),
+      showComments: 'true'
     })
   },
   like_comentario_video: {
