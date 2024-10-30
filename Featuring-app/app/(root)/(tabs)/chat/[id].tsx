@@ -18,7 +18,7 @@ import {
   StatusBar,
 } from "react-native";
 import { supabase } from "@/lib/supabase";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter, useFocusEffect } from "expo-router";
 import { FontAwesome } from "@expo/vector-icons";
 import { Audio, Video } from "expo-av";
 import * as ImagePicker from 'expo-image-picker';
@@ -595,6 +595,36 @@ const checkIfUserIsBlocked = async (userId: string) => {
       console.error("Error al marcar mensajes como leídos:", error);
     }
   };
+
+  // Añadir este efecto para recargar cuando la pantalla obtiene el foco
+  useFocusEffect(
+    React.useCallback(() => {
+      const initialize = async () => {
+        try {
+          setIsLoading(true);
+          
+          // 1. Obtener usuario y datos iniciales
+          await getCurrentUser();
+          
+          if (currentUserId) {
+            // 2. Cargar todos los datos iniciales
+            await Promise.all([
+              fetchMessages(),
+              getOtherUserInfo(),
+              checkIfUserIsBlocked(id).then(setIsBlocked),
+              markMessagesAsRead()
+            ]);
+          }
+        } catch (error) {
+          console.error('Error en la inicialización:', error);
+        } finally {
+          setIsLoading(false);
+        }
+      };
+
+      initialize();
+    }, [currentUserId, id])
+  );
 
   if (isLoading) {
     return (
