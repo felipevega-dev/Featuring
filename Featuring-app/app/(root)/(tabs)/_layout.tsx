@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Tabs, useRouter, useSegments } from "expo-router";
 import {
   View,
@@ -12,6 +12,9 @@ import { icons, images } from "@/constants";
 import { NotificationProvider } from '@/contexts/NotificationContext';
 import { useNotification } from '@/contexts/NotificationContext';
 import { UnreadMessagesProvider, useUnreadMessages } from '@/contexts/UnreadMessagesContext';
+import { Ionicons } from '@expo/vector-icons';
+import { supabase } from '@/lib/supabase';
+import MenuModal from '@/components/MenuModal';
 
 // Componente para los íconos en la barra inferior
 const TabIcon = ({
@@ -25,11 +28,11 @@ const TabIcon = ({
     className={`flex flex-row justify-center items-center rounded-full ${focused ? "bg-general-400" : ""}`}
   >
     <View
-      className={`rounded-full w-8 h-8 items-center justify-center ${focused ? "bg-secondary-400" : ""}`}
+      className={`rounded-full w-8 h-8 items-center justify-center ${focused ? "bg-secondary-300" : ""}`}
     >
       <Image
         source={source}
-        tintColor="white"
+        tintColor="#6D29D2"
         resizeMode="contain"
         className="w-6 h-6"
       />
@@ -99,6 +102,19 @@ const TopBar = () => {
 const Layout = () => {
   const segments = useSegments();
   const isChatScreen = segments.includes('[id]');
+  const [isMenuVisible, setIsMenuVisible] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    getCurrentUser();
+  }, []);
+
+  const getCurrentUser = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      setCurrentUserId(user.id);
+    }
+  };
 
   return (
     <NotificationProvider>
@@ -108,11 +124,11 @@ const Layout = () => {
         <Tabs
           initialRouteName="index"
           screenOptions={{
-            tabBarActiveTintColor: "#00BFA5",
-            tabBarInactiveTintColor: "white",
+            tabBarActiveTintColor: "#6D29D2",
+            tabBarInactiveTintColor: "#6D29D2",
             tabBarShowLabel: true,
             tabBarStyle: {
-              backgroundColor: "#5416A0",
+              backgroundColor: "white",
               height: 55,
               position: "absolute",
               display: isChatScreen ? 'none' : 'flex',
@@ -175,7 +191,22 @@ const Layout = () => {
               title: "Menú",
               headerShown: false,
               tabBarIcon: ({ focused }) => (
-                <TabIcon focused={focused} source={icons.profile} />
+                <View className={`flex flex-row justify-center items-center rounded-full`}>
+                  <View className={`rounded-full w-8 h-8 items-center justify-center`}>
+                    <Image
+                      source={icons.menu}
+                      tintColor="#6D29D2"
+                      resizeMode="contain"
+                      className="w-6 h-6"
+                    />
+                  </View>
+                </View>
+              ),
+              tabBarButton: (props) => (
+                <TouchableOpacity
+                  {...props}
+                  onPress={() => setIsMenuVisible(true)}
+                />
               ),
             }}
           />
@@ -203,7 +234,23 @@ const Layout = () => {
               headerShown: false,
             }}
           />
+          <Tabs.Screen
+            name="colaboraciones"
+            options={{
+              href: null, // Esto hace que la tab no aparezca en la barra de navegación
+              headerShown: true,
+              title: "Historial de Colaboraciones",
+            }}
+          />
         </Tabs>
+
+        {currentUserId && (
+          <MenuModal
+            isVisible={isMenuVisible}
+            onClose={() => setIsMenuVisible(false)}
+            currentUserId={currentUserId}
+          />
+        )}
       </UnreadMessagesProvider>
     </NotificationProvider>
   );
