@@ -51,6 +51,7 @@ CREATE TABLE
     mensaje TEXT,
     latitud DOUBLE PRECISION,
     longitud DOUBLE PRECISION,
+    promedio_valoraciones DECIMAL(3,2) DEFAULT 0.0,
     preferencias_genero TEXT array,
     preferencias_habilidad TEXT array,
     preferencias_distancia INT,
@@ -244,13 +245,12 @@ CREATE TABLE
   colaboracion (
     id BIGSERIAL PRIMARY KEY,
     cancion_id BIGINT,
-    video_id BIGINT,
     usuario_id UUID NOT NULL,
-    tipo_colaboracion TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW(),
+    estado TEXT DEFAULT 'pendiente',
+    CONSTRAINT check_estado CHECK (estado IN ('pendiente', 'aceptada', 'rechazada')),
     CONSTRAINT fk_usuario_colaboracion FOREIGN KEY (usuario_id) REFERENCES perfil (usuario_id) ON DELETE CASCADE,
     CONSTRAINT fk_cancion_colaboracion FOREIGN KEY (cancion_id) REFERENCES cancion (id) ON DELETE SET NULL,
-    CONSTRAINT fk_video_colaboracion FOREIGN KEY (video_id) REFERENCES video (id) ON DELETE SET NULL
   );
 
 -- Tabla reporte
@@ -282,13 +282,13 @@ CREATE TABLE
   notificacion (
     id BIGSERIAL PRIMARY KEY,
     usuario_id UUID NOT NULL,
+    usuario_origen_id UUID REFERENCES perfil(usuario_id),
     tipo_notificacion TEXT,
     contenido_id BIGINT,
     mensaje TEXT,
     leido BOOLEAN,
-    fecha_evento TIMESTAMPTZ,
     created_at TIMESTAMPTZ DEFAULT NOW(),
-    CONSTRAINT fk_usuario_notificacion FOREIGN KEY (usuario_id) REFERENCES perfil (usuario_id) ON DELETE CASCADE
+    CONSTRAINT fk_usuario_notificacion FOREIGN KEY (usuario_id) REFERENCES perfil (usuario_id) ON DELETE CASCADE,
   );
 
 
@@ -313,8 +313,9 @@ CREATE TABLE
     valoracion INT CHECK (valoracion BETWEEN 1 AND 5),
     created_at TIMESTAMPTZ DEFAULT NOW(),
     CONSTRAINT fk_colaboracion_valoracion FOREIGN KEY (colaboracion_id) REFERENCES colaboracion (id) ON DELETE CASCADE,
-    CONSTRAINT fk_usuario_valoracion_colaboracion FOREIGN KEY (usuario_id) REFERENCES perfil (usuario_id) ON DELETE CASCADE
-);
+    CONSTRAINT fk_usuario_valoracion_colaboracion FOREIGN KEY (usuario_id) REFERENCES perfil (usuario_id) ON DELETE CASCADE,
+    CONSTRAINT valoracion_colaboracion_valoracion_check CHECK (valoracion >= 1 AND valoracion <= 5);
+  );
 
 
 -- storage.buckets
@@ -414,3 +415,32 @@ CREATE INDEX idx_likes_cancion_usuario ON likes_cancion (usuario_id, cancion_id)
 CREATE INDEX idx_comentario_cancion_usuario ON comentario_cancion (usuario_id, cancion_id);
 CREATE INDEX idx_comentario_cancion_created_at ON comentario_cancion (created_at);
 CREATE INDEX idx_perfil_nacionalidad ON perfil (nacionalidad);
+
+CREATE INDEX idx_colaboracion_estado ON colaboracion(estado);
+CREATE INDEX idx_colaboracion_usuarios ON colaboracion(usuario_id, cancion_id);
+CREATE INDEX idx_notificacion_tipo ON notificacion(tipo_notificacion);
+
+-- Modificar la tabla valoracion_colaboracion para permitir medias estrellas
+ALTER TABLE valoracion_colaboracion
+DROP CONSTRAINT IF EXISTS valoracion_colaboracion_valoracion_check,
+ADD CONSTRAINT valoracion_colaboracion_valoracion_check 
+CHECK (valoracion >= 1 AND valoracion <= 5);
+
+CREATE OR REPLACE FUNCTION actualizar_promedio_valoraciones()
+RETURNS TRIGGER AS $$
+BEGIN
+  UPDATE perfil
+  SET promedio_valoraciones = (
+    SELECT COALESCE(AVG(valoracion), 0)
+    FROM valoracion_colaboracion
+    WHERE usuario_id = NEW.usuario_id
+  )
+  WHERE usuario_id = NEW.usuario_id;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trigger_actualizar_valoraciones
+AFTER INSERT OR UPDATE ON valoracion_colaboracion
+FOR EACH ROW
+EXECUTE FUNCTION actualizar_promedio_valoraciones();
