@@ -27,11 +27,20 @@ export default function NotificacionesScreen() {
   const [notificaciones, setNotificaciones] = useState<Notificacion[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   useEffect(() => {
+    getCurrentUser();
     fetchNotificaciones();
     suscribirseANotificaciones();
   }, []);
+
+  const getCurrentUser = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      setCurrentUserId(user.id);
+    }
+  };
 
   const suscribirseANotificaciones = () => {
     const subscription = supabase
@@ -88,12 +97,15 @@ export default function NotificacionesScreen() {
   };
 
   const renderNotificacion = ({ item }: { item: Notificacion }) => {
+    if (!currentUserId) return null;
+
     switch (item.tipo_notificacion) {
       case 'solicitud_colaboracion':
         return (
           <CollaborationNotification
             notification={item}
             onRespond={fetchNotificaciones}
+            currentUserId={currentUserId}
           />
         );
       case 'colaboracion_aceptada':

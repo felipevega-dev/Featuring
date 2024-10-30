@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from "react";
-import { View, Text, FlatList, TouchableOpacity, Alert } from "react-native";
+import { View, Text, FlatList, TouchableOpacity, Alert, RefreshControl } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import SongCard from "@/components/SongCard";
 import { getSongs } from "@/app/(api)/comunidad";
@@ -39,6 +39,7 @@ const Comunidad = () => {
   const [sortedGenres, setSortedGenres] = useState<string[]>([]);
   const [selectedSongId, setSelectedSongId] = useState<number | null>(null);
   const [isCommentModalVisible, setIsCommentModalVisible] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     fetchSongs();
@@ -97,6 +98,7 @@ const Comunidad = () => {
 
   const handleDeleteSong = async (cancionId: number) => {
     try {
+      // Primero obtener los datos de la canción
       const { data: cancionData, error: fetchCancionError } = await supabase
         .from("cancion")
         .select("archivo_audio, caratula, usuario_id")
@@ -106,52 +108,64 @@ const Comunidad = () => {
       if (fetchCancionError) throw fetchCancionError;
 
       if (cancionData) {
-        // Eliminar archivo de audio del storage
+        // 1. Eliminar colaboraciones asociadas
+        await supabase
+          .from("colaboracion")
+          .delete()
+          .eq("cancion_id", cancionId);
+
+        // 2. Eliminar valoraciones de la canción
+        await supabase
+          .from("valoracion_cancion")
+          .delete()
+          .eq("cancion_id", cancionId);
+
+        // 3. Eliminar comentarios de la canción
+        await supabase
+          .from("comentario_cancion")
+          .delete()
+          .eq("cancion_id", cancionId);
+
+        // 4. Eliminar likes de la canción
+        await supabase
+          .from("likes_cancion")
+          .delete()
+          .eq("cancion_id", cancionId);
+
+        // 5. Eliminar archivo de audio del storage
         if (cancionData.archivo_audio) {
-          console.log("URL del archivo de audio:", cancionData.archivo_audio);
           const audioFileName = cancionData.archivo_audio.split("/").pop();
-          console.log("Nombre del archivo de audio extraído:", audioFileName);
           if (audioFileName) {
-            console.log(
-              "Intentando eliminar:",
-              `${cancionData.usuario_id}/${audioFileName}`
-            );
-            const { error: audioDeleteError } = await supabase.storage
+            await supabase.storage
               .from("canciones")
               .remove([`${cancionData.usuario_id}/${audioFileName}`]);
-            if (audioDeleteError) {
-              console.error("Error deleting audio file:", audioDeleteError);
-            } else {
-              console.log("Archivo de audio eliminado con éxito");
-            }
           }
         }
 
-        // Eliminar carátula del storage
+        // 6. Eliminar carátula del storage
         if (cancionData.caratula) {
           const caratulaFileName = cancionData.caratula.split("/").pop();
           if (caratulaFileName) {
-            const { error: caratulaDeleteError } = await supabase.storage
+            await supabase.storage
               .from("caratulas")
               .remove([`${cancionData.usuario_id}/${caratulaFileName}`]);
-            if (caratulaDeleteError) {
-              console.error("Error deleting cover image:", caratulaDeleteError);
-            }
           }
         }
 
-        // Eliminar la canción de la base de datos
+        // 7. Finalmente, eliminar la canción
         const { error: deleteCancionError } = await supabase
           .from("cancion")
           .delete()
           .eq("id", cancionId);
 
-        if (deleteCancionError) throw deleteCancionError;
+        if (deleteCancionError) {
+          throw deleteCancionError;
+        }
 
-        // Actualizar la lista de canciones
-        setAllCanciones((prevCanciones) =>
-          prevCanciones.filter((cancion) => cancion.id !== cancionId)
-        );
+        // 8. Actualizar los estados locales
+        setAllCanciones(prev => prev.filter(cancion => cancion.id !== cancionId));
+        setFilteredCanciones(prev => prev.filter(cancion => cancion.id !== cancionId));
+        
         Alert.alert("Éxito", "La canción ha sido eliminada completamente");
       }
     } catch (error) {
@@ -200,6 +214,11 @@ const Comunidad = () => {
     setSelectedSongId(songId);
     setIsCommentModalVisible(true);
   };
+
+  const onRefresh = React.useCallback(() => {
+    setRefreshing(true);
+    fetchSongs().finally(() => setRefreshing(false));
+  }, []);
 
   if (isLoading) {
     return (
@@ -257,6 +276,13 @@ const Comunidad = () => {
               paddingHorizontal: 16,
               paddingBottom: 120,
             }}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                colors={["#6D29D2"]}
+              />
+            }
           />
         ) : (
           <View className="flex-1 items-center justify-center">

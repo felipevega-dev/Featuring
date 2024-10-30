@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import { supabase } from '@/lib/supabase';
 import Constants from 'expo-constants';
+import CollaborationRatingModal from './CollaborationRatingModal';
 
 interface CollaborationNotificationProps {
   notification: {
@@ -21,22 +22,28 @@ interface CollaborationNotificationProps {
     };
   };
   onRespond: () => void;
+  currentUserId: string;
 }
 
 export default function CollaborationNotification({
   notification,
   onRespond,
+  currentUserId,
 }: CollaborationNotificationProps) {
+  const [isRatingModalVisible, setIsRatingModalVisible] = useState(false);
+  const [colaboracionId, setColaboracionId] = useState<number | null>(null);
   const supabaseUrl = Constants.expoConfig?.extra?.supabaseUrl;
 
   const handleAccept = async () => {
     try {
       // Actualizar el estado de la colaboración
-      const { error: collaborationError } = await supabase
+      const { data: colaboracionData, error: collaborationError } = await supabase
         .from('colaboracion')
         .update({ estado: 'aceptada' })
         .eq('cancion_id', notification.contenido_id)
-        .eq('usuario_id', notification.usuario_origen_id);
+        .eq('usuario_id2', currentUserId)
+        .select()
+        .single();
 
       if (collaborationError) throw collaborationError;
 
@@ -57,9 +64,17 @@ export default function CollaborationNotification({
           contenido_id: notification.contenido_id,
           mensaje: 'Tu solicitud de colaboración ha sido aceptada',
           leido: false,
+          usuario_origen_id: currentUserId
         });
 
       Alert.alert('Éxito', 'Has aceptado la colaboración');
+      
+      // Mostrar el modal de valoración
+      if (colaboracionData) {
+        setColaboracionId(colaboracionData.id);
+        setIsRatingModalVisible(true);
+      }
+      
       onRespond();
     } catch (error) {
       console.error('Error al aceptar la colaboración:', error);
@@ -74,7 +89,7 @@ export default function CollaborationNotification({
         .from('colaboracion')
         .update({ estado: 'rechazada' })
         .eq('cancion_id', notification.contenido_id)
-        .eq('usuario_id', notification.usuario_origen_id);
+        .eq('usuario_id2', currentUserId);
 
       if (collaborationError) throw collaborationError;
 
@@ -95,6 +110,7 @@ export default function CollaborationNotification({
           contenido_id: notification.contenido_id,
           mensaje: 'Tu solicitud de colaboración ha sido rechazada',
           leido: false,
+          usuario_origen_id: currentUserId
         });
 
       Alert.alert('Notificación', 'Has rechazado la colaboración');
@@ -106,37 +122,49 @@ export default function CollaborationNotification({
   };
 
   return (
-    <View className="bg-white p-4 rounded-lg mb-2 shadow">
-      <View className="flex-row items-center mb-2">
-        <Image
-          source={{
-            uri: notification.perfil?.foto_perfil
-              ? `${supabaseUrl}/storage/v1/object/public/fotoperfil/${notification.perfil.foto_perfil}`
-              : 'https://via.placeholder.com/40'
-          }}
-          className="w-10 h-10 rounded-full mr-3"
-        />
-        <View className="flex-1">
-          <Text className="font-bold">
-            {notification.perfil?.username || 'Usuario'}
-          </Text>
-          <Text className="text-sm text-gray-600">{notification.mensaje}</Text>
+    <>
+      <View className="bg-white p-4 rounded-lg mb-2 shadow">
+        <View className="flex-row items-center mb-2">
+          <Image
+            source={{
+              uri: notification.perfil?.foto_perfil
+                ? `${supabaseUrl}/storage/v1/object/public/fotoperfil/${notification.perfil.foto_perfil}`
+                : 'https://via.placeholder.com/40'
+            }}
+            className="w-10 h-10 rounded-full mr-3"
+          />
+          <View className="flex-1">
+            <Text className="font-bold">
+              {notification.perfil?.username || 'Usuario'}
+            </Text>
+            <Text className="text-sm text-gray-600">{notification.mensaje}</Text>
+          </View>
+        </View>
+        <View className="flex-row justify-end space-x-2">
+          <TouchableOpacity
+            onPress={handleReject}
+            className="bg-red-500 px-4 py-2 rounded"
+          >
+            <Text className="text-white">Rechazar</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={handleAccept}
+            className="bg-primary-500 px-4 py-2 rounded"
+          >
+            <Text className="text-white">Aceptar</Text>
+          </TouchableOpacity>
         </View>
       </View>
-      <View className="flex-row justify-end space-x-2">
-        <TouchableOpacity
-          onPress={handleReject}
-          className="bg-red-500 px-4 py-2 rounded"
-        >
-          <Text className="text-white">Rechazar</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={handleAccept}
-          className="bg-primary-500 px-4 py-2 rounded"
-        >
-          <Text className="text-white">Aceptar</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
+
+      {colaboracionId && (
+        <CollaborationRatingModal
+          isVisible={isRatingModalVisible}
+          onClose={() => setIsRatingModalVisible(false)}
+          colaboracionId={colaboracionId}
+          colaboradorUsername={notification.perfil?.username || 'Usuario'}
+          usuarioId={currentUserId}
+        />
+      )}
+    </>
   );
 } 
