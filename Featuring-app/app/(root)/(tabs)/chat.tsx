@@ -24,20 +24,45 @@ export default function Chat() {
   const subscriptionRef = useRef<RealtimeChannel | null>(null);
 
   useEffect(() => {
-    getCurrentUser();
+    let refreshInterval: NodeJS.Timeout;
+    
+    const initialize = async () => {
+      try {
+        await getCurrentUser();
+        
+        if (currentUserId) {
+          // Carga inicial de datos
+          await fetchChatList();
+          
+          // Configurar suscripción en tiempo real
+          subscribeToMessages();
+          
+          // Configurar refresco automático
+          refreshInterval = setInterval(() => {
+            console.log('Refrescando lista de chats...');
+            fetchChatList();
+          }, 5000); // Actualiza cada 5 segundos
+        }
+      } catch (error) {
+        console.error('Error en la inicialización:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    // Iniciar la carga
+    initialize();
+
+    // Limpieza al desmontar
     return () => {
+      if (refreshInterval) {
+        clearInterval(refreshInterval);
+      }
       if (subscriptionRef.current) {
         supabase.removeChannel(subscriptionRef.current);
       }
     };
-  }, []);
-
-  useEffect(() => {
-    if (currentUserId) {
-      fetchChatList();
-      subscribeToMessages();
-    }
-  }, [currentUserId]);
+  }, [currentUserId]); // Dependencia en currentUserId
 
   const getCurrentUser = async () => {
     const {
@@ -47,14 +72,24 @@ export default function Chat() {
   };
 
   const subscribeToMessages = () => {
+    if (subscriptionRef.current) {
+      supabase.removeChannel(subscriptionRef.current);
+    }
+
     subscriptionRef.current = supabase
       .channel('public:mensaje')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'mensaje' }, payload => {
-        console.log('Cambio en mensajes detectado:', payload);
-        if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-          fetchChatList(); // Actualiza la lista de chats cuando hay un nuevo mensaje o se actualiza uno
+      .on('postgres_changes', 
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'mensaje',
+          filter: `or(emisor_id.eq.${currentUserId},receptor_id.eq.${currentUserId})`
+        }, 
+        async (payload) => {
+          console.log('Cambio en mensajes detectado:', payload);
+          await fetchChatList(); // Actualiza la lista cuando hay cambios
         }
-      })
+      )
       .subscribe();
   };
 
@@ -62,7 +97,10 @@ export default function Chat() {
     if (!currentUserId) return;
 
     try {
-      setIsLoading(true);
+      if (refreshing) {
+        setIsLoading(true);
+      }
+      
       const { data: connections, error: connectionsError } = await supabase
         .from("conexion")
         .select("*")
@@ -73,7 +111,6 @@ export default function Chat() {
 
       if (!connections || connections.length === 0) {
         setChatList([]);
-        setIsLoading(false);
         return;
       }
 
@@ -140,7 +177,13 @@ export default function Chat() {
         })
       );
 
-      setChatList(chatListData.filter((item): item is ChatListItem => item !== null));
+      const newChatListData = chatListData.filter((item): item is ChatListItem => item !== null);
+      
+      setChatList(prevList => {
+        const hasChanges = JSON.stringify(prevList) !== JSON.stringify(newChatListData);
+        return hasChanges ? newChatListData : prevList;
+      });
+
     } catch (error) {
       console.error("Error al obtener la lista de chats:", error);
     } finally {

@@ -18,7 +18,7 @@ import {
   StatusBar,
 } from "react-native";
 import { supabase } from "@/lib/supabase";
-import { useLocalSearchParams, useRouter, useFocusEffect } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { FontAwesome } from "@expo/vector-icons";
 import { Audio, Video } from "expo-av";
 import * as ImagePicker from 'expo-image-picker';
@@ -70,7 +70,7 @@ export default function ChatDetail() {
         await getCurrentUser();
         
         if (currentUserId) {
-          // 2. Cargar todos los datos iniciales
+          // 2. Cargar todos los datos iniciales inmediatamente
           await Promise.all([
             fetchMessages(),
             getOtherUserInfo(),
@@ -78,13 +78,7 @@ export default function ChatDetail() {
             markMessagesAsRead()
           ]);
 
-          // 3. Solo después de cargar los datos, iniciamos el refresco automático
-          refreshInterval = setInterval(() => {
-            console.log('Refrescando mensajes...'); 
-            fetchMessages();
-          }, 5000);
-
-          // 4. Configurar suscripción en tiempo real
+          // 3. Configurar suscripción en tiempo real
           const channel = supabase
             .channel(`chat-${id}-${currentUserId}`)
             .on(
@@ -112,6 +106,12 @@ export default function ChatDetail() {
             )
             .subscribe();
 
+          // 4. Iniciar el refresco automático después de la carga inicial
+          refreshInterval = setInterval(async () => {
+            console.log('Refrescando mensajes...'); 
+            await fetchMessages();
+          }, 5000);
+
           return () => {
             channel.unsubscribe();
           };
@@ -123,16 +123,16 @@ export default function ChatDetail() {
       }
     };
 
-    // Iniciar la carga
+    // Forzar una recarga inmediata al entrar
     initialize();
 
-    // Limpieza
+    // Limpieza al desmontar
     return () => {
       if (refreshInterval) {
         clearInterval(refreshInterval);
       }
     };
-  }, [id]); // Solo dependemos de id
+  }, [currentUserId, id]); // Añadimos currentUserId como dependencia
 
   useEffect(() => {
     (async () => {
@@ -188,8 +188,11 @@ export default function ChatDetail() {
 
       if (error) throw error;
 
-      // Forzamos la actualización del estado
-      setMessages([...(data || [])]);
+      // Comparar los nuevos mensajes con los actuales antes de actualizar
+      setMessages(prevMessages => {
+        const hasChanges = JSON.stringify(prevMessages) !== JSON.stringify(data);
+        return hasChanges ? [...(data || [])] : prevMessages;
+      });
     } catch (error) {
       console.error("Error al obtener mensajes:", error);
     }
@@ -595,36 +598,6 @@ const checkIfUserIsBlocked = async (userId: string) => {
       console.error("Error al marcar mensajes como leídos:", error);
     }
   };
-
-  // Añadir este efecto para recargar cuando la pantalla obtiene el foco
-  useFocusEffect(
-    React.useCallback(() => {
-      const initialize = async () => {
-        try {
-          setIsLoading(true);
-          
-          // 1. Obtener usuario y datos iniciales
-          await getCurrentUser();
-          
-          if (currentUserId) {
-            // 2. Cargar todos los datos iniciales
-            await Promise.all([
-              fetchMessages(),
-              getOtherUserInfo(),
-              checkIfUserIsBlocked(id).then(setIsBlocked),
-              markMessagesAsRead()
-            ]);
-          }
-        } catch (error) {
-          console.error('Error en la inicialización:', error);
-        } finally {
-          setIsLoading(false);
-        }
-      };
-
-      initialize();
-    }, [currentUserId, id])
-  );
 
   if (isLoading) {
     return (
