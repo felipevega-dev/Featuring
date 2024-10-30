@@ -34,29 +34,11 @@ export default function CollaborationRatingModal({
     }
 
     try {
-      const { data: colaboracionData, error: colaboracionError } = await supabase
-        .from('colaboracion')
-        .select('usuario_id, usuario_id2')
-        .eq('id', colaboracionId)
-        .single();
-
-      if (colaboracionError) throw colaboracionError;
-
-      const otroUsuarioId = colaboracionData.usuario_id === usuarioId 
-        ? colaboracionData.usuario_id2 
-        : colaboracionData.usuario_id;
-
       const { data: valoracionPrevia, error: valoracionError } = await supabase
         .from('valoracion_colaboracion')
         .select('id')
         .eq('usuario_id', usuarioId)
-        .in('colaboracion_id', (
-          supabase
-            .from('colaboracion')
-            .select('id')
-            .or(`usuario_id.eq.${usuarioId},usuario_id2.eq.${usuarioId}`)
-            .or(`usuario_id.eq.${otroUsuarioId},usuario_id2.eq.${otroUsuarioId}`)
-        ))
+        .eq('colaboracion_id', colaboracionId)
         .single();
 
       if (!valoracionError && valoracionPrevia) {

@@ -74,21 +74,26 @@ export default function CollaborationNotification({
 
   const handleAccept = async () => {
     try {
+      // Primero obtener el ID de la colaboración
+      const { data: colaboracionData, error: colaboracionError } = await supabase
+        .from('colaboracion')
+        .select('id')
+        .eq('cancion_id', notification.contenido_id)
+        .eq('usuario_id2', currentUserId)
+        .single();
+
+      if (colaboracionError) throw colaboracionError;
+
       // Verificar si ya existe una valoración previa
       const { data: valoracionPrevia, error: valoracionError } = await supabase
         .from('valoracion_colaboracion')
         .select('id')
         .eq('usuario_id', currentUserId)
-        .in('colaboracion_id', (
-          supabase
-            .from('colaboracion')
-            .select('id')
-            .eq('cancion_id', notification.contenido_id)
-        ))
+        .eq('colaboracion_id', colaboracionData.id)
         .single();
 
       // Actualizar el estado de la colaboración
-      const { data: colaboracionData, error: collaborationError } = await supabase
+      const { data: updatedColaboracion, error: collaborationError } = await supabase
         .from('colaboracion')
         .update({ estado: 'aceptada' })
         .eq('cancion_id', notification.contenido_id)
@@ -121,8 +126,8 @@ export default function CollaborationNotification({
       Alert.alert('Éxito', 'Has aceptado la colaboración');
       
       // Mostrar el modal de valoración solo si no existe una valoración previa
-      if (!valoracionPrevia && colaboracionData) {
-        setColaboracionId(colaboracionData.id);
+      if (!valoracionPrevia && updatedColaboracion) {
+        setColaboracionId(updatedColaboracion.id);
         setIsRatingModalVisible(true);
       }
       

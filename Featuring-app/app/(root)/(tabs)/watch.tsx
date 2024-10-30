@@ -31,6 +31,7 @@ export const WatchContent = () => {
   const flatListRef = useRef<FlatList>(null);
   const { setCurrentPlayingId, setIsScreenFocused } = useVideo();
   const { scrollToId } = useLocalSearchParams<{ scrollToId: string }>();
+  const [pendingScroll, setPendingScroll] = useState<string | null>(null);
 
   useEffect(() => {
     getCurrentUser();
@@ -51,15 +52,20 @@ export const WatchContent = () => {
   );
 
   useEffect(() => {
-    if (scrollToId && videos.length > 0) {
-      console.log('Buscando video:', scrollToId);
+    if (scrollToId) {
+      setPendingScroll(scrollToId);
+    }
+  }, [scrollToId]);
+
+  useEffect(() => {
+    if (pendingScroll && videos.length > 0) {
+      console.log('Intentando scroll a video:', pendingScroll);
       const videoIndex = videos.findIndex(
-        video => video.id.toString() === scrollToId
+        video => video.id.toString() === pendingScroll
       );
       console.log('Índice encontrado:', videoIndex);
       
       if (videoIndex !== -1 && flatListRef.current) {
-        // Asegurarnos de que el scroll se realice después de que la lista esté renderizada
         setTimeout(() => {
           flatListRef.current?.scrollToIndex({
             index: videoIndex,
@@ -69,10 +75,11 @@ export const WatchContent = () => {
           });
           setCurrentIndex(videoIndex);
           setCurrentPlayingId(videos[videoIndex].id);
+          setPendingScroll(null); // Limpiar el scroll pendiente
         }, 100);
       }
     }
-  }, [scrollToId, videos]);
+  }, [pendingScroll, videos]);
 
   // Agregar manejador de error de scroll
   const onScrollToIndexFailed = (info: {

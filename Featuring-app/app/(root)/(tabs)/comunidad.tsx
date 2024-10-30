@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo, useRef } from "react";
 import { View, Text, FlatList, TouchableOpacity, Alert, RefreshControl } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import SongCard from "@/components/SongCard";
@@ -12,6 +12,7 @@ import GlobalAudioPlayer from "@/components/GlobalAudioPlayer";
 import { AudioPlayerProvider } from "@/contexts/AudioPlayerContext";
 import { generosMusicalesCompletos } from '@/constants/musicData';
 import CommentSection from "@/components/CommentSection";
+import { useLocalSearchParams } from "expo-router";
 
 type CancionDB = Database["public"]["Tables"]["cancion"]["Row"];
 type PerfilDB = Database["public"]["Tables"]["perfil"]["Row"];
@@ -40,11 +41,47 @@ const Comunidad = () => {
   const [selectedSongId, setSelectedSongId] = useState<number | null>(null);
   const [isCommentModalVisible, setIsCommentModalVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const songListRef = useRef<FlatList>(null);
+  const { scrollToId, tab, showComments } = useLocalSearchParams<{ 
+    scrollToId: string;
+    tab: string;
+    showComments: string;
+  }>();
+  const [activeTab, setActiveTab] = useState<'canciones' | 'videos'>('canciones');
 
   useEffect(() => {
     fetchSongs();
     getCurrentUser();
   }, []);
+
+  useEffect(() => {
+    if (scrollToId && allCanciones.length > 0) {
+      // Si viene un tab específico, cambiarlo
+      if (tab === 'canciones') {
+        setActiveTab('canciones');
+      }
+
+      const songIndex = allCanciones.findIndex(
+        cancion => cancion.id.toString() === scrollToId
+      );
+
+      if (songIndex !== -1 && songListRef.current) {
+        setTimeout(() => {
+          songListRef.current?.scrollToIndex({
+            index: songIndex,
+            animated: true,
+            viewPosition: 0
+          });
+
+          // Si debe mostrar comentarios, abrir el modal
+          if (showComments === 'true') {
+            setSelectedSongId(parseInt(scrollToId));
+            setIsCommentModalVisible(true);
+          }
+        }, 100);
+      }
+    }
+  }, [scrollToId, allCanciones]);
 
   const getCurrentUser = async () => {
     const {
@@ -282,6 +319,7 @@ const Comunidad = () => {
         </View>
         {filteredCanciones.length > 0 ? (
           <FlatList
+            ref={songListRef}
             data={filteredCanciones}
             renderItem={renderItem}
             keyExtractor={(item) => item.id.toString()}
@@ -296,6 +334,15 @@ const Comunidad = () => {
                 colors={["#6D29D2"]}
               />
             }
+            onScrollToIndexFailed={(info) => {
+              const wait = new Promise(resolve => setTimeout(resolve, 100));
+              wait.then(() => {
+                songListRef.current?.scrollToIndex({
+                  index: info.index,
+                  animated: true
+                });
+              });
+            }}
           />
         ) : (
           <View className="flex-1 items-center justify-center">
