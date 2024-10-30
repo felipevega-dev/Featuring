@@ -83,7 +83,6 @@ export default function NotificacionesScreen() {
           )
         `)
         .eq('usuario_id', user.id)
-        .eq('leido', false)
         .order('created_at', { ascending: false });
 
       if (error) throw error;

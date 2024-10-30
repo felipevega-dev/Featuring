@@ -62,7 +62,7 @@ export default function NotificationItem({ notification, onNotificationRead }: N
     <TouchableOpacity
       onPress={handleNotificationPress}
       className={`bg-white p-4 rounded-lg mb-2 shadow ${
-        !notification.leido ? 'border-l-4 border-primary-500' : ''
+        !notification.leido ? 'border-l-4 border-primary-500' : 'opacity-75'
       }`}
     >
       <View className="flex-row items-center">
@@ -75,9 +75,14 @@ export default function NotificationItem({ notification, onNotificationRead }: N
           className="w-10 h-10 rounded-full mr-3"
         />
         <View className="flex-1">
-          <Text className={`font-bold ${!notification.leido ? 'text-primary-600' : 'text-gray-700'}`}>
-            {notification.perfil?.username || 'Usuario'}
-          </Text>
+          <View className="flex-row items-center justify-between">
+            <Text className={`font-bold ${!notification.leido ? 'text-primary-600' : 'text-gray-700'}`}>
+              {notification.perfil?.username || 'Usuario'}
+            </Text>
+            {notification.leido && (
+              <Text className="text-xs text-gray-500">Leído</Text>
+            )}
+          </View>
           <Text className={`text-sm ${!notification.leido ? 'text-gray-800' : 'text-gray-600'}`}>
             {notification.mensaje}
           </Text>
