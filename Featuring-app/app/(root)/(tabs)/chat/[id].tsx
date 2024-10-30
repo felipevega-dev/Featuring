@@ -648,52 +648,47 @@ const checkIfUserIsBlocked = async (userId: string) => {
           </TouchableOpacity>
         </View>
 
+        <View className="flex-1">
+          <FlatList
+            ref={flatListRef}
+            data={messages}
+            renderItem={renderMessage}
+            keyExtractor={(item) => `message-${item.id}`}
+            inverted
+            contentContainerStyle={{
+              flexGrow: 1,
+              justifyContent: "flex-end",
+              paddingVertical: 10,
+            }}
+          />
+        </View>
+
         <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-          className="flex-1"
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
           keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
         >
-          <TouchableOpacity
-            activeOpacity={1}
-            onPress={handleBackgroundPress}
-            className="flex-1 p-2"
-          >
-            <FlatList
-              ref={flatListRef}
-              data={messages}
-              renderItem={renderMessage}
-              keyExtractor={(item) => `message-${item.id}`} // Asegura una key única
-              inverted
-              contentContainerStyle={{
-                flexGrow: 1,
-                justifyContent: "flex-end",
-                paddingVertical: 10,
-              }}
-            />
-          </TouchableOpacity>
-
           <View className="flex-row items-center p-2 bg-white border-t border-primary-200">
             <TextInput
-              className="flex-1 bg-primary-100 rounded-full px-4 py-2 mr-2 mb-14"
+              className="flex-1 bg-primary-100 rounded-full px-4 py-2 mr-2"
               value={newMessage}
               onChangeText={setNewMessage}
               placeholder="Escribe un mensaje..."
             />
             <TouchableOpacity
               onPress={pickDocument}
-              className="bg-primary-500 rounded-full p-2 mr-2 mb-14"
+              className="bg-primary-500 rounded-full p-2 mr-2"
             >
               <FontAwesome name="paperclip" size={20} color="white" />
             </TouchableOpacity>
             <TouchableOpacity
               onPress={pickImage}
-              className="bg-primary-500 rounded-full p-2 mr-2 mb-14"
+              className="bg-primary-500 rounded-full p-2 mr-2"
             >
               <FontAwesome name="image" size={20} color="white" />
             </TouchableOpacity>
             <TouchableOpacity
               onPress={isRecording ? stopRecording : startRecording}
-              className="bg-primary-500 rounded-full p-2 mr-2 mb-14"
+              className="bg-primary-500 rounded-full p-2 mr-2"
             >
               <FontAwesome
                 name={isRecording ? "stop" : "microphone"}
@@ -703,14 +698,13 @@ const checkIfUserIsBlocked = async (userId: string) => {
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => sendMessage(newMessage, "texto")}
-              className="bg-primary-500 rounded-full p-2 mb-14"
+              className="bg-primary-500 rounded-full p-2"
             >
               <FontAwesome name="send" size={20} color="white" />
             </TouchableOpacity>
           </View>
         </KeyboardAvoidingView>
 
-        {/* Modal para opciones de bloqueo/desbloqueo */}
         <Modal
           animationType="slide"
           transparent={true}

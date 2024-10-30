@@ -115,6 +115,7 @@ const Layout = () => {
               backgroundColor: "#5416A0",
               height: 55,
               position: "absolute",
+              display: isChatScreen ? 'none' : 'flex',
             },
             tabBarLabelStyle: {
               fontSize: 10, // Ajusta el tamaño de la fuente
