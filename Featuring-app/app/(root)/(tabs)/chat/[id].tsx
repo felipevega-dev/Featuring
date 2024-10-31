@@ -640,6 +640,60 @@ export default function ChatDetail() {
     }
   };
 
+  // Añade esta función para cancelar la conexión
+  const cancelarConexion = async () => {
+    try {
+      if (!currentUserId) {
+        throw new Error("Usuario no autenticado");
+      }
+
+      // Primero verificamos si existe la conexión con los nombres correctos de las columnas
+      const { data: conexiones, error: errorBusqueda } = await supabase
+        .from("conexion")
+        .select("*")
+        .or(`and(usuario1_id.eq.${currentUserId},usuario2_id.eq.${id}),and(usuario1_id.eq.${id},usuario2_id.eq.${currentUserId})`);
+
+      if (errorBusqueda) {
+        console.error("Error al buscar la conexión:", errorBusqueda);
+        Alert.alert("Error", "No se pudo verificar la conexión");
+        return;
+      }
+
+      if (!conexiones || conexiones.length === 0) {
+        Alert.alert("Error", "No existe una conexión activa con este usuario");
+        return;
+      }
+
+      Alert.alert(
+        "Cancelar conexión",
+        "¿Estás seguro de que quieres cancelar la conexión con este usuario?",
+        [
+          { text: "No", style: "cancel" },
+          {
+            text: "Sí, cancelar",
+            style: "destructive",
+            onPress: async () => {
+              // Eliminar todas las conexiones encontradas
+              const { error } = await supabase
+                .from("conexion")
+                .delete()
+                .or(`and(usuario1_id.eq.${currentUserId},usuario2_id.eq.${id}),and(usuario1_id.eq.${id},usuario2_id.eq.${currentUserId})`);
+
+              if (error) throw error;
+
+              setModalVisible(false);
+              Alert.alert("Conexión cancelada", "Has cancelado la conexión con este usuario.");
+              router.push("/chat"); // Regresar a la lista de chats
+            }
+          }
+        ]
+      );
+    } catch (error) {
+      console.error("Error al cancelar la conexión:", error);
+      Alert.alert("Error", "No se pudo cancelar la conexión.");
+    }
+  };
+
   if (isLoading) {
     return (
       <View className="flex-1 justify-center items-center">
@@ -786,10 +840,10 @@ export default function ChatDetail() {
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
-                onPress={() => setModalVisible(false)}
-                style={[styles.optionButton, { marginTop: 10 }]}
+                onPress={cancelarConexion}
+                style={[styles.optionButton, { marginTop: 10, backgroundColor: '#FF3B30' }]}
               >
-                <Text style={styles.optionText}>Cancelar</Text>
+                <Text style={[styles.optionText, { color: 'white' }]}>Cancelar conexión</Text>
               </TouchableOpacity>
             </View>
           </View>
