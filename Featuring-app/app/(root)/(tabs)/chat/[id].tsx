@@ -63,6 +63,8 @@ export default function ChatDetail() {
 
   const supabaseUrl = Constants.expoConfig?.extra?.supabaseUrl;
 
+  const [isBlockModalVisible, setIsBlockModalVisible] = useState(false);
+
   useEffect(() => {
     let refreshInterval: NodeJS.Timeout;
     
@@ -173,12 +175,15 @@ export default function ChatDetail() {
     if (!currentUserId) return;
     
     try {
-      const { data: blockedUsers = [] } = await supabase
+      const { data: bloqueos } = await supabase
         .from("bloqueo")
-        .select("bloqueado_id")
-        .eq("usuario_id", currentUserId);
+        .select("*")
+        .or(`and(usuario_id.eq.${currentUserId},bloqueado_id.eq.${id}),and(usuario_id.eq.${id},bloqueado_id.eq.${currentUserId})`);
 
-      const blockedUserIds = blockedUsers?.map(user => user.bloqueado_id) || [];
+      if (bloqueos && bloqueos.length > 0) {
+        setMessages([]);
+        return;
+      }
 
       const { data, error } = await supabase
         .from("mensaje")
@@ -186,16 +191,10 @@ export default function ChatDetail() {
         .or(
           `and(emisor_id.eq.${currentUserId},receptor_id.eq.${id}),and(emisor_id.eq.${id},receptor_id.eq.${currentUserId})`
         )
-        .not("emisor_id", "in", `(${blockedUserIds.join(",")})`)
         .order("fecha_envio", { ascending: false });
 
       if (error) throw error;
-
-      // Comparar los nuevos mensajes con los actuales antes de actualizar
-      setMessages(prevMessages => {
-        const hasChanges = JSON.stringify(prevMessages) !== JSON.stringify(data);
-        return hasChanges ? [...(data || [])] : prevMessages;
-      });
+      setMessages(data || []);
     } catch (error) {
       console.error("Error al obtener mensajes:", error);
     }
@@ -286,6 +285,19 @@ export default function ChatDetail() {
     if ((!content.trim() && tipo === "texto") || !currentUserId) return;
 
     try {
+      const { data: bloqueos } = await supabase
+        .from("bloqueo")
+        .select("*")
+        .or(`and(usuario_id.eq.${currentUserId},bloqueado_id.eq.${id}),and(usuario_id.eq.${id},bloqueado_id.eq.${currentUserId})`);
+
+      if (bloqueos && bloqueos.length > 0) {
+        Alert.alert(
+          "No se puede enviar el mensaje",
+          "No es posible enviar mensajes debido a que uno de los usuarios ha bloqueado al otro."
+        );
+        return;
+      }
+
       const { data, error } = await supabase
         .from("mensaje")
         .insert({
@@ -299,8 +311,6 @@ export default function ChatDetail() {
 
       if (error) throw error;
       setNewMessage("");
-      
-      // No necesitamos actualizar messages aquí ya que la suscripción lo manejará
     } catch (error) {
       console.error("Error al enviar mensaje:", error);
       Alert.alert("Error", "No se pudo enviar el mensaje");
@@ -514,52 +524,80 @@ export default function ChatDetail() {
 
   const blockUser = async (userIdToBlock: string) => {
     try {
-        if (!currentUserId) {
-            throw new Error("Usuario no autenticado");
-        }
+      if (!currentUserId) {
+        throw new Error("Usuario no autenticado");
+      }
 
-        const { data, error } = await supabase
-            .from("bloqueo")
-            .insert({
-                usuario_id: currentUserId,
-                bloqueado_id: userIdToBlock,
-            });
+      Alert.alert(
+        "Bloquear usuario",
+        "¿Estás seguro de que quieres bloquear a este usuario? No podrás recibir mensajes ni interactuar con él.",
+        [
+          { text: "Cancelar", style: "cancel" },
+          {
+            text: "Bloquear",
+            style: "destructive",
+            onPress: async () => {
+              const { error } = await supabase
+                .from("bloqueo")
+                .insert({
+                  usuario_id: currentUserId,
+                  bloqueado_id: userIdToBlock,
+                });
 
-        if (error) throw error;
+              if (error) throw error;
 
-        console.log("Usuario bloqueado:", data);
-        Alert.alert("Éxito", "Usuario bloqueado correctamente.");
+              setIsBlocked(true);
+              setModalVisible(false);
+              Alert.alert("Usuario bloqueado", "Ya no recibirás mensajes de este usuario.");
+              router.push("/chat"); // Regresar a la lista de chats
+            }
+          }
+        ]
+      );
     } catch (error) {
-        console.error("Error al bloquear usuario:", error);
-        Alert.alert("Error", "No se pudo bloquear al usuario.");
+      console.error("Error al bloquear usuario:", error);
+      Alert.alert("Error", "No se pudo bloquear al usuario.");
     }
-};
+  };
 
-const unblockUser = async (userIdToUnblock: string) => {
+  const unblockUser = async (userIdToUnblock: string) => {
     try {
-        if (!currentUserId) {
-            throw new Error("Usuario no autenticado");
-        }
+      if (!currentUserId) {
+        throw new Error("Usuario no autenticado");
+      }
 
-        const { error } = await supabase
-            .from("bloqueo")
-            .delete()
-            .match({
-                usuario_id: currentUserId,
-                bloqueado_id: userIdToUnblock,
-            });
+      Alert.alert(
+        "Desbloquear usuario",
+        "¿Estás seguro de que quieres desbloquear a este usuario?",
+        [
+          { text: "Cancelar", style: "cancel" },
+          {
+            text: "Desbloquear",
+            onPress: async () => {
+              const { error } = await supabase
+                .from("bloqueo")
+                .delete()
+                .match({
+                  usuario_id: currentUserId,
+                  bloqueado_id: userIdToUnblock,
+                });
 
-        if (error) throw error;
+              if (error) throw error;
 
-        console.log("Usuario desbloqueado");
-        Alert.alert("Éxito", "Usuario desbloqueado correctamente.");
+              setIsBlocked(false);
+              setModalVisible(false);
+              Alert.alert("Usuario desbloqueado", "Ahora podrás volver a interactuar con este usuario.");
+            }
+          }
+        ]
+      );
     } catch (error) {
-        console.error("Error al desbloquear usuario:", error);
-        Alert.alert("Error", "No se pudo desbloquear al usuario.");
+      console.error("Error al desbloquear usuario:", error);
+      Alert.alert("Error", "No se pudo desbloquear al usuario.");
     }
-};
+  };
 
-const checkIfUserIsBlocked = async (userId: string) => {
+  const checkIfUserIsBlocked = async (userId: string) => {
     if (!currentUserId) return false;
 
     const { data, error } = await supabase
@@ -570,7 +608,7 @@ const checkIfUserIsBlocked = async (userId: string) => {
         .single();
 
     return data !== null; // Retorna true si el usuario está bloqueado
-};
+  };
 
   const toggleBlockUser = () => {
     if (isBlocked) {
@@ -656,63 +694,76 @@ const checkIfUserIsBlocked = async (userId: string) => {
           </TouchableOpacity>
         </View>
 
-        <View className="flex-1">
-          <FlatList
-            ref={flatListRef}
-            data={messages}
-            renderItem={renderMessage}
-            keyExtractor={(item) => `message-${item.id}`}
-            inverted
-            contentContainerStyle={{
-              flexGrow: 1,
-              justifyContent: "flex-end",
-              paddingVertical: 10,
-              margin: 12,
-            }}
-          />
-        </View>
-
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
-          keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
-        >
-          <View className="flex-row items-center p-2 bg-white border-t border-primary-200">
-            <TextInput
-              className="flex-1 bg-primary-100 rounded-full px-4 py-2 mr-2"
-              value={newMessage}
-              onChangeText={setNewMessage}
-              placeholder="Escribe un mensaje..."
-            />
-            <TouchableOpacity
-              onPress={pickDocument}
-              className="bg-primary-500 rounded-full p-2 mr-2"
-            >
-              <FontAwesome name="paperclip" size={20} color="white" />
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={pickImage}
-              className="bg-primary-500 rounded-full p-2 mr-2"
-            >
-              <FontAwesome name="image" size={20} color="white" />
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={isRecording ? stopRecording : startRecording}
-              className="bg-primary-500 rounded-full p-2 mr-2"
-            >
-              <FontAwesome
-                name={isRecording ? "stop" : "microphone"}
-                size={20}
-                color="white"
-              />
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => sendMessage(newMessage, "texto")}
-              className="bg-primary-500 rounded-full p-2"
-            >
-              <FontAwesome name="send" size={20} color="white" />
-            </TouchableOpacity>
+        {isBlocked ? (
+          <View className="flex-1 justify-center items-center p-4">
+            <Text className="text-lg text-gray-600 text-center mb-2">
+              No puedes enviar mensajes a este usuario
+            </Text>
+            <Text className="text-sm text-gray-500 text-center">
+              Uno de los usuarios ha bloqueado al otro
+            </Text>
           </View>
-        </KeyboardAvoidingView>
+        ) : (
+          <>
+            <View className="flex-1">
+              <FlatList
+                ref={flatListRef}
+                data={messages}
+                renderItem={renderMessage}
+                keyExtractor={(item) => `message-${item.id}`}
+                inverted
+                contentContainerStyle={{
+                  flexGrow: 1,
+                  justifyContent: "flex-end",
+                  paddingVertical: 10,
+                  margin: 12,
+                }}
+              />
+            </View>
+
+            <KeyboardAvoidingView
+              behavior={Platform.OS === "ios" ? "padding" : undefined}
+              keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
+            >
+              <View className="flex-row items-center p-2 bg-white border-t border-primary-200">
+                <TextInput
+                  className="flex-1 bg-primary-100 rounded-full px-4 py-2 mr-2"
+                  value={newMessage}
+                  onChangeText={setNewMessage}
+                  placeholder="Escribe un mensaje..."
+                />
+                <TouchableOpacity
+                  onPress={pickDocument}
+                  className="bg-primary-500 rounded-full p-2 mr-2"
+                >
+                  <FontAwesome name="paperclip" size={20} color="white" />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={pickImage}
+                  className="bg-primary-500 rounded-full p-2 mr-2"
+                >
+                  <FontAwesome name="image" size={20} color="white" />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={isRecording ? stopRecording : startRecording}
+                  className="bg-primary-500 rounded-full p-2 mr-2"
+                >
+                  <FontAwesome
+                    name={isRecording ? "stop" : "microphone"}
+                    size={20}
+                    color="white"
+                  />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => sendMessage(newMessage, "texto")}
+                  className="bg-primary-500 rounded-full p-2"
+                >
+                  <FontAwesome name="send" size={20} color="white" />
+                </TouchableOpacity>
+              </View>
+            </KeyboardAvoidingView>
+          </>
+        )}
 
         <Modal
           animationType="slide"
@@ -724,16 +775,19 @@ const checkIfUserIsBlocked = async (userId: string) => {
             <View style={styles.modalContent}>
               <Text style={styles.modalTitle}>Opciones</Text>
               <TouchableOpacity
-                onPress={toggleBlockUser}
-                style={styles.optionButton}
+                onPress={() => toggleBlockUser()}
+                style={[
+                  styles.optionButton,
+                  { backgroundColor: isBlocked ? '#4CAF50' : '#FF3B30' }
+                ]}
               >
-                <Text style={styles.optionText}>
-                  {isBlocked ? "Desbloquear" : "Bloquear"}
+                <Text style={[styles.optionText, { color: 'white' }]}>
+                  {isBlocked ? "Desbloquear usuario" : "Bloquear usuario"}
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={() => setModalVisible(false)}
-                style={styles.optionButton}
+                style={[styles.optionButton, { marginTop: 10 }]}
               >
                 <Text style={styles.optionText}>Cancelar</Text>
               </TouchableOpacity>
@@ -755,26 +809,38 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "rgba(0, 0, 0, 0.5)", // Fondo semi-transparente
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
   },
   modalContent: {
-    width: 300,
+    width: '80%',
     backgroundColor: "white",
-    borderRadius: 10,
+    borderRadius: 15,
     padding: 20,
     alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5
   },
   modalTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: "bold",
     marginBottom: 20,
+    color: '#1C1C1E'
   },
   optionButton: {
-    padding: 10,
+    padding: 15,
     width: "100%",
     alignItems: "center",
+    borderRadius: 10,
+    backgroundColor: '#F2F2F7'
   },
   optionText: {
     fontSize: 16,
-  },
+    fontWeight: "600"
+  }
 });
