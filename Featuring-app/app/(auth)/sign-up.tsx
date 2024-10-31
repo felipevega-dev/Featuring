@@ -207,6 +207,7 @@ export default function SignUp() {
               if (!touched.password) setTouched({ ...touched, password: true });
               validateField("password", value);
             }}
+            autoCapitalize="none"
           />
           <TouchableOpacity
             className="absolute right-3 top-10"
@@ -234,6 +235,7 @@ export default function SignUp() {
               if (!touched.confirmPassword) setTouched({ ...touched, confirmPassword: true });
               validateField("confirmPassword", value);
             }}
+            autoCapitalize="none"
           />
           <TouchableOpacity
             className="absolute right-3 top-10"
