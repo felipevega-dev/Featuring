@@ -64,6 +64,45 @@ interface Rating {
   };
 }
 
+// Agregar interfaces para los componentes internos
+interface ProfileSectionProps {
+  icon: any; // O ImageSourcePropType si quieres ser más específico
+  title: string;
+  children: React.ReactNode;
+}
+
+interface ProfileItemProps {
+  label: string;
+  value: string;
+}
+
+interface SongCardProps {
+  id: number;
+  titulo: string;
+  caratula: string;
+  genero: string;
+  usuario_id: string;
+  archivo_audio: string;
+  contenido: string;
+  created_at: string;
+  perfil: {
+    username: string;
+    foto_perfil: string | null;
+  };
+}
+
+interface VideoCardProps {
+  id: number;
+  usuario_id: string;
+  descripcion: string;
+  url: string | null;
+  created_at: string;
+  perfil: {
+    username: string;
+    foto_perfil: string | null;
+  };
+}
+
 export default function PublicProfile() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [perfil, setPerfil] = useState<Perfil | null>(null);
@@ -195,18 +234,14 @@ export default function PublicProfile() {
           valoracion,
           comentario,
           created_at,
-          colaboracion!inner (
-            id,
-            usuario_id,
-            usuario_id2
-          ),
+          usuario_id,
           perfil:usuario_id (
             username,
             foto_perfil
           )
         `)
-        .or(`colaboracion.usuario_id.eq.${id},colaboracion.usuario_id2.eq.${id}`)
-        .neq('usuario_id', id);
+        .eq('usuario_valorado_id', id)
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
 
@@ -227,7 +262,7 @@ export default function PublicProfile() {
     }
   };
 
-  // Llamar a fetchValoraciones cuando se abre el modal de valoraciones
+  // Llamar a fetchValoraciones cuando se abre el modal
   const handleShowRatings = () => {
     fetchValoraciones();
     setShowRatings(true);
@@ -249,7 +284,8 @@ export default function PublicProfile() {
     );
   }
 
-  const ProfileSection = ({ icon, title, children }) => (
+  // Definir los componentes internos con sus tipos
+  const ProfileSection: React.FC<ProfileSectionProps> = ({ icon, title, children }) => (
     <View className="mb-3">
       <View className="flex-row items-center mb-2">
         <Image source={icon} className="w-6 h-6 mr-2" />
@@ -259,7 +295,7 @@ export default function PublicProfile() {
     </View>
   );
 
-  const ProfileItem = ({ label, value }) => (
+  const ProfileItem: React.FC<ProfileItemProps> = ({ label, value }) => (
     <View className="flex-row justify-between items-center py-1">
       <Text className="text-primary-700 font-medium">{label}</Text>
       <Text className="text-gray-800">{value || "No especificado"}</Text>
@@ -271,12 +307,28 @@ export default function PublicProfile() {
     ? `https://jvtgpbgnxevfazwzbhtr.supabase.co/storage/v1/object/public/fotoperfil/${perfil.foto_perfil}`
     : "https://via.placeholder.com/150";
 
-  const renderSongItem = ({ item }: { item: Cancion }) => (
-    <SongCard cancion={item} currentUserId={id} onDeleteSong={() => {}} onUpdateSong={() => {}} />
+  const renderSongItem = ({ item }: { item: SongCardProps }) => (
+    <SongCard 
+      cancion={item} 
+      currentUserId={id} 
+      onDeleteSong={() => {}} 
+      onUpdateSong={() => {}}
+      setAllCanciones={() => {}}
+      setFilteredCanciones={() => {}}
+    />
   );
 
-  const renderVideoItem = ({ item }: { item: Video }) => (
-    <VideoCard video={item} />
+  const renderVideoItem = ({ item }: { item: VideoCardProps }) => (
+    <VideoCard 
+      video={item}
+      currentUserId={id}
+      isActive={false}
+      height={300}
+      onDeleteVideo={() => {}}
+      onUpdateVideo={() => {}}
+      setVideos={() => {}}
+      refetchVideos={() => Promise.resolve()}
+    />
   );
 
   return (
@@ -425,7 +477,7 @@ export default function PublicProfile() {
               <View className="flex-1 bg-black/50">
                 <View className="bg-white rounded-t-3xl p-4 h-3/4 mt-auto">
                   <View className="flex-row justify-between items-center mb-4">
-                    <Text className="text-xl font-bold">Valoraciones</Text>
+                    <Text className="text-xl font-bold">Valoraciones de {perfil.username}</Text>
                     <TouchableOpacity onPress={() => setShowRatings(false)}>
                       <Ionicons name="close" size={24} color="#4A148C" />
                     </TouchableOpacity>
