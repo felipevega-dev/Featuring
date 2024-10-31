@@ -293,19 +293,6 @@ CREATE TABLE
     CONSTRAINT fk_usuario_notificacion FOREIGN KEY (usuario_id) REFERENCES perfil (usuario_id) ON DELETE CASCADE,
   );
 
-
--- Tabla valoracion_cancion
-CREATE TABLE
-  valoracion_cancion (
-    id BIGSERIAL PRIMARY KEY,
-    cancion_id BIGINT NOT NULL,
-    usuario_id UUID NOT NULL,
-    valoracion INT CHECK (valoracion BETWEEN 1 AND 5),
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    CONSTRAINT fk_cancion_valoracion FOREIGN KEY (cancion_id) REFERENCES cancion (id) ON DELETE CASCADE,
-    CONSTRAINT fk_usuario_valoracion_cancion FOREIGN KEY (usuario_id) REFERENCES perfil (usuario_id) ON DELETE CASCADE
-  );
-
 -- Tabla valoracion_colaboracion
 CREATE TABLE
   valoracion_colaboracion (
