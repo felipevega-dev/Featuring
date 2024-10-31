@@ -154,6 +154,7 @@ const SignIn = () => {
               secureTextEntry={!showPassword}
               value={form.password}
               onChangeText={(value) => setForm({ ...form, password: value })}
+              autoCapitalize="none"
             />
             <TouchableOpacity
               className="absolute right-3 top-10"
