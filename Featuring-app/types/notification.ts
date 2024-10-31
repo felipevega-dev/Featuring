@@ -11,7 +11,9 @@ export type NotificationType =
   | 'like'
   | 'like_video'
   | 'comentario_video'
-  | 'like_comentario_video';
+  | 'like_comentario_video'
+  | 'respuesta_comentario'
+  | 'respuesta_comentario_video';
 
 export interface NotificationRedirect {
   route: string;
@@ -26,8 +28,7 @@ export const NOTIFICATION_REDIRECTS: Record<NotificationType, NotificationRedire
   like_cancion: {
     route: '/(root)/(tabs)/comunidad',
     getParams: (notification) => ({ 
-      scrollToId: notification.contenido_id.toString(),
-      tab: 'canciones'
+      scrollToId: notification.contenido_id.toString()
     })
   },
   comentario_cancion: {
@@ -51,25 +52,19 @@ export const NOTIFICATION_REDIRECTS: Record<NotificationType, NotificationRedire
       };
     }
   },
-  match: {
-    route: '/public-profile/[id]',
-    getParams: (notification) => ({ id: notification.usuario_origen_id })
-  },
-  like: {
-    route: '/public-profile/[id]',
-    getParams: (notification) => ({ id: notification.usuario_origen_id })
-  },
-  solicitud_colaboracion: {
-    route: '/notificaciones',
-    getParams: () => ({})
-  },
-  colaboracion_aceptada: {
-    route: '/colaboraciones',
-    getParams: () => ({})
-  },
-  colaboracion_rechazada: {
-    route: '/colaboraciones',
-    getParams: () => ({})
+  respuesta_comentario: {
+    route: '/(root)/(tabs)/comunidad',
+    getParams: async (notification) => {
+      const { data: comentario } = await supabase
+        .from('comentario_cancion')
+        .select('cancion_id')
+        .eq('id', notification.contenido_id)
+        .single();
+      return { 
+        scrollToId: comentario?.cancion_id.toString(),
+        showComments: 'true'
+      };
+    }
   },
   like_video: {
     route: '/(root)/(tabs)/watch',
@@ -97,5 +92,39 @@ export const NOTIFICATION_REDIRECTS: Record<NotificationType, NotificationRedire
         showComments: 'true'
       };
     }
+  },
+  respuesta_comentario_video: {
+    route: '/(root)/(tabs)/watch',
+    getParams: async (notification) => {
+      const { data } = await supabase
+        .from('comentario_video')
+        .select('video_id')
+        .eq('id', notification.contenido_id)
+        .single();
+      return { 
+        scrollToId: data?.video_id.toString(),
+        showComments: 'true'
+      };
+    }
+  },
+  match: {
+    route: '/public-profile/[id]',
+    getParams: (notification) => ({ id: notification.usuario_origen_id })
+  },
+  like: {
+    route: '/public-profile/[id]',
+    getParams: (notification) => ({ id: notification.usuario_origen_id })
+  },
+  solicitud_colaboracion: {
+    route: '/notificaciones',
+    getParams: () => ({})
+  },
+  colaboracion_aceptada: {
+    route: '/colaboraciones',
+    getParams: () => ({})
+  },
+  colaboracion_rechazada: {
+    route: '/colaboraciones',
+    getParams: () => ({})
   }
 }; 

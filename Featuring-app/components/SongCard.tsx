@@ -87,7 +87,8 @@ interface SongCardProps {
   currentUserId: string;
   onDeleteSong: (cancionId: number) => void;
   onUpdateSong: (cancionId: number) => void;
-  onCommentPress: (cancionId: number) => void; // Nueva prop
+  onCommentPress: (cancionId: number) => void;
+  initialShowComments?: boolean;
 }
 
 const SongCard: React.FC<SongCardProps> = ({
@@ -95,7 +96,8 @@ const SongCard: React.FC<SongCardProps> = ({
   currentUserId,
   onDeleteSong,
   onUpdateSong,
-  onCommentPress, // Nueva prop
+  onCommentPress,
+  initialShowComments,
 }) => {
   const [sound, setSound] = useState<Audio.Sound | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -163,6 +165,14 @@ const SongCard: React.FC<SongCardProps> = ({
       }
     };
   }, [cancion.id]);
+
+  useEffect(() => {
+    console.log('SongCard: initialShowComments cambió:', initialShowComments);
+    if (initialShowComments) {
+      console.log('Abriendo modal de comentarios');
+      setCommentsModalVisible(true);
+    }
+  }, [initialShowComments]);
 
   const subscribeToComments = async () => {
     const subscription = supabase
@@ -1026,6 +1036,14 @@ const handleLike = async () => {
     );
   };
 
+  const handleCloseCommentsModal = () => {
+    setCommentsModalVisible(false);
+    // Limpiar el parámetro showComments de la URL
+    const currentParams = new URLSearchParams(window.location.search);
+    currentParams.delete('showComments');
+    router.setParams({ showComments: '' });
+  };
+
   return (
     <View className="bg-white rounded-lg shadow-md mb-4 p-4">
       {renderHeader()}
@@ -1104,7 +1122,7 @@ const handleLike = async () => {
         animationType="slide"
         transparent={true}
         visible={commentsModalVisible}
-        onRequestClose={toggleCommentsModal}
+        onRequestClose={handleCloseCommentsModal}
       >
         <View className="flex-1 justify-end bg-black/20">
           <View className="bg-white rounded-t-3xl p-4 h-3/4 shadow-lg">
@@ -1122,7 +1140,7 @@ const handleLike = async () => {
                 </Text>
                 <Text className="font-JakartaBold text-lg">Comentarios</Text>
               </View>
-              <TouchableOpacity onPress={toggleCommentsModal}>
+              <TouchableOpacity onPress={handleCloseCommentsModal}>
                 <Text className="text-secondary-500 font-JakartaBold">
                   Cerrar
                 </Text>

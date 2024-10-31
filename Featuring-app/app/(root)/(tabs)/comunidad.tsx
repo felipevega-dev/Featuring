@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useMemo, useRef } from "react";
 import { View, Text, FlatList, TouchableOpacity, Alert, RefreshControl } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useLocalSearchParams } from "expo-router";
 import SongCard from "@/components/SongCard";
 import { getSongs } from "@/app/(api)/comunidad";
 import { supabase } from "@/lib/supabase";
@@ -11,8 +12,6 @@ import SearchBar from "@/components/SearchBar";
 import GlobalAudioPlayer from "@/components/GlobalAudioPlayer";
 import { AudioPlayerProvider } from "@/contexts/AudioPlayerContext";
 import { generosMusicalesCompletos } from '@/constants/musicData';
-import CommentSection from "@/components/CommentSection";
-import { useLocalSearchParams } from "expo-router";
 
 type CancionDB = Database["public"]["Tables"]["cancion"]["Row"];
 type PerfilDB = Database["public"]["Tables"]["perfil"]["Row"];
@@ -38,8 +37,6 @@ const Comunidad = () => {
   const [isUserSongsModalVisible, setIsUserSongsModalVisible] = useState(false);
   const [isSearchBarExpanded, setIsSearchBarExpanded] = useState(false);
   const [sortedGenres, setSortedGenres] = useState<string[]>([]);
-  const [selectedSongId, setSelectedSongId] = useState<number | null>(null);
-  const [isCommentModalVisible, setIsCommentModalVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const songListRef = useRef<FlatList>(null);
   const { scrollToId, showComments } = useLocalSearchParams<{ 
@@ -55,22 +52,30 @@ const Comunidad = () => {
 
   useEffect(() => {
     if (scrollToId && allCanciones.length > 0) {
+      console.log('Iniciando redirección con:', {
+        scrollToId,
+        showComments,
+        cancionesDisponibles: allCanciones.length
+      });
+
       const songIndex = allCanciones.findIndex(
         cancion => cancion.id.toString() === scrollToId
       );
 
+      console.log('Índice de canción encontrado:', songIndex);
+
       if (songIndex !== -1 && songListRef.current) {
         setTimeout(() => {
+          console.log('Intentando scroll a índice:', songIndex);
           songListRef.current?.scrollToIndex({
             index: songIndex,
             animated: true,
             viewPosition: 0
           });
 
-          // Si showComments es true, abrimos el modal de comentarios
           if (showComments === 'true') {
-            setSelectedSongId(parseInt(scrollToId));
-            setIsCommentModalVisible(true);
+            console.log('Intentando abrir modal de comentarios para canción:', allCanciones[songIndex].id);
+            handleCommentPress(allCanciones[songIndex].id);
           }
         }, 100);
       }
@@ -103,13 +108,11 @@ const Comunidad = () => {
       setAllCanciones(cancionesFormateadas);
       setFilteredCanciones(cancionesFormateadas);
       
-      // Contar la frecuencia de los géneros
       const genreCount = cancionesFormateadas.reduce((acc, cancion) => {
         acc[cancion.genero] = (acc[cancion.genero] || 0) + 1;
         return acc;
       }, {} as Record<string, number>);
 
-      // Ordenar los géneros por frecuencia
       const sorted = generosMusicalesCompletos.sort((a, b) => 
         (genreCount[b] || 0) - (genreCount[a] || 0)
       );
@@ -129,7 +132,6 @@ const Comunidad = () => {
 
   const handleDeleteSong = async (cancionId: number) => {
     try {
-      // Primero obtener los datos de la canción
       const { data: cancionData, error: fetchCancionError } = await supabase
         .from("cancion")
         .select("archivo_audio, caratula, usuario_id")
@@ -139,7 +141,6 @@ const Comunidad = () => {
       if (fetchCancionError) throw fetchCancionError;
 
       if (cancionData) {
-        // 1. Eliminar notificaciones relacionadas con la canción
         const { error: notificacionesError } = await supabase
           .from("notificacion")
           .delete()
@@ -152,31 +153,26 @@ const Comunidad = () => {
 
         if (notificacionesError) throw notificacionesError;
 
-        // 2. Eliminar colaboraciones asociadas
         await supabase
           .from("colaboracion")
           .delete()
           .eq("cancion_id", cancionId);
 
-        // 3. Eliminar valoraciones de la canción
         await supabase
           .from("valoracion_cancion")
           .delete()
           .eq("cancion_id", cancionId);
 
-        // 4. Eliminar comentarios de la canción
         await supabase
           .from("comentario_cancion")
           .delete()
           .eq("cancion_id", cancionId);
 
-        // 5. Eliminar likes de la canción
         await supabase
           .from("likes_cancion")
           .delete()
           .eq("cancion_id", cancionId);
 
-        // 6. Eliminar archivo de audio del storage
         if (cancionData.archivo_audio) {
           const audioFileName = cancionData.archivo_audio.split("/").pop();
           if (audioFileName) {
@@ -186,7 +182,6 @@ const Comunidad = () => {
           }
         }
 
-        // 7. Eliminar carátula del storage
         if (cancionData.caratula) {
           const caratulaFileName = cancionData.caratula.split("/").pop();
           if (caratulaFileName) {
@@ -196,7 +191,6 @@ const Comunidad = () => {
           }
         }
 
-        // 8. Finalmente, eliminar la canción
         const { error: deleteCancionError } = await supabase
           .from("cancion")
           .delete()
@@ -206,7 +200,6 @@ const Comunidad = () => {
           throw deleteCancionError;
         }
 
-        // 9. Actualizar los estados locales
         setAllCanciones(prev => prev.filter(cancion => cancion.id !== cancionId));
         setFilteredCanciones(prev => prev.filter(cancion => cancion.id !== cancionId));
         
@@ -219,12 +212,10 @@ const Comunidad = () => {
   };
 
   const handleUpdateSong = async (cancionId: number) => {
-    // Recargar la lista de canciones
     await fetchSongs();
   };
 
   const handleSongSelect = (song: Cancion) => {
-    // Implementa la lógica para reproducir la canción seleccionada
     console.log("Canción seleccionada:", song);
   };
 
@@ -251,12 +242,18 @@ const Comunidad = () => {
       onDeleteSong={handleDeleteSong}
       onUpdateSong={handleUpdateSong}
       onCommentPress={() => handleCommentPress(item.id)}
+      initialShowComments={showComments === 'true' && item.id.toString() === scrollToId}
     />
   );
 
   const handleCommentPress = (songId: number) => {
-    setSelectedSongId(songId);
-    setIsCommentModalVisible(true);
+    console.log('handleCommentPress llamado con songId:', songId);
+    const cancion = allCanciones.find(cancion => cancion.id === songId);
+    if (cancion) {
+      console.log('Canción encontrada, modal debería abrirse a través de initialShowComments');
+    } else {
+      console.log('No se encontró la canción con id:', songId);
+    }
   };
 
   const onRefresh = React.useCallback(() => {
@@ -355,14 +352,6 @@ const Comunidad = () => {
             isVisible={isUserSongsModalVisible}
             onClose={() => setIsUserSongsModalVisible(false)}
             userId={currentUserId}
-          />
-        )}
-        {selectedSongId && (
-          <CommentSection
-            isVisible={isCommentModalVisible}
-            onClose={() => setIsCommentModalVisible(false)}
-            songId={selectedSongId}
-            currentUserId={currentUserId || ""}
           />
         )}
         <GlobalAudioPlayer />
