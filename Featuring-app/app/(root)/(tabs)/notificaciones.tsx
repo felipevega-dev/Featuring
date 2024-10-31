@@ -137,10 +137,12 @@ export default function NotificacionesScreen() {
         );
       default:
         return (
-          <NotificationItem
-            notification={item}
-            onNotificationRead={fetchNotificaciones}
-          />
+          <View className="bg-white rounded-lg mb-1 shadow">
+            <NotificationItem
+              notification={item}
+              onNotificationRead={fetchNotificaciones}
+            />
+          </View>
         );
     }
   };
@@ -159,7 +161,7 @@ export default function NotificacionesScreen() {
         data={notificaciones}
         renderItem={renderNotificacion}
         keyExtractor={(item) => item.id.toString()}
-        contentContainerStyle={{ padding: 16 }}
+        contentContainerStyle={{ padding: 16}}
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing}

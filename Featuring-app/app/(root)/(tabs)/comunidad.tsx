@@ -42,9 +42,8 @@ const Comunidad = () => {
   const [isCommentModalVisible, setIsCommentModalVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const songListRef = useRef<FlatList>(null);
-  const { scrollToId, tab, showComments } = useLocalSearchParams<{ 
+  const { scrollToId, showComments } = useLocalSearchParams<{ 
     scrollToId: string;
-    tab: string;
     showComments: string;
   }>();
   const [activeTab, setActiveTab] = useState<'canciones' | 'videos'>('canciones');
@@ -56,11 +55,6 @@ const Comunidad = () => {
 
   useEffect(() => {
     if (scrollToId && allCanciones.length > 0) {
-      // Si viene un tab específico, cambiarlo
-      if (tab === 'canciones') {
-        setActiveTab('canciones');
-      }
-
       const songIndex = allCanciones.findIndex(
         cancion => cancion.id.toString() === scrollToId
       );
@@ -73,7 +67,7 @@ const Comunidad = () => {
             viewPosition: 0
           });
 
-          // Si debe mostrar comentarios, abrir el modal
+          // Si showComments es true, abrimos el modal de comentarios
           if (showComments === 'true') {
             setSelectedSongId(parseInt(scrollToId));
             setIsCommentModalVisible(true);
@@ -81,7 +75,7 @@ const Comunidad = () => {
         }, 100);
       }
     }
-  }, [scrollToId, allCanciones]);
+  }, [scrollToId, showComments, allCanciones]);
 
   const getCurrentUser = async () => {
     const {

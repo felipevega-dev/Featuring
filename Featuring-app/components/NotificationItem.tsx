@@ -94,7 +94,7 @@ export default function NotificationItem({ notification, onNotificationRead }: N
       onPress={handleNotificationPress}
       onLongPress={handleLongPress}
       delayLongPress={500}
-      className={`bg-white p-4 rounded-lg mb-2 shadow ${
+      className={`bg-white p-2 rounded-lg mb-2 shadow ${
         !notification.leido ? 'border-l-4 border-primary-500' : 'opacity-75'
       }`}
     >

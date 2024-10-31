@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, FlatList, Image } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, FlatList, Image, Modal } from 'react-native';
 import { supabase } from '@/lib/supabase';
 import Constants from 'expo-constants';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,17 +18,21 @@ interface Comment {
 interface CommentSectionProps {
   songId: number;
   currentUserId: string;
+  isVisible: boolean;
+  onClose: () => void;
 }
 
-export default function CommentSection({ songId, currentUserId }: CommentSectionProps) {
+export default function CommentSection({ songId, currentUserId, isVisible, onClose }: CommentSectionProps) {
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState('');
   const supabaseUrl = Constants.expoConfig?.extra?.supabaseUrl;
 
   useEffect(() => {
-    fetchComments();
-    subscribeToComments();
-  }, [songId]);
+    if (isVisible) {
+      fetchComments();
+      subscribeToComments();
+    }
+  }, [songId, isVisible]);
 
   const subscribeToComments = () => {
     const subscription = supabase
@@ -60,7 +64,7 @@ export default function CommentSection({ songId, currentUserId }: CommentSection
         usuario_id,
         contenido,
         created_at,
-        perfil (
+        perfil:usuario_id (
           username,
           foto_perfil
         )
@@ -71,7 +75,18 @@ export default function CommentSection({ songId, currentUserId }: CommentSection
     if (error) {
       console.error('Error al cargar comentarios:', error);
     } else {
-      setComments(data || []);
+      // Formatear los datos para que coincidan con el tipo Comment
+      const formattedComments: Comment[] = data.map(comment => ({
+        id: comment.id,
+        usuario_id: comment.usuario_id,
+        contenido: comment.contenido,
+        created_at: comment.created_at,
+        perfil: {
+          username: comment.perfil?.username || 'Usuario desconocido',
+          foto_perfil: comment.perfil?.foto_perfil || null
+        }
+      }));
+      setComments(formattedComments);
     }
   };
 
@@ -134,33 +149,50 @@ export default function CommentSection({ songId, currentUserId }: CommentSection
   );
 
   return (
-    <View className="mt-4">
-      <Text className="text-lg font-bold mb-4">Comentarios</Text>
-      <View className="flex-row items-center mb-4">
-        <TextInput
-          value={newComment}
-          onChangeText={setNewComment}
-          placeholder="Escribe un comentario..."
-          className="flex-1 bg-gray-100 rounded-full px-4 py-2 mr-2"
-          multiline
-        />
-        <TouchableOpacity
-          onPress={handleComment}
-          className="bg-primary-500 p-2 rounded-full"
-        >
-          <Ionicons name="send" size={24} color="white" />
-        </TouchableOpacity>
+    <Modal
+      visible={isVisible}
+      animationType="slide"
+      transparent={true}
+      onRequestClose={onClose}
+    >
+      <View className="flex-1 bg-black/50 justify-end">
+        <View className="bg-white rounded-t-3xl h-3/4 p-4">
+          <View className="flex-row justify-between items-center mb-4">
+            <Text className="text-xl font-bold">Comentarios</Text>
+            <TouchableOpacity onPress={onClose}>
+              <Ionicons name="close" size={24} color="#666" />
+            </TouchableOpacity>
+          </View>
+          
+          <FlatList
+            data={comments}
+            renderItem={renderComment}
+            keyExtractor={(item) => item.id.toString()}
+            className="mb-4"
+            ListEmptyComponent={
+              <Text className="text-center text-gray-500">
+                No hay comentarios aún. ¡Sé el primero en comentar!
+              </Text>
+            }
+          />
+
+          <View className="flex-row items-center">
+            <TextInput
+              value={newComment}
+              onChangeText={setNewComment}
+              placeholder="Escribe un comentario..."
+              className="flex-1 bg-gray-100 rounded-full px-4 py-2 mr-2"
+              multiline
+            />
+            <TouchableOpacity
+              onPress={handleComment}
+              className="bg-primary-500 p-2 rounded-full"
+            >
+              <Ionicons name="send" size={24} color="white" />
+            </TouchableOpacity>
+          </View>
+        </View>
       </View>
-      <FlatList
-        data={comments}
-        renderItem={renderComment}
-        keyExtractor={(item) => item.id.toString()}
-        ListEmptyComponent={
-          <Text className="text-center text-gray-500">
-            No hay comentarios aún. ¡Sé el primero en comentar!
-          </Text>
-        }
-      />
-    </View>
+    </Modal>
   );
 }

@@ -92,7 +92,7 @@ const Home = () => {
 
   const ProyectoDestacadoCard = ({ proyecto }: { proyecto: ProyectoDestacado }) => (
     <TouchableOpacity 
-      className="bg-white rounded-xl shadow-lg p-3 mb-2 w-[48%]"
+      className="bg-white rounded-xl shadow-lg p-2 mb-2 w-[48%]"
       onPress={() => router.push(`/comunidad?scrollToId=${proyecto.id}`)}
     >
       <View className="flex-row items-center mb-1">

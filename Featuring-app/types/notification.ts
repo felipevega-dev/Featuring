@@ -34,20 +34,19 @@ export const NOTIFICATION_REDIRECTS: Record<NotificationType, NotificationRedire
     route: '/(root)/(tabs)/comunidad',
     getParams: (notification) => ({ 
       scrollToId: notification.contenido_id.toString(),
-      tab: 'canciones',
       showComments: 'true'
     })
   },
   like_comentario_cancion: {
-    route: '/cancion/[id]',
+    route: '/(root)/(tabs)/comunidad',
     getParams: async (notification) => {
-      const { data } = await supabase
+      const { data: comentario } = await supabase
         .from('comentario_cancion')
         .select('cancion_id')
         .eq('id', notification.contenido_id)
         .single();
       return { 
-        id: data?.cancion_id.toString(),
+        scrollToId: comentario?.cancion_id.toString(),
         showComments: 'true'
       };
     }
@@ -73,20 +72,20 @@ export const NOTIFICATION_REDIRECTS: Record<NotificationType, NotificationRedire
     getParams: () => ({})
   },
   like_video: {
-    route: '/video/[id]',
+    route: '/(root)/(tabs)/watch',
     getParams: (notification) => ({ 
-      id: notification.contenido_id.toString()
+      scrollToId: notification.contenido_id.toString()
     })
   },
   comentario_video: {
-    route: '/video/[id]',
+    route: '/(root)/(tabs)/watch',
     getParams: (notification) => ({ 
-      id: notification.contenido_id.toString(),
+      scrollToId: notification.contenido_id.toString(),
       showComments: 'true'
     })
   },
   like_comentario_video: {
-    route: '/video/[id]',
+    route: '/(root)/(tabs)/watch',
     getParams: async (notification) => {
       const { data } = await supabase
         .from('comentario_video')
@@ -94,7 +93,7 @@ export const NOTIFICATION_REDIRECTS: Record<NotificationType, NotificationRedire
         .eq('id', notification.contenido_id)
         .single();
       return { 
-        id: data?.video_id.toString(),
+        scrollToId: data?.video_id.toString(),
         showComments: 'true'
       };
     }
