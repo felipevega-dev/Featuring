@@ -18,10 +18,9 @@ interface Comment {
 interface CommentSectionProps {
   songId: number;
   currentUserId: string;
-  cancionUsuarioId?: string; // ID del usuario dueño de la canción
 }
 
-export default function CommentSection({ songId, currentUserId, cancionUsuarioId }: CommentSectionProps) {
+export default function CommentSection({ songId, currentUserId }: CommentSectionProps) {
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState('');
   const supabaseUrl = Constants.expoConfig?.extra?.supabaseUrl;
@@ -91,24 +90,6 @@ export default function CommentSection({ songId, currentUserId, cancionUsuarioId
         .single();
 
       if (commentError) throw commentError;
-
-      // Crear notificación si el comentario no es del dueño de la canción
-      if (cancionUsuarioId && currentUserId !== cancionUsuarioId) {
-        const { error: notificationError } = await supabase
-          .from('notificacion')
-          .insert({
-            usuario_id: cancionUsuarioId,
-            tipo_notificacion: 'comentario_cancion',
-            contenido_id: songId,
-            mensaje: `Ha comentado en tu canción: "${newComment.slice(0, 50)}${newComment.length > 50 ? '...' : ''}"`,
-            leido: false,
-            usuario_origen_id: currentUserId
-          });
-
-        if (notificationError) {
-          console.error('Error al crear notificación:', notificationError);
-        }
-      }
 
       setNewComment('');
       await fetchComments();

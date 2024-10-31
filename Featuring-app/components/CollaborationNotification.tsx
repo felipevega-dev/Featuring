@@ -317,10 +317,11 @@ export default function CollaborationNotification({
           isVisible={isRatingModalVisible}
           onClose={() => {
             setIsRatingModalVisible(false);
-            setYaValorado(true);
+            onRespond();
           }}
           colaboracionId={colaboracionId}
           colaboradorUsername={notification.perfil?.username || 'Usuario'}
+          colaboradorId={notification.usuario_origen_id}
           usuarioId={currentUserId}
         />
       )}

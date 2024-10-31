@@ -13,9 +13,14 @@ import AcceptedCollaborationNotification from '@/components/AcceptedCollaboratio
 import NotificationItem from '@/components/NotificationItem';
 import Constants from 'expo-constants';
 
+interface NotificationType {
+  id: number;
+  name: string;
+}
+
 interface Notificacion {
   id: number;
-  tipo_notificacion: string;
+  tipo_notificacion: NotificationType;
   usuario_origen_id: string;
   contenido_id: number;
   mensaje: string;
@@ -104,7 +109,7 @@ export default function NotificacionesScreen() {
   const renderNotificacion = ({ item }: { item: Notificacion }) => {
     if (!currentUserId) return null;
 
-    switch (item.tipo_notificacion) {
+    switch (item.tipo_notificacion.name) {
       case 'solicitud_colaboracion':
         return (
           <CollaborationNotification

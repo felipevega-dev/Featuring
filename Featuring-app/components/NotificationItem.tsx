@@ -42,7 +42,7 @@ export default function NotificationItem({ notification, onNotificationRead }: N
       const params = await redirectConfig.getParams(notification);
       if (Object.keys(params).length > 0) {
         router.push({
-          pathname: redirectConfig.route,
+          pathname: redirectConfig.route as any,
           params
         });
       }

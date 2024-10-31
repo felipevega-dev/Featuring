@@ -19,7 +19,7 @@ export interface NotificationRedirect {
     tipo_notificacion: NotificationType;
     contenido_id: number;
     usuario_origen_id: string;
-  }) => Record<string, string | number>;
+  }) => Promise<Record<string, string | number>> | Record<string, string | number>;
 }
 
 export const NOTIFICATION_REDIRECTS: Record<NotificationType, NotificationRedirect> = {

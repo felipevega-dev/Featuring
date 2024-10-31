@@ -27,6 +27,7 @@ import AudioPlayer from '@/components/AudioPlayer';
 import * as DocumentPicker from 'expo-document-picker';
 import { useUnreadMessages } from '@/contexts/UnreadMessagesContext';
 import Constants from 'expo-constants';
+import { ResizeMode } from 'expo-av';
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -256,7 +257,7 @@ export default function ChatDetail() {
       const filePath = `${currentUserId}/${fileName}`;
 
       const fileContent = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
-      const blob = new Blob([Buffer.from(fileContent, 'base64')], { type: 'audio/m4a' });
+      const blob = new Blob([Buffer.from(fileContent, 'base64')], { type: "application/octet-stream" });
 
       const { data, error } = await supabase.storage
         .from("audio_messages")
@@ -488,7 +489,7 @@ export default function ChatDetail() {
               source={{ uri: item.url_contenido }}
               style={{ width: '100%', height: 200, borderRadius: 10 }}
               useNativeControls
-              resizeMode={Video.RESIZE_MODE_CONTAIN}
+              resizeMode={ResizeMode.CONTAIN}
               isLooping
             />
           )}
