@@ -124,7 +124,7 @@ export default function MenuModal({
       label: 'Mi Biblioteca',
       onPress: () => {
         onClose();
-        setIsUserSongsModalVisible(true);
+        router.push("/biblioteca");
       }
     },
     {

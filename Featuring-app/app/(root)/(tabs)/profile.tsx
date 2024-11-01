@@ -155,29 +155,6 @@ export default function Profile() {
     }
   };
 
-  const handleLogout = async () => {
-    Alert.alert(
-      "Cerrar Sesión",
-      "¿Estás seguro de que quieres cerrar sesión?",
-      [
-        { text: "Cancelar", style: "cancel" },
-        {
-          text: "Sí, cerrar sesión",
-          onPress: async () => {
-            try {
-              const { error } = await supabase.auth.signOut();
-              if (error) throw error;
-              router.replace("/sign-in");
-            } catch (error) {
-              console.error("Error al cerrar sesión:", error);
-              Alert.alert("Error", "No se pudo cerrar la sesión");
-            }
-          },
-        },
-      ]
-    );
-  };
-
   const getRedSocialIcon = (nombre: string) => {
     switch (nombre.toLowerCase()) {
       case "soundcloud":
@@ -284,7 +261,7 @@ export default function Profile() {
       </View>
       <ScrollView className="flex-1">
         <View className="px-4 pb-8">
-          <View className="bg-white rounded-xl shadow-lg shadow-black/30 p-6 mb-10">
+          <View className="bg-white rounded-xl shadow-lg shadow-black/30 p-6 mb-8">
             <TouchableOpacity
               onPress={() => router.push("/editar_perfil")}
               className="absolute top-0 right-0 p-2"
@@ -417,19 +394,16 @@ export default function Profile() {
               </View>
             </ProfileSection>
 
-            <TouchableOpacity
-              onPress={handleLogout}
-              className="bg-red-500 rounded-full py-2 px-6 flex-row justify-center items-center shadow-lg shadow-black/30"
-            >
-              <Image
-                source={icons.cerrarSesion}
-                className="w-5 h-5 mr-2"
-                style={{ tintColor: "white" }}
-              />
-              <Text className="text-white font-bold text-lg">
-                Cerrar Sesión
-              </Text>
-            </TouchableOpacity>
+            <View className="flex-row justify-around mt-4 mb-6">
+              <TouchableOpacity
+                onPress={() => router.push("/biblioteca")}
+                className="bg-primary-500 px-6 py-3 rounded-full flex-row items-center"
+              >
+                <Ionicons name="library" size={20} color="white" className="mr-2" />
+                <Text className="text-white font-JakartaBold">Mi Biblioteca</Text>
+              </TouchableOpacity>
+            </View>
+
           </View>
         </View>
       </ScrollView>

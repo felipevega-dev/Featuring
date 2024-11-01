@@ -6,9 +6,7 @@ export default function RootLayout() {
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen 
         name="public-profile/[id]" 
-        options={{ 
-          headerShown: false  // Ocultar el header para perfiles públicos
-        }} 
+        options={{ headerShown: false }} 
       />
       <Stack.Screen
         name="(edit)/editar_perfil"

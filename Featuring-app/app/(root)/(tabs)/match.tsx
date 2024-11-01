@@ -15,7 +15,7 @@ import {
   Linking,
 } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { FontAwesome } from "@expo/vector-icons";
+import { FontAwesome, Ionicons } from "@expo/vector-icons";
 import { supabase } from "@/lib/supabase";
 import { icons } from "@/constants";
 import { useRouter } from "expo-router";
@@ -56,7 +56,7 @@ const Card: React.FC<CardProps> = ({
   ...rest
 }) => {
   const [imageError, setImageError] = useState(false);
-  const [modalVisible, setModalVisible] = useState(false);
+  const router = useRouter();
 
   // Actualizar la URL del bucket de Supabase
   const supabaseUrl = Constants.expoConfig?.extra?.supabaseUrl;
@@ -149,7 +149,7 @@ const Card: React.FC<CardProps> = ({
         </Text>
         <TouchableOpacity
           className="bg-primary-500 rounded-full mt-4 p-2 w-1/2"
-          onPress={() => setModalVisible(true)}
+          onPress={() => router.push(`/public-profile/${card.usuario_id}`)}
         >
           <Text className="text-white font-bold text-center">Ver Perfil</Text>
         </TouchableOpacity>
@@ -168,70 +168,6 @@ const Card: React.FC<CardProps> = ({
           </TouchableOpacity>
         </View>
       </View>
-
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={modalVisible}
-        onRequestClose={() => setModalVisible(false)}
-      >
-        <View className="flex-1 justify-center items-center bg-black bg-opacity-50">
-          <View className="bg-white rounded-xl p-5 w-[90%] max-h-[90%]">
-            <TouchableOpacity
-              className="absolute right-2 top-2 z-10"
-              onPress={() => setModalVisible(false)}
-            >
-              <FontAwesome name="close" size={24} color="black" />
-            </TouchableOpacity>
-            <ScrollView>
-              <Image
-                source={
-                  profileImageUrl 
-                    ? { uri: profileImageUrl }
-                    : icons.person
-                }
-                className="w-32 h-32 rounded-full self-center mb-4"
-              />
-              <Text className="text-2xl font-bold text-center mb-2">
-                {card.username}
-              </Text>
-              <Text className="text-center mb-2">
-                {card.edad} años • {card.ubicacion}
-              </Text>
-              <Text className="text-center mb-4">{card.biografia}</Text>
-              <Text className="font-bold mb-2">Habilidades:</Text>
-              <Text className="mb-4">
-                {renderHabilidades(card.perfil_habilidad)}
-              </Text>
-              <Text className="font-bold mb-2">Géneros favoritos:</Text>
-              <Text className="mb-4">{renderGeneros(card.perfil_genero)}</Text>
-
-              <Text className="font-bold mb-2">Redes Sociales:</Text>
-              <View className="flex-row flex-wrap justify-center mb-4">
-                {card.red_social && card.red_social.length > 0 ? (
-                  card.red_social.map((red, index) => (
-                    <TouchableOpacity
-                      key={index}
-                      onPress={() => handleRedSocialPress(red.url)}
-                      className="m-2"
-                    >
-                      <FontAwesome
-                        name={getRedSocialIcon(red.nombre)}
-                        size={30}
-                        color="#4B5563"
-                      />
-                    </TouchableOpacity>
-                  ))
-                ) : (
-                  <Text className="text-gray-500">
-                    No hay redes sociales agregadas
-                  </Text>
-                )}
-              </View>
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
     </Animated.View>
   );
 };
@@ -675,17 +611,25 @@ const Match = () => {
   return (
     <GestureHandlerRootView className="flex-1">
       <View className="flex-1 items-center justify-center bg-gray-100">
+        <TouchableOpacity
+          onPress={() => router.push("/preferencias")}
+          className="absolute top-10 left-5 z-50 bg-white p-2 rounded-full shadow-md"
+        >
+          <Ionicons name="settings-outline" size={28} color="#6D29D2" />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          onPress={refreshCards}
+          className="absolute top-10 right-5 bg-white p-2 rounded-full shadow-md"
+        >
+          <Ionicons name="refresh" size={28} color="#6D29D2" />
+        </TouchableOpacity>
+
         {cards.length > 0 ? (
           renderCards()
         ) : (
           <Text className="text-xl text-center">No hay más perfiles disponibles</Text>
         )}
-        <TouchableOpacity
-          onPress={refreshCards}
-          className="absolute top-10 right-5 bg-blue-500 py-2 px-4 rounded-full"
-        >
-          <Text className="text-white font-bold">Refrescar</Text>
-        </TouchableOpacity>
       </View>
     </GestureHandlerRootView>
   );

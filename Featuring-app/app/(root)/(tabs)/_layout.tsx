@@ -242,6 +242,14 @@ const Layout = () => {
               title: "Historial de Colaboraciones",
             }}
           />
+          <Tabs.Screen
+            name="biblioteca"
+            options={{
+              href: null, // Esto hace que la tab no aparezca en la barra de navegación
+              headerShown: false,
+              
+            }}
+          />
         </Tabs>
 
         {currentUserId && (
