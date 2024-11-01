@@ -57,6 +57,43 @@ const Card: React.FC<CardProps> = ({
 }) => {
   const [imageError, setImageError] = useState(false);
   const router = useRouter();
+  const position = useRef(new Animated.ValueXY()).current;
+  const rotate = position.x.interpolate({
+    inputRange: [-SWIPE_THRESHOLD, 0, SWIPE_THRESHOLD],
+    outputRange: ["-10deg", "0deg", "10deg"],
+    extrapolate: "clamp",
+  });
+
+  const panResponder = PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: () => true,
+    onPanResponderMove: (_, gesture) => {
+      position.setValue({ x: gesture.dx, y: gesture.dy });
+    },
+    onPanResponderRelease: (_, gesture) => {
+      if (gesture.dx > SWIPE_THRESHOLD) {
+        Animated.spring(position, {
+          toValue: { x: SWIPE_THRESHOLD * 2, y: gesture.dy },
+          useNativeDriver: true,
+        }).start(() => {
+          onLike && onLike(card.usuario_id);
+        });
+      } else if (gesture.dx < -SWIPE_THRESHOLD) {
+        Animated.spring(position, {
+          toValue: { x: -SWIPE_THRESHOLD * 2, y: gesture.dy },
+          useNativeDriver: true,
+        }).start(() => {
+          onSwipe && onSwipe("left");
+        });
+      } else {
+        Animated.spring(position, {
+          toValue: { x: 0, y: 0 },
+          friction: 4,
+          useNativeDriver: true,
+        }).start();
+      }
+    },
+  });
 
   // Actualizar la URL del bucket de Supabase
   const supabaseUrl = Constants.expoConfig?.extra?.supabaseUrl;
@@ -111,6 +148,7 @@ const Card: React.FC<CardProps> = ({
 
   return (
     <Animated.View
+      {...(isFirst ? panResponder.panHandlers : {})}
       className={`absolute w-[90%] h-[75%] bg-white rounded-xl ${
         isFirst ? "z-10" : ""
       }`}
@@ -118,8 +156,12 @@ const Card: React.FC<CardProps> = ({
         {
           top: '3%',
           left: '5%',
+          transform: [
+            { translateX: position.x },
+            { translateY: position.y },
+            { rotate: rotate },
+          ],
         },
-        rest.style,
       ]}
     >
       <View className="w-full h-full rounded-xl overflow-hidden relative">
@@ -560,65 +602,17 @@ const Match = () => {
     }
   };
 
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onPanResponderMove: (
-        _: GestureResponderEvent,
-        gesture: PanResponderGestureState
-      ) => {
-        position.setValue({ x: gesture.dx, y: gesture.dy });
-      },
-      onPanResponderRelease: (
-        _: GestureResponderEvent,
-        gesture: PanResponderGestureState
-      ) => {
-        if (Math.abs(gesture.dx) > SWIPE_THRESHOLD) {
-          const direction = gesture.dx > 0 ? "right" : "left";
-          handleSwipe(direction);
-        } else {
-          Animated.spring(position, {
-            toValue: { x: 0, y: 0 },
-            friction: 4,
-            useNativeDriver: false,
-          }).start();
-        }
-      },
-    })
-  ).current;
-
   const renderCards = () => {
     return cards
-      .map((card, index) => {
-        if (index === 0) {
-          return (
-            <Card
-              key={card.usuario_id}
-              card={card}
-              isFirst={true}
-              onSwipe={handleSwipe}
-              onLike={handleLike}
-              {...panResponder.panHandlers}
-              style={{
-                transform: [
-                  { translateX: position.x },
-                  { translateY: position.y },
-                  { rotate: rotate },
-                ],
-              }}
-            />
-          );
-        }
-        return (
-          <Card
-            key={card.usuario_id}
-            card={card}
-            isFirst={false}
-            onSwipe={handleSwipe}
-            onLike={handleLike}
-          />
-        );
-      })
+      .map((card, index) => (
+        <Card
+          key={card.usuario_id}
+          card={card}
+          isFirst={index === 0}
+          onSwipe={handleSwipe}
+          onLike={handleLike}
+        />
+      ))
       .reverse();
   };
 
