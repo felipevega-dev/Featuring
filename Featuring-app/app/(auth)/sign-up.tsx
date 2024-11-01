@@ -130,6 +130,34 @@ export default function SignUp() {
     }
 
     try {
+      const { data: existingUser } = await supabase
+        .from('perfil')
+        .select('email')
+        .eq('email', form.email)
+        .single();
+
+      if (existingUser) {
+        Alert.alert(
+          "Usuario Existente",
+          "Ya existe una cuenta registrada con este correo electrónico."
+        );
+        return;
+      }
+
+      const { data: existingUsername } = await supabase
+        .from('perfil')
+        .select('username')
+        .eq('username', form.nombreCompleto)
+        .single();
+
+      if (existingUsername) {
+        Alert.alert(
+          "Nombre de Usuario No Disponible",
+          "Este nombre de usuario ya está en uso. Por favor, elige otro."
+        );
+        return;
+      }
+
       const { data, error } = await supabase.auth.signUp({
         email: form.email,
         password: form.password,
@@ -140,7 +168,30 @@ export default function SignUp() {
         },
       });
 
-      if (error) throw error;
+      if (error) {
+        if (error.message.includes('User already registered')) {
+          Alert.alert(
+            "Usuario Existente",
+            "Ya existe una cuenta registrada con este correo electrónico."
+          );
+        } else if (error.message.includes('Password')) {
+          Alert.alert(
+            "Error en la Contraseña",
+            "La contraseña no cumple con los requisitos de seguridad."
+          );
+        } else if (error.message.includes('Email')) {
+          Alert.alert(
+            "Error en el Correo",
+            "Por favor, verifica que el correo electrónico sea válido."
+          );
+        } else {
+          Alert.alert(
+            "Error",
+            "Ocurrió un error durante el registro. Por favor, intenta de nuevo."
+          );
+        }
+        return;
+      }
 
       if (data.user) {
         setShowSuccessModal(true);
@@ -148,9 +199,10 @@ export default function SignUp() {
         throw new Error("No se pudo crear el usuario");
       }
     } catch (err: any) {
+      console.error("Error en el registro:", err);
       Alert.alert(
         "Error",
-        err.message || "Ocurrió un error durante el registro"
+        err.message || "Ocurrió un error durante el registro. Por favor, intenta de nuevo."
       );
     }
   };
