@@ -85,7 +85,12 @@ export default function Preferencias() {
         Alert.alert("Éxito", "Tus preferencias han sido guardadas", [
           {
             text: "OK",
-            onPress: () => router.back()
+            onPress: () => {
+              router.push({
+                pathname: "/match",
+                params: { update: Date.now().toString() }
+              });
+            }
           }
         ]);
       }

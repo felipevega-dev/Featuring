@@ -41,7 +41,7 @@ const TabIcon = ({
 );
 
 // Barra superior personalizada
-const TopBar = () => {
+const TopBar = ({ isMatchScreen }: { isMatchScreen: boolean }) => {
   const router = useRouter();
   const { unreadCount, updateUnreadCount } = useNotification();
   const { unreadMessagesCount, updateUnreadMessagesCount } = useUnreadMessages();
@@ -50,7 +50,7 @@ const TopBar = () => {
     const interval = setInterval(() => {
       updateUnreadCount();
       updateUnreadMessagesCount();
-    }, 5000);  // Actualizar cada 5 segundos
+    }, 5000);
 
     return () => clearInterval(interval);
   }, []);
@@ -58,18 +58,32 @@ const TopBar = () => {
   return (
     <SafeAreaView className="bg-[#F6F8FA]">
       <View className="bg-[#F6F8FA] h-15 flex-row justify-between items-center px-5 mt-2 border-b-2 border-b-cyan-200">
-        <TouchableOpacity onPress={() => router.push("/(tabs)/notificaciones")} className="relative">
-          <Image
-            source={icons.bell}
-            className="w-7 h-7"
-            style={{ tintColor: "#5416A0" }}
-          />
-          {unreadCount > 0 && (
-            <View className="absolute -top-1 -right-1 bg-red-500 rounded-full w-5 h-5 justify-center items-center">
-              <Text className="text-white text-xs">{unreadCount > 99 ? '99+' : unreadCount}</Text>
-            </View>
-          )}
-        </TouchableOpacity>
+        {isMatchScreen ? (
+          // Botón de preferencias para Match
+          <TouchableOpacity 
+            onPress={() => router.push("/preferencias")}
+            className="relative"
+          >
+            <Ionicons name="settings-outline" size={24} color="#5416A0" />
+          </TouchableOpacity>
+        ) : (
+          // Botón de notificaciones para otras pantallas
+          <TouchableOpacity 
+            onPress={() => router.push("/(tabs)/notificaciones")} 
+            className="relative"
+          >
+            <Image
+              source={icons.bell}
+              className="w-7 h-7"
+              style={{ tintColor: "#5416A0" }}
+            />
+            {unreadCount > 0 && (
+              <View className="absolute -top-1 -right-1 bg-red-500 rounded-full w-5 h-5 justify-center items-center">
+                <Text className="text-white text-xs">{unreadCount > 99 ? '99+' : unreadCount}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        )}
 
         {/* Logo en el centro */}
         <View className="items-center justify-center flex-grow">
@@ -101,7 +115,8 @@ const TopBar = () => {
 // Layout general de la aplicación
 const Layout = () => {
   const segments = useSegments();
-  const isChatScreen = segments.includes('[id]');
+  const isChatScreen = segments.includes('chat');
+  const isMatchScreen = segments[1] === 'match';
   const [isMenuVisible, setIsMenuVisible] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
@@ -119,7 +134,7 @@ const Layout = () => {
   return (
     <NotificationProvider>
       <UnreadMessagesProvider>
-        {!isChatScreen && <TopBar />}
+        {!isChatScreen && <TopBar isMatchScreen={isMatchScreen} />}
         {/* Barra inferior (Tabs) */}
         <Tabs
           initialRouteName="index"

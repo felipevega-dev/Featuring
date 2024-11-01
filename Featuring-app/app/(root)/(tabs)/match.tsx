@@ -70,20 +70,26 @@ const Card: React.FC<CardProps> = ({
   // Usar la nueva función para obtener la URL
   const profileImageUrl = card.foto_perfil ? getProfileImageUrl(card.foto_perfil) : null;
 
-  const renderHabilidades = (
-    habilidades: { habilidad: string }[] | null | undefined
-  ) => {
-    if (!habilidades || habilidades.length === 0)
-      return "Sin habilidades especificadas";
-    const habilidadesArray = habilidades.map((h) => h.habilidad);
-    return habilidadesArray.length <= 3
-      ? habilidadesArray.join(", ")
-      : `${habilidadesArray.slice(0, 3).join(", ")} y ${habilidadesArray.length - 3} más`;
+  const renderHabilidades = (habilidades: { habilidad: string }[]) => {
+    return habilidades.slice(0, 3).map((h, index) => (
+      <View 
+        key={index} 
+        className="bg-secondary-100 rounded-full px-3 py-1 mr-2"
+      >
+        <Text className="text-xs text-secondary-700">{h.habilidad}</Text>
+      </View>
+    ));
   };
 
-  const renderGeneros = (generos: { genero: string }[] | null | undefined) => {
-    if (!generos || generos.length === 0) return "Sin géneros especificados";
-    return generos.map((g) => g.genero).join(", ");
+  const renderGeneros = (generos: { genero: string }[]) => {
+    return generos.slice(0, 3).map((g, index) => (
+      <View 
+        key={index} 
+        className="bg-primary-100 rounded-full px-3 py-1 mr-2"
+      >
+        <Text className="text-xs text-primary-700">{g.genero}</Text>
+      </View>
+    ));
   };
 
   const getRedSocialIcon = (nombre: string): keyof typeof FontAwesome.glyphMap => {
@@ -105,68 +111,91 @@ const Card: React.FC<CardProps> = ({
 
   return (
     <Animated.View
-      className={`absolute w-[85%] justify-start items-center h-[85%] bg-white rounded-xl shadow-lg ${
+      className={`absolute w-[90%] h-[75%] bg-white rounded-xl ${
         isFirst ? "z-10" : ""
-      } top-5 border-2 border-primary-500 shadow-primary-500`}
-      {...rest}
+      }`}
+      style={[
+        {
+          top: '3%',
+          left: '5%',
+        },
+        rest.style,
+      ]}
     >
-      <View className="w-full px-4 py-2 bg-primary-600 rounded-t-xl">
-        <Text className="text-white text-center font-bold">{card.mensaje}</Text>
-      </View>
-      <View className="w-[75%] mt-2 h-2/5 rounded-xl overflow-hidden">
+      <View className="w-full h-full rounded-xl overflow-hidden relative">
         {profileImageUrl && !imageError ? (
           <Image
             source={{ uri: profileImageUrl }}
-            className="w-full h-full rounded-xl border-4 border-secondary-500"
-            onError={() => setImageError(true)}
+            className="w-full h-full"
+            resizeMode="cover"
           />
         ) : (
-          <View className="w-full h-full rounded-xl bg-gray-300 justify-center items-center border-4 border-secondary-500">
-            <Image source={icons.person} className="w-20 h-20" />
-            <Text className="mt-2 text-gray-500">
-              {imageError
-                ? "Error al cargar la imagen"
-                : "No hay imagen de perfil"}
-            </Text>
+          <View className="w-full h-full bg-gray-300 justify-center items-center">
+            <Image source={icons.person} className="w-20 h-20 opacity-50" />
           </View>
         )}
-      </View>
-      <View className="p-4 w-full justify-center items-center">
-        <Text className="text-xl text-center font-bold">{card.username}</Text>
-        <View className="flex-row justify-center items-center mt-1">
-          <Text className="text-gray-500 font-bold">{card.ubicacion}</Text>
-          <Text className="text-gray-500 font-bold mx-2">•</Text>
-          <Text className="font-bold">{card.edad} años</Text>
+
+        {/* Contenido superpuesto */}
+        <View className="absolute top-0 w-full p-4">
+          <View className="bg-primary-600/80 rounded-full w-3/4 mx-auto px-6 py-2">
+            <Text className="text-white text-center font-bold">{card.mensaje}</Text>
+          </View>
         </View>
-        {card.distance !== undefined && (
-          <Text className="text-gray-500 mt-1">
-            {card.distance.toFixed(1)} km de distancia
-          </Text>
-        )}
-        <Text className="text-center mt-2 text-black">{card.biografia}</Text>
-        <Text className="text-center mt-2 text-primary-500 font-semibold">
-          {renderHabilidades(card.perfil_habilidad)}
-        </Text>
+
+
+        {/* Información del usuario y habilidades */}
+        <View className="absolute bottom-0 w-full p-4 bg-black/50 rounded-b-xl">
+
+        {/* Botón Ver Perfil */}
         <TouchableOpacity
-          className="bg-primary-500 rounded-full mt-4 p-2 w-1/2"
-          onPress={() => router.push(`/public-profile/${card.usuario_id}`)}
-        >
-          <Text className="text-white font-bold text-center">Ver Perfil</Text>
-        </TouchableOpacity>
-        <View className="flex-row justify-between w-full mb-10">
-          <TouchableOpacity
-            className="pb-10"
-            onPress={() => onSwipe && onSwipe("left")}
+            onPress={() => router.push(
+              `/public-profile/${card.usuario_id}`
+            )}
+            className="bg-primary-500 px-2 py-1 rounded-full w-26 mx-auto
+              items-center justify-center text-center flex-row mb-2"
           >
-            <FontAwesome name="times" size={34} color="#00BFA5" />
+            <Text className="text-white font-bold">Ver Perfil</Text>
           </TouchableOpacity>
-          <TouchableOpacity
-            className="pb-10"
-            onPress={() => onLike && onLike(card.usuario_id)}
-          >
-            <FontAwesome name="music" size={34} color="#6D29D2" />
-          </TouchableOpacity>
+          <View className="flex-row items-center justify-center mb-3">
+            <View>
+                    <Text className="text-white text-2xl font-bold text-center">{card.username}</Text>
+              <Text className="text-white/80 text-center">
+                {card.edad} años • {card.ubicacion}
+              </Text>
+              {card.distance !== undefined && (
+                <Text className="text-white/60 text-center">
+                  {card.distance.toFixed(1)} km de distancia
+                </Text>
+              )}
+            </View>
+          </View>
+
+          {/* Géneros */}
+          <View className="flex-row flex-wrap mb-2 justify-center">
+            {renderGeneros(card.perfil_genero)}
+          </View>
+
+          {/* Habilidades */}
+          <View className="flex-row flex-wrap mb-3 justify-center">
+            {renderHabilidades(card.perfil_habilidad)}
+          </View>
         </View>
+      </View>
+
+      {/* Botones de acción */}
+      <View className="absolute bottom-[-75] w-full flex-row justify-center space-x-8">
+        <TouchableOpacity
+          className="bg-white w-16 h-16 rounded-full items-center justify-center shadow-lg"
+          onPress={() => onSwipe && onSwipe("left")}
+        >
+          <FontAwesome name="times" size={34} color="#FF3B30" />
+        </TouchableOpacity>
+        <TouchableOpacity
+          className="bg-white w-16 h-16 rounded-full items-center justify-center shadow-lg"
+          onPress={() => onLike && onLike(card.usuario_id)}
+        >
+          <FontAwesome name="music" size={34} color="#6D29D2" />
+        </TouchableOpacity>
       </View>
     </Animated.View>
   );
@@ -444,7 +473,6 @@ const Match = () => {
       duration: 250,
       useNativeDriver: false,
     }).start(() => {
-      console.log("no");
       setCards((prevCards) => {
         if (prevCards.length > 0) {
           setShownCards((prev) => new Set(prev).add(prevCards[0].usuario_id));
@@ -613,9 +641,9 @@ const Match = () => {
       <View className="flex-1 items-center justify-center bg-gray-100">
         <TouchableOpacity
           onPress={() => router.push("/preferencias")}
-          className="absolute top-10 left-5 z-50 bg-white p-2 rounded-full shadow-md"
+          className="absolute top-8 left-7 z-50 bg-secondary-400 p-2 rounded-full shadow-md"
         >
-          <Ionicons name="settings-outline" size={28} color="#6D29D2" />
+          <Ionicons name="settings-outline" size={20} color="white" />
         </TouchableOpacity>
 
         <TouchableOpacity
