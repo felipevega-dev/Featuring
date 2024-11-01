@@ -238,7 +238,7 @@ const Layout = () => {
             name="colaboraciones"
             options={{
               href: null, // Esto hace que la tab no aparezca en la barra de navegación
-              headerShown: true,
+              headerShown: false,
               title: "Historial de Colaboraciones",
             }}
           />

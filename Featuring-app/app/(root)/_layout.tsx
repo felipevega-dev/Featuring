@@ -1,9 +1,15 @@
 import { Stack } from "expo-router";
 
-const Layout = () => {
+export default function RootLayout() {
   return (
     <Stack>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen 
+        name="public-profile/[id]" 
+        options={{ 
+          headerShown: false  // Ocultar el header para perfiles públicos
+        }} 
+      />
       <Stack.Screen
         name="(edit)/editar_perfil"
         options={{ headerShown: false, presentation: "modal" }}
@@ -14,6 +20,4 @@ const Layout = () => {
       />
     </Stack>
   );
-};
-
-export default Layout;
+}

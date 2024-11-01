@@ -337,18 +337,30 @@ export default function ColaboracionesScreen() {
 
   if (isLoading) {
     return (
-      <View className="flex-1 justify-center items-center">
+      <View className="flex-1 justify-center items-center bg-gray-100">
         <ActivityIndicator size="large" color="#6D29D2" />
       </View>
     );
   }
 
   return (
-    <View className="flex-1 bg-gray-100 p-4">
+    <View className="flex-1 bg-gray-100">
+      {/* Header fijo */}
+      <View className="bg-primary-500 py-4 px-4">
+        <Text className="text-xl font-bold text-white text-center">
+          Historial de Colaboraciones
+        </Text>
+      </View>
+
+      {/* Contenido scrolleable con padding inferior para evitar sobreposición */}
       <FlatList
         data={colaboraciones}
         renderItem={({ item }) => <RenderColaboracionItem item={item} />}
         keyExtractor={(item) => item.id.toString()}
+        contentContainerStyle={{
+          padding: 16,
+          paddingBottom: 50, // Padding extra para evitar que la última tarjeta se corte
+        }}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
