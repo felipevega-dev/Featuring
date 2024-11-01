@@ -22,6 +22,7 @@ import { useRouter } from "expo-router";
 import * as Location from "expo-location";
 import { useLocalSearchParams } from 'expo-router';
 import Constants from "expo-constants";
+import { sendPushNotification } from '@/utils/pushNotifications';
 
 const SWIPE_THRESHOLD = 120;
 
@@ -609,9 +610,27 @@ const Match = () => {
 
         if (userError) throw userError;
 
+        // Obtener el token de push del usuario que recibe el like
+        const { data: likedUserData, error: likedUserError } = await supabase
+          .from('perfil')
+          .select('push_token')
+          .eq('usuario_id', likedUserId)
+          .single();
+
+        if (likedUserError) throw likedUserError;
+
         const isMatch = await saveConnection(currentUserId, likedUserId);
 
-        // Crear notificación de like
+        // Enviar notificación push si el usuario tiene token
+        if (likedUserData?.push_token) {
+          await sendPushNotification(
+            likedUserData.push_token,
+            '¡Nuevo Like!',
+            `${userData.username} te ha dado like`
+          );
+        }
+
+        // Crear notificación de like en la base de datos
         const { error: notificationError } = await supabase
           .from('notificacion')
           .insert({

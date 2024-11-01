@@ -6,6 +6,8 @@ import "react-native-reanimated";
 import * as Linking from 'expo-linking';
 import Constants from 'expo-constants';
 import { CollaborationProvider } from '@/contexts/CollaborationContext';
+import { registerForPushNotificationsAsync } from '@/utils/pushNotifications';
+import { supabase } from '@/lib/supabase';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -32,25 +34,54 @@ export default function RootLayout() {
       let data = Linking.parse(event.url);
       
       if (data.path === 'change-password') {
-        // Navegar a la pantalla de cambio de contraseña
         router.push('/change-password');
       }
     };
 
-    // Agregar el listener para deep links
-    const subscription = Linking.addEventListener('url', handleDeepLink);
+    // Setup listeners and handlers
+    const setupListeners = async () => {
+      // Deep link listener
+      const linkingSubscription = Linking.addEventListener('url', handleDeepLink);
 
-    // Manejar el caso en que la app se abre desde un deep link
-    Linking.getInitialURL().then((url) => {
-      if (url) {
-        handleDeepLink({ url, type: 'url' } as Linking.EventType);
-      }
-    });
+      // Auth state change listener
+      const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+        if (event === 'SIGNED_IN' && session?.user) {
+          const token = await registerForPushNotificationsAsync();
+          console.log('Token registrado después de inicio de sesión:', token);
+        }
+      });
 
-    return () => {
-      // Remover el listener cuando el componente se desmonte
-      subscription.remove();
+      // Manejar el caso en que la app se abre desde un deep link
+      Linking.getInitialURL().then((url) => {
+        if (url) {
+          handleDeepLink({ url, type: 'url' } as Linking.EventType);
+        }
+      });
+
+      // Setup push notifications
+      const setupPushNotifications = async () => {
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) {
+            const token = await registerForPushNotificationsAsync();
+            console.log('Token registrado en inicio:', token);
+          }
+        } catch (error) {
+          console.error('Error al configurar notificaciones:', error);
+        }
+      };
+
+      await setupPushNotifications();
+
+      // Cleanup function
+      return () => {
+        linkingSubscription.remove();
+        authSubscription.unsubscribe();
+      };
     };
+
+    // Initialize everything
+    setupListeners();
   }, [fontsLoaded, router]);
 
   if (!fontsLoaded) {

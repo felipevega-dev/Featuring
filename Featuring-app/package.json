@@ -59,7 +59,9 @@
     "react-native-tab-view": "^3.5.2",
     "react-native-url-polyfill": "^2.0.0",
     "react-native-web": "~0.19.10",
-    "react-tinder-card": "^1.6.4"
+    "react-tinder-card": "^1.6.4",
+    "expo-notifications": "~0.28.19",
+    "expo-device": "~6.0.2"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",
