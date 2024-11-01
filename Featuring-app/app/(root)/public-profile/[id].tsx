@@ -36,6 +36,7 @@ interface Perfil {
   nacionalidad: string; // Añadir esta línea
   promedio_valoraciones: number;
   total_valoraciones: number;
+  seguidores_count?: number;
 }
 
 interface Cancion {
@@ -90,11 +91,30 @@ export default function PublicProfile() {
   const [showRatings, setShowRatings] = useState(false);
   const [ratings, setRatings] = useState<Rating[]>([]);
   const supabaseUrl = Constants.expoConfig?.extra?.supabaseUrl;
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [seguidoresCount, setSeguidoresCount] = useState(0);
 
   useEffect(() => {
     fetchPerfil();
     fetchCanciones();
     fetchVideos();
+  }, [id]);
+
+  useEffect(() => {
+    getCurrentUser();
+  }, []);
+
+  useEffect(() => {
+    if (currentUserId && id) {
+      checkIfFollowing();
+    }
+  }, [currentUserId, id]);
+
+  useEffect(() => {
+    if (id) {
+      fetchSeguidores();
+    }
   }, [id]);
 
   const fetchPerfil = async () => {
@@ -276,6 +296,77 @@ export default function PublicProfile() {
     setShowRatings(true);
   };
 
+  const getCurrentUser = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      setCurrentUserId(user.id);
+    }
+  };
+
+  const checkIfFollowing = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('seguidor')
+        .select('id')
+        .eq('usuario_id', id)
+        .eq('seguidor_id', currentUserId)
+        .single();
+
+      if (error && error.code !== 'PGRST116') { // No es error de "no encontrado"
+        throw error;
+      }
+
+      setIsFollowing(!!data);
+    } catch (error) {
+      console.error('Error al verificar seguimiento:', error);
+    }
+  };
+
+  const handleFollowToggle = async () => {
+    if (!currentUserId || currentUserId === id) return;
+
+    try {
+      if (isFollowing) {
+        // Dejar de seguir
+        const { error } = await supabase
+          .from('seguidor')
+          .delete()
+          .eq('usuario_id', id)
+          .eq('seguidor_id', currentUserId);
+
+        if (error) throw error;
+        setIsFollowing(false);
+      } else {
+        // Seguir
+        const { error } = await supabase
+          .from('seguidor')
+          .insert({
+            usuario_id: id,
+            seguidor_id: currentUserId
+          });
+
+        if (error) throw error;
+        setIsFollowing(true);
+      }
+    } catch (error) {
+      console.error('Error al cambiar estado de seguimiento:', error);
+    }
+  };
+
+  const fetchSeguidores = async () => {
+    try {
+      const { count, error } = await supabase
+        .from('seguidor')
+        .select('*', { count: 'exact' })
+        .eq('usuario_id', id);
+
+      if (error) throw error;
+      setSeguidoresCount(count || 0);
+    } catch (error) {
+      console.error('Error al obtener seguidores:', error);
+    }
+  };
+
   if (isLoading) {
     return (
       <View className="flex-1 justify-center items-center bg-primary-600">
@@ -304,7 +395,7 @@ export default function PublicProfile() {
   );
 
   const ProfileItem: React.FC<ProfileItemProps> = ({ label, value }) => (
-    <View className="flex-row justify-between items-center py-1">
+    <View className="flex-row justify-between items-center py-1 ">
       <Text className="text-primary-700 font-medium">{label}</Text>
       <Text className="text-gray-800">{value || "No especificado"}</Text>
     </View>
@@ -339,10 +430,10 @@ export default function PublicProfile() {
   );
 
   return (
-    <View className="flex-1 bg-primary-600 p-1">
+    <View className="flex-1 bg-primary-600 p-1 pt-10">
       <TouchableOpacity 
         onPress={() => router.back()}
-        className="absolute top-12 left-4 z-50 bg-secondary-400 p-2 rounded-full"
+        className="absolute top-20 left-8 z-50 bg-secondary-400 p-2 rounded-full"
         style={{ elevation: 5 }}
       >
         <Ionicons name="arrow-back" size={24} color="#6D29D2" />
@@ -369,6 +460,37 @@ export default function PublicProfile() {
               <Text className="text-xl font-semibold text-primary-500 text-center">
                 {perfil.username}
               </Text>
+              
+              {currentUserId && currentUserId !== id && (
+                <TouchableOpacity
+                  onPress={handleFollowToggle}
+                  className={`mt-2 px-6 py-2 rounded-full ${
+                    isFollowing 
+                      ? 'bg-gray-200' 
+                      : 'bg-primary-500'
+                  }`}
+                >
+                  <Text className={`font-bold ${
+                    isFollowing 
+                      ? 'text-primary-500' 
+                      : 'text-white'
+                  }`}>
+                    {isFollowing ? 'Siguiendo' : 'Seguir'}
+                  </Text>
+                </TouchableOpacity>
+              )}
+
+              <View className="flex-row items-center mt-2">
+                <View className="items-center px-4">
+                  <Text className="text-lg font-bold text-secondary-500">
+                    {seguidoresCount}
+                  </Text>
+                  <Text className="text-sm text-gray-600">
+                    Seguidores
+                  </Text>
+                </View>
+              </View>
+
               <TouchableOpacity onPress={handleShowRatings}>
                 <View className="items-center mt-2">
                   <View className="flex-row">

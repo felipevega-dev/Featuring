@@ -44,6 +44,7 @@ const Comunidad = () => {
     showComments: string;
   }>();
   const [activeTab, setActiveTab] = useState<'canciones' | 'videos'>('canciones');
+  const [showingFollowedOnly, setShowingFollowedOnly] = useState(false);
 
   useEffect(() => {
     fetchSongs();
@@ -52,21 +53,12 @@ const Comunidad = () => {
 
   useEffect(() => {
     if (scrollToId && allCanciones.length > 0) {
-      console.log('Iniciando redirección con:', {
-        scrollToId,
-        showComments,
-        cancionesDisponibles: allCanciones.length
-      });
-
       const songIndex = allCanciones.findIndex(
         cancion => cancion.id.toString() === scrollToId
       );
 
-      console.log('Índice de canción encontrado:', songIndex);
-
       if (songIndex !== -1 && songListRef.current) {
         setTimeout(() => {
-          console.log('Intentando scroll a índice:', songIndex);
           songListRef.current?.scrollToIndex({
             index: songIndex,
             animated: true,
@@ -74,13 +66,16 @@ const Comunidad = () => {
           });
 
           if (showComments === 'true') {
-            console.log('Intentando abrir modal de comentarios para canción:', allCanciones[songIndex].id);
             handleCommentPress(allCanciones[songIndex].id);
           }
         }, 100);
       }
     }
   }, [scrollToId, showComments, allCanciones]);
+
+  useEffect(() => {
+    fetchSongs();
+  }, [showingFollowedOnly]);
 
   const getCurrentUser = async () => {
     const {
@@ -91,35 +86,117 @@ const Comunidad = () => {
     }
   };
 
+  const fetchFollowedUsers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('seguidor')
+        .select('usuario_id')
+        .eq('seguidor_id', currentUserId);
+
+      if (error) throw error;
+      return data.map(seguidor => seguidor.usuario_id);
+    } catch (error) {
+      console.error('Error al obtener usuarios seguidos:', error);
+      return [];
+    }
+  };
+
   const fetchSongs = async () => {
     try {
       setIsLoading(true);
-      const data = await getSongs();
-      const cancionesFormateadas: Cancion[] = data.map((cancion) => ({
-        ...cancion,
-        perfil: cancion.perfil
-          ? {
-              usuario_id: cancion.perfil.usuario_id,
-              username: cancion.perfil.username || "Usuario desconocido",
-              foto_perfil: cancion.perfil.foto_perfil,
-            }
-          : null,
+      let query = supabase
+        .from("cancion")
+        .select(`
+          id,
+          titulo,
+          caratula,
+          genero,
+          created_at,
+          archivo_audio,
+          contenido,
+          usuario_id,
+          perfil:usuario_id (
+            username,
+            foto_perfil
+          ),
+          likes:likes_cancion(count),
+          colaboracion:colaboracion!cancion_id (
+            estado,
+            usuario_id,
+            usuario_id2,
+            perfil:usuario_id (
+              username,
+              foto_perfil
+            ),
+            perfil2:usuario_id2 (
+              username,
+              foto_perfil
+            )
+          )
+        `)
+        .eq('colaboracion.estado', 'aceptada')
+        .order("created_at", { ascending: false });
+
+      if (showingFollowedOnly) {
+        const followedUsers = await fetchFollowedUsers();
+        if (followedUsers.length > 0) {
+          query = query.in('usuario_id', followedUsers);
+        } else {
+          setAllCanciones([]);
+          setFilteredCanciones([]);
+          setIsLoading(false);
+          return;
+        }
+      }
+
+      const { data, error } = await query;
+
+      if (error) throw error;
+
+      const cancionesFormateadas = data?.map((cancion) => ({
+        id: cancion.id,
+        titulo: cancion.titulo,
+        caratula: cancion.caratula,
+        genero: cancion.genero,
+        created_at: cancion.created_at,
+        archivo_audio: cancion.archivo_audio,
+        contenido: cancion.contenido,
+        usuario_id: cancion.usuario_id,
+        perfil: cancion.perfil,
+        likes_count: cancion.likes?.[0]?.count || 0,
+        colaboracion: cancion.colaboracion?.[0] || null,
+        isLiked: false // Se actualizará en la siguiente consulta
       }));
-      setAllCanciones(cancionesFormateadas);
-      setFilteredCanciones(cancionesFormateadas);
-      
-      const genreCount = cancionesFormateadas.reduce((acc, cancion) => {
+
+      // Obtener los likes del usuario actual en una sola consulta
+      const { data: userLikes } = await supabase
+        .from("likes_cancion")
+        .select('cancion_id')
+        .eq('usuario_id', currentUserId);
+
+      // Crear un Set para búsqueda rápida
+      const likedSongIds = new Set(userLikes?.map(like => like.cancion_id));
+
+      // Actualizar isLiked para cada canción
+      const cancionesConLikes = cancionesFormateadas?.map(cancion => ({
+        ...cancion,
+        isLiked: likedSongIds.has(cancion.id)
+      }));
+
+      setAllCanciones(cancionesConLikes || []);
+      setFilteredCanciones(cancionesConLikes || []);
+
+      // Calcular géneros una sola vez
+      const genreCount = cancionesConLikes?.reduce((acc, cancion) => {
         acc[cancion.genero] = (acc[cancion.genero] || 0) + 1;
         return acc;
-      }, {} as Record<string, number>);
+      }, {} as Record<string, number>) || {};
 
-      const sorted = generosMusicalesCompletos.sort((a, b) => 
-        (genreCount[b] || 0) - (genreCount[a] || 0)
+      setSortedGenres(
+        generosMusicalesCompletos.sort((a, b) => (genreCount[b] || 0) - (genreCount[a] || 0))
       );
-      setSortedGenres(sorted);
     } catch (err) {
-      setError("Error al cargar las canciones. Por favor, intenta de nuevo.");
-      console.error(err);
+      setError("Error al cargar las canciones");
     } finally {
       setIsLoading(false);
     }
@@ -247,12 +324,9 @@ const Comunidad = () => {
   );
 
   const handleCommentPress = (songId: number) => {
-    console.log('handleCommentPress llamado con songId:', songId);
     const cancion = allCanciones.find(cancion => cancion.id === songId);
     if (cancion) {
-      console.log('Canción encontrada, modal debería abrirse a través de initialShowComments');
-    } else {
-      console.log('No se encontró la canción con id:', songId);
+      handleSongSelect(cancion);
     }
   };
 
@@ -281,22 +355,44 @@ const Comunidad = () => {
     <AudioPlayerProvider>
       <View className="flex-1 bg-gray-100">
         <View className="bg-primary-500 mb-2">
-          <View className="h-14 flex-row items-center border-b-2 border-b-secondary-200">
+          <View className="h-14 flex-row items-center border-b-2 border-b-secondary-200 justify-center">
             <TouchableOpacity
               onPress={() => setIsSearchBarExpanded(!isSearchBarExpanded)}
-              className="bg-white rounded-md mx-4 w-8 h-8 items-center justify-center"
+              className="bg-white rounded-md mx-2 w-8 h-8 items-center justify-center"
             >
               <Ionicons name="search" size={24} color="#00BFA5" />
             </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => setShowingFollowedOnly(!showingFollowedOnly)}
+              className={`bg-white rounded-md mx-2 px-3 h-8 flex-row items-center justify-center ${
+                showingFollowedOnly ? 'bg-secondary-500' : 'bg-white'
+              }`}
+            >
+              <Ionicons 
+                name="people" 
+                size={20} 
+                color={showingFollowedOnly ? "#FFFFFF" : "#00BFA5"} 
+              />
+              <Text 
+                className={`ml-1 text-sm ${
+                  showingFollowedOnly ? 'text-white' : 'text-secondary-500'
+                }`}
+              >
+                Seguidos
+              </Text>
+            </TouchableOpacity>
+
             <TouchableOpacity
               onPress={() => setIsUserSongsModalVisible(true)}
-              className="bg-white rounded-md mx-4 w-8 h-8 items-center justify-center"
+              className="bg-white rounded-md mx-2 w-8 h-8 items-center justify-center"
             >
               <Ionicons name="library" size={24} color="#00BFA5" />
             </TouchableOpacity>
+
             <TouchableOpacity
               onPress={() => setIsUploadModalVisible(true)}
-              className="bg-white rounded-md mx-4 w-8 h-8 items-center justify-center"
+              className="bg-white rounded-md mx-2 w-8 h-8 items-center justify-center"
             >
               <Ionicons name="cloud-upload-outline" size={24} color="#00BFA5" />
             </TouchableOpacity>
@@ -314,6 +410,10 @@ const Comunidad = () => {
             data={filteredCanciones}
             renderItem={renderItem}
             keyExtractor={(item) => item.id.toString()}
+            initialNumToRender={5}
+            maxToRenderPerBatch={5}
+            windowSize={5}
+            removeClippedSubviews={true}
             contentContainerStyle={{
               paddingHorizontal: 16,
               paddingBottom: 120,

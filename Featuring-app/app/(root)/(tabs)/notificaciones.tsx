@@ -157,11 +157,23 @@ export default function NotificacionesScreen() {
 
   return (
     <View className="flex-1 bg-gray-100">
+      <View className="bg-primary-500 py-4 px-4">
+        <Text className="text-xl font-bold text-white text-center">
+          Notificaciones
+        </Text>
+      </View>
+
       <FlatList
         data={notificaciones}
-        renderItem={renderNotificacion}
+        renderItem={({ item }) => (
+          <View className="bg-white rounded-lg mb-1 shadow">
+            <NotificationItem
+              notification={item}
+              onNotificationRead={fetchNotificaciones}
+            />
+          </View>
+        )}
         keyExtractor={(item) => item.id.toString()}
-        contentContainerStyle={{ padding: 16}}
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing}
@@ -169,11 +181,13 @@ export default function NotificacionesScreen() {
             colors={["#6D29D2"]}
           />
         }
+        contentContainerStyle={{
+          padding: 16,
+          paddingBottom: 55  // Añadido padding extra para evitar que la última notificación se tape
+        }}
         ListEmptyComponent={
           <View className="flex-1 justify-center items-center p-4">
-            <Text className="text-gray-500 text-center">
-              No tienes notificaciones
-            </Text>
+            <Text className="text-gray-500">No hay notificaciones</Text>
           </View>
         }
       />
