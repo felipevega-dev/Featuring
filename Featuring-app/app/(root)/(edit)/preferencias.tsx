@@ -6,12 +6,10 @@ import {
   TouchableOpacity,
   Alert,
   SafeAreaView,
-  FlatList,
-  Dimensions,
   Switch,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { router } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import Slider from '@react-native-community/slider';
 
@@ -33,10 +31,7 @@ const generosMusicales = [
   "Chillout", "Lo-fi"
 ];
 
-const { width } = Dimensions.get('window');
-const itemWidth = (width - 40) / 3;
-
-const MAX_SELECTIONS = 3;
+const MAX_SELECTIONS = 5;
 
 export default function Preferencias() {
   const [distancia, setDistancia] = useState(10);
@@ -44,7 +39,6 @@ export default function Preferencias() {
   const [generosPreferidos, setGenerosPreferidos] = useState<string[]>([]);
   const [habilidadesPreferidas, setHabilidadesPreferidas] = useState<string[]>([]);
   const [currentSection, setCurrentSection] = useState<'distancia' | 'generos' | 'habilidades'>('distancia');
-  const router = useRouter();
 
   useEffect(() => {
     loadPreferences();
@@ -91,9 +85,7 @@ export default function Preferencias() {
         Alert.alert("Éxito", "Tus preferencias han sido guardadas", [
           {
             text: "OK",
-            onPress: () => {
-              router.push('/match');
-            }
+            onPress: () => router.back()
           }
         ]);
       }
@@ -113,77 +105,41 @@ export default function Preferencias() {
     });
   };
 
-  const renderItem = ({ item }: { item: string }) => (
-    <TouchableOpacity
-      style={{ width: itemWidth, aspectRatio: 1 }}
-      className={`border border-gray-300 rounded-lg m-1 justify-center items-center ${
-        currentSection === 'generos'
-          ? generosPreferidos.includes(item) ? 'bg-purple-600' : 'bg-white'
-          : habilidadesPreferidas.includes(item) ? 'bg-purple-600' : 'bg-white'
-      }`}
-      onPress={() => 
-        currentSection === 'generos'
-          ? togglePreference(item, setGenerosPreferidos)
-          : togglePreference(item, setHabilidadesPreferidas)
-      }
-    >
-      <Text className={`text-center ${
-        currentSection === 'generos'
-          ? generosPreferidos.includes(item) ? 'text-white font-bold' : 'text-black'
-          : habilidadesPreferidas.includes(item) ? 'text-white font-bold' : 'text-black'
-      }`}>
-        {item}
-      </Text>
-    </TouchableOpacity>
-  );
-
   return (
-    <SafeAreaView className="flex-1 bg-white">
-      <TouchableOpacity className="absolute top-10 left-4 z-10" onPress={() => router.back()}>
-        <Ionicons name="arrow-back" size={24} color="#000000" />
-      </TouchableOpacity>
-      <Text className="text-black text-2xl font-bold text-center mt-20 mb-5">
-        Configuración de Preferencias
-      </Text>
-      <View className="flex-1">
-        <View className="flex-row justify-around mb-4">
-          <TouchableOpacity
-            className={`py-2 px-4 rounded-full ${currentSection === 'distancia' ? 'bg-purple-600' : 'bg-gray-200'}`}
-            onPress={() => setCurrentSection('distancia')}
-          >
-            <Text className={`font-bold ${currentSection === 'distancia' ? 'text-white' : 'text-black'}`}>Distancia</Text>
+    <SafeAreaView className="flex-1 bg-primary-600 pt-8">
+      <View className="flex-1 bg-gray-100">
+        {/* Header */}
+        <View className="bg-primary-500 p-4 flex-row items-center">
+          <TouchableOpacity onPress={() => router.back()} className="mr-4">
+            <Ionicons name="arrow-back" size={24} color="white" />
           </TouchableOpacity>
-          <TouchableOpacity
-            className={`py-2 px-4 rounded-full ${currentSection === 'generos' ? 'bg-purple-600' : 'bg-gray-200'}`}
-            onPress={() => setCurrentSection('generos')}
-          >
-            <Text className={`font-bold ${currentSection === 'generos' ? 'text-white' : 'text-black'}`}>Géneros</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            className={`py-2 px-4 rounded-full ${currentSection === 'habilidades' ? 'bg-purple-600' : 'bg-gray-200'}`}
-            onPress={() => setCurrentSection('habilidades')}
-          >
-            <Text className={`font-bold ${currentSection === 'habilidades' ? 'text-white' : 'text-black'}`}>Habilidades</Text>
-          </TouchableOpacity>
+          <Text className="text-xl font-bold text-white flex-1">
+            Preferencias de Match
+          </Text>
         </View>
 
-        {currentSection === 'distancia' && (
-          <View className="px-4">
-            <Text className="text-black text-lg mb-2">Preferencia de distancias</Text>
-            <View className="flex-row items-center justify-between mb-4">
-              <Text className="text-black">Sin límite de distancia</Text>
-              <Switch
-                value={sinLimiteDistancia}
-                onValueChange={(value) => {
-                  setSinLimiteDistancia(value);
-                  if (value) {
-                    setDistancia(100);
-                  }
-                }}
-              />
+        <ScrollView className="flex-1 p-4">
+          {/* Sección de Distancia */}
+          <View className="bg-white rounded-xl p-4 mb-4 shadow-sm">
+            <View className="flex-row items-center justify-between">
+              <Text className="text-lg font-bold text-primary-700">Distancia</Text>
+              <View className="flex-row items-center">
+                {sinLimiteDistancia && (
+                  <Text className="text-primary-700 font-semibold text-sm ml-2">Sin límite</Text>
+                )}
+                <Switch
+                  value={sinLimiteDistancia}
+                  onValueChange={(value) => {
+                    setSinLimiteDistancia(value);
+                    if (value) setDistancia(100);
+                  }}
+                />
+              </View>
             </View>
+            
+            {/* Slider */}
             {!sinLimiteDistancia && (
-              <>
+              <View>
                 <Slider
                   style={{width: '100%', height: 40}}
                   minimumValue={1}
@@ -191,32 +147,89 @@ export default function Preferencias() {
                   step={1}
                   value={distancia}
                   onValueChange={setDistancia}
-                  minimumTrackTintColor="#8B5CF6"
+                  minimumTrackTintColor="#6D29D2"
                   maximumTrackTintColor="#D1D5DB"
                 />
-                <Text className="text-black text-center">{distancia} km</Text>
-              </>
+                <Text className="text-center text-primary-600 font-semibold">
+                  {distancia} km
+                </Text>
+              </View>
             )}
           </View>
-        )}
 
-        {(currentSection === 'generos' || currentSection === 'habilidades') && (
-          <FlatList
-            data={currentSection === 'generos' ? generosMusicales : habilidadesMusicales}
-            renderItem={renderItem}
-            keyExtractor={(item) => item}
-            numColumns={3}
-            contentContainerStyle={{paddingHorizontal: 10}}
-          />
-        )}
+          {/* Sección de Géneros */}
+          <View className="bg-white rounded-xl p-4 mb-4 shadow-sm">
+            <Text className="text-lg font-bold text-primary-700 mb-2">
+              Géneros Musicales ({generosPreferidos.length}/{MAX_SELECTIONS})
+            </Text>
+            <View className="flex-row flex-wrap">
+              {generosMusicales.map((genero) => (
+                <TouchableOpacity
+                  key={genero}
+                  onPress={() => togglePreference(genero, setGenerosPreferidos)}
+                  className={`m-1 px-3 py-1 rounded-full border ${
+                    generosPreferidos.includes(genero)
+                      ? 'bg-primary-500 border-primary-500'
+                      : 'bg-white border-gray-300'
+                  }`}
+                >
+                  <Text
+                    className={`text-sm ${
+                      generosPreferidos.includes(genero)
+                        ? 'text-white font-bold'
+                        : 'text-gray-600'
+                    }`}
+                  >
+                    {genero}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          {/* Sección de Habilidades */}
+          <View className="bg-white rounded-xl p-4 mb-4 shadow-sm">
+            <Text className="text-lg font-bold text-primary-700 mb-2">
+              Habilidades ({habilidadesPreferidas.length}/{MAX_SELECTIONS})
+            </Text>
+            <View className="flex-row flex-wrap">
+              {habilidadesMusicales.map((habilidad) => (
+                <TouchableOpacity
+                  key={habilidad}
+                  onPress={() => togglePreference(habilidad, setHabilidadesPreferidas)}
+                  className={`m-1 px-3 py-1 rounded-full border ${
+                    habilidadesPreferidas.includes(habilidad)
+                      ? 'bg-secondary-500 border-secondary-500'
+                      : 'bg-white border-gray-300'
+                  }`}
+                >
+                  <Text
+                    className={`text-sm ${
+                      habilidadesPreferidas.includes(habilidad)
+                        ? 'text-white font-bold'
+                        : 'text-gray-600'
+                    }`}
+                  >
+                    {habilidad}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        </ScrollView>
+
+        {/* Botón de Guardar */}
+        <View className="p-4 bg-white border-t border-gray-200">
+          <TouchableOpacity
+            onPress={handleSave}
+            className="bg-primary-500 py-3 rounded-xl shadow-sm"
+          >
+            <Text className="text-white text-center font-bold text-lg">
+              Guardar Preferencias
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
-
-      <TouchableOpacity 
-        className="bg-purple-600 rounded-full py-3 px-6 items-center mt-5 mx-4 mb-4" 
-        onPress={handleSave}
-      >
-        <Text className="text-white text-lg font-bold">Guardar</Text>
-      </TouchableOpacity>
     </SafeAreaView>
   );
 }
