@@ -116,7 +116,7 @@ export const NOTIFICATION_REDIRECTS: Record<NotificationType, NotificationRedire
     getParams: (notification) => ({ id: notification.usuario_origen_id })
   },
   solicitud_colaboracion: {
-    route: '/notificaciones',
+    route: '/colaboraciones',
     getParams: () => ({})
   },
   colaboracion_aceptada: {

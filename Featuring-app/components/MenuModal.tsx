@@ -12,6 +12,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { supabase } from '@/lib/supabase';
+import { useCollaboration } from '@/contexts/CollaborationContext';
 
 interface MenuModalProps {
   isVisible: boolean;
@@ -29,6 +30,7 @@ export default function MenuModal({
 }: MenuModalProps) {
   const slideAnim = useRef(new Animated.Value(width)).current;
   const backdropOpacity = useRef(new Animated.Value(0)).current;
+  const { pendingCollaborations } = useCollaboration();
 
   React.useEffect(() => {
     if (isVisible) {
@@ -118,9 +120,10 @@ export default function MenuModal({
     {
       icon: 'people-outline',
       label: 'Colaboraciones',
+      badge: pendingCollaborations > 0 ? pendingCollaborations : undefined,
       onPress: () => {
         onClose();
-        router.push("/(root)/(tabs)/colaboraciones");
+        router.push("/colaboraciones");
       }
     },
     {
@@ -181,19 +184,25 @@ export default function MenuModal({
               {menuItems.map((item, index) => (
                 <TouchableOpacity
                   key={index}
-                  onPress={() => {
-                    item.onPress();
-                    onClose();
-                  }}
+                  onPress={item.onPress}
                   className={`flex-row items-center py-4 ${
                     index < menuItems.length - 1 ? 'border-b border-gray-200' : ''
                   }`}
                 >
-                  <Ionicons
-                    name={item.icon as any}
-                    size={24}
-                    color={item.danger ? '#DC2626' : '#6D29D2'}
-                  />
+                  <View className="relative">
+                    <Ionicons
+                      name={item.icon as any}
+                      size={24}
+                      color={item.danger ? '#DC2626' : '#6D29D2'}
+                    />
+                    {item.badge && (
+                      <View className="absolute -top-2 -right-2 bg-red-500 rounded-full w-5 h-5 items-center justify-center">
+                        <Text className="text-white text-xs font-bold">
+                          {item.badge}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
                   <Text
                     className={`ml-4 text-lg ${
                       item.danger ? 'text-red-600' : 'text-gray-800'

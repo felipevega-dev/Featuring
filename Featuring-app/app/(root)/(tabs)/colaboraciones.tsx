@@ -7,12 +7,14 @@ import {
   TouchableOpacity,
   RefreshControl,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { supabase } from '@/lib/supabase';
 import Constants from 'expo-constants';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import CollaborationRatingModal from '@/components/CollaborationRatingModal';
+import { useCollaboration } from '@/contexts/CollaborationContext';
 
 interface Colaboracion {
   id: number;
@@ -52,6 +54,7 @@ export default function ColaboracionesScreen() {
     otherUsername: string;
     otherUserId: string;
   } | null>(null);
+  const { updatePendingCount } = useCollaboration();
 
   useEffect(() => {
     getCurrentUser();
@@ -62,6 +65,10 @@ export default function ColaboracionesScreen() {
       fetchColaboraciones();
     }
   }, [currentUserId]);
+
+  useEffect(() => {
+    updatePendingCount();
+  }, []);
 
   const getCurrentUser = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -83,14 +90,21 @@ export default function ColaboracionesScreen() {
           valoraciones:valoracion_colaboracion(valoracion)
         `)
         .or(`usuario_id.eq.${currentUserId},usuario_id2.eq.${currentUserId}`)
+        .order('estado', { ascending: true, nullsFirst: false })
         .order('created_at', { ascending: false });
 
       if (error) throw error;
 
-      const colaboracionesFormateadas = data.map(col => ({
-        ...col,
-        valoracion: col.valoraciones?.[0]?.valoracion
-      }));
+      const colaboracionesFormateadas = data
+        .map(col => ({
+          ...col,
+          valoracion: col.valoraciones?.[0]?.valoracion
+        }))
+        .sort((a, b) => {
+          const orden = { pendiente: 0, aceptada: 1, rechazada: 2 };
+          return (orden[a.estado as keyof typeof orden] - orden[b.estado as keyof typeof orden]) ||
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        });
 
       setColaboraciones(colaboracionesFormateadas);
     } catch (error) {
@@ -130,6 +144,46 @@ export default function ColaboracionesScreen() {
     }
   };
 
+  const handleAcceptCollab = async (colaboracionId: number) => {
+    try {
+      const { error: updateError } = await supabase
+        .from('colaboracion')
+        .update({ estado: 'aceptada' })
+        .eq('id', colaboracionId);
+
+      if (updateError) throw updateError;
+
+      // Actualizar el estado local y el contador de notificaciones
+      await fetchColaboraciones();
+      await updatePendingCount();
+
+      Alert.alert('Éxito', 'Colaboración aceptada correctamente');
+    } catch (error) {
+      console.error('Error al aceptar colaboración:', error);
+      Alert.alert('Error', 'No se pudo aceptar la colaboración');
+    }
+  };
+
+  const handleRejectCollab = async (colaboracionId: number) => {
+    try {
+      const { error: updateError } = await supabase
+        .from('colaboracion')
+        .update({ estado: 'rechazada' })
+        .eq('id', colaboracionId);
+
+      if (updateError) throw updateError;
+
+      // Actualizar el estado local y el contador de notificaciones
+      await fetchColaboraciones();
+      await updatePendingCount();
+
+      Alert.alert('Éxito', 'Colaboración rechazada correctamente');
+    } catch (error) {
+      console.error('Error al rechazar colaboración:', error);
+      Alert.alert('Error', 'No se pudo rechazar la colaboración');
+    }
+  };
+
   const RenderColaboracionItem = ({ item }: RenderItemProps) => {
     const [hasRated, setHasRated] = useState(false);
     const isCreator = item.usuario_id === currentUserId;
@@ -145,7 +199,9 @@ export default function ColaboracionesScreen() {
     }, [item.id]);
 
     return (
-      <View className="bg-white p-4 rounded-lg mb-3 shadow">
+      <View className={`bg-white p-4 rounded-lg mb-3 shadow ${
+        item.estado === 'pendiente' ? 'border-l-4 border-yellow-500' : ''
+      }`}>
         <View className="flex-row items-center mb-3">
           <Image
             source={{ uri: item.cancion.caratula }}
@@ -234,8 +290,36 @@ export default function ColaboracionesScreen() {
             Ya has valorado esta colaboración
           </Text>
         )}
+
+        {item.estado === 'pendiente' && item.usuario_id2 === currentUserId && (
+          <View className="flex-row justify-end space-x-2 mt-2">
+            <TouchableOpacity
+              onPress={() => handleRejectCollab(item.id)}
+              className="bg-red-500 px-4 py-2 rounded"
+            >
+              <Text className="text-white">Rechazar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => handleAcceptCollab(item.id)}
+              className="bg-primary-500 px-4 py-2 rounded"
+            >
+              <Text className="text-white">Aceptar</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
     );
+  };
+
+  const handleResponderColaboracion = async () => {
+    try {
+      // ... lógica existente de respuesta ...
+
+      // Actualizar el contador después de responder
+      await updatePendingCount();
+    } catch (error) {
+      console.error('Error:', error);
+    }
   };
 
   if (isLoading) {

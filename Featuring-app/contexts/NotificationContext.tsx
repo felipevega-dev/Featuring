@@ -19,7 +19,10 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
           .from('notificacion')
           .select('*', { count: 'exact' })
           .eq('usuario_id', user.id)
-          .eq('leido', false);  // Solo contar las no leídas
+          .eq('leido', false)
+          .not('tipo_notificacion', 'in', (
+            '(solicitud_colaboracion,colaboracion_aceptada,colaboracion_rechazada)'
+          ));  // Excluimos las notificaciones de colaboración
 
         if (error) {
           console.error('Error al obtener el conteo de notificaciones:', error);
