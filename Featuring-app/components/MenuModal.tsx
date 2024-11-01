@@ -137,6 +137,14 @@ export default function MenuModal({
       }
     },
     {
+      icon: 'settings-outline',
+      label: 'Preferencias',
+      onPress: () => {
+        onClose();
+        router.push("/preferencias");
+      }
+    },
+    {
       icon: 'log-out-outline',
       label: 'Cerrar Sesión',
       onPress: handleSignOut,

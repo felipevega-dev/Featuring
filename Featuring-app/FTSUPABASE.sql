@@ -434,3 +434,55 @@ CREATE TRIGGER trigger_actualizar_valoraciones
 AFTER INSERT OR UPDATE ON valoracion_colaboracion
 FOR EACH ROW
 EXECUTE FUNCTION actualizar_promedio_valoraciones();
+
+
+//PREFERENCIA usuario1_id
+-- Supabase AI is experimental and may produce incorrect answers
+-- Always verify the output before executing
+
+create table
+  preferencias_usuario (
+    id uuid primary key default uuid_generate_v4 (),
+    usuario_id uuid references perfil (usuario_id) not null unique,
+    -- Privacidad del perfil
+    mostrar_edad boolean default true,
+    mostrar_ubicacion boolean default true,
+    mostrar_redes_sociales boolean default true,
+    mostrar_valoraciones boolean default true,
+    -- Privacidad del contenido
+    permitir_comentarios_general boolean default true,
+    -- Notificaciones
+    notificaciones_mensajes boolean default true,
+    notificaciones_match boolean default true,
+    notificaciones_valoraciones boolean default true,
+    notificaciones_comentarios boolean default true,
+    notificaciones_seguidores boolean default true,
+    -- Preferencias de Match
+    match_filtrar_nacionalidad boolean default false,
+    match_filtrar_edad boolean default false,
+    match_filtrar_sexo boolean default false,
+    match_rango_edad int[] default '{18,99}',
+    match_nacionalidades text[] default '{}',
+    match_sexo_preferido text default 'todos',
+    -- Timestamps
+    created_at timestamptz default timezone ('utc'::text, now()) not null,
+    updated_at timestamptz default timezone ('utc'::text, now()) not null,
+    constraint fk_usuario_preferencias foreign key (usuario_id) references perfil (usuario_id) on delete cascade
+  );
+
+-- Create the moddatetime function
+create
+or replace function moddatetime () returns trigger as $$
+begin
+  new.updated_at = timezone('utc'::text, now());
+  return new;
+end;
+$$ language plpgsql;
+
+-- Trigger para actualizar updated_at
+create trigger handle_updated_at before
+update on preferencias_usuario for each row
+execute procedure moddatetime ();
+
+-- Índice para búsquedas por usuario_id
+create index idx_preferencias_usuario on preferencias_usuario (usuario_id);

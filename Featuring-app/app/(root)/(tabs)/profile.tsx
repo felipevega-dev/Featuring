@@ -273,17 +273,6 @@ export default function Profile() {
               />
             </TouchableOpacity>
 
-            <TouchableOpacity
-                onPress={() => router.push("/preferencias")} // Ruta para configurar preferencias
-                className="absolute top-0 left-0 p-2" // Cambiar a la izquierda
-              >
-                <Ionicons
-                  name="settings-outline" 
-                  size={32} 
-                  color="#00CED1" 
-                />
-            </TouchableOpacity>
-
             <View className="items-center pb-4">
               <View className="w-36 h-36 rounded-full shadow-lg shadow-black/50 mb-4">
                 {perfil.foto_perfil ? (

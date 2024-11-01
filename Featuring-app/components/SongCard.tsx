@@ -167,9 +167,7 @@ const SongCard: React.FC<SongCardProps> = ({
   }, [cancion.id]);
 
   useEffect(() => {
-    console.log('SongCard: initialShowComments cambió:', initialShowComments);
     if (initialShowComments) {
-      console.log('Abriendo modal de comentarios');
       setCommentsModalVisible(true);
     }
   }, [initialShowComments]);
