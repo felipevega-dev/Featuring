@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo, useRef } from "react";
-import { View, Text, FlatList, TouchableOpacity, Alert, RefreshControl } from "react-native";
+import { View, Text, FlatList, TouchableOpacity, Alert, RefreshControl, Modal } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams } from "expo-router";
 import SongCard from "@/components/SongCard";
@@ -45,6 +45,72 @@ const Comunidad = () => {
   }>();
   const [activeTab, setActiveTab] = useState<'canciones' | 'videos'>('canciones');
   const [showingFollowedOnly, setShowingFollowedOnly] = useState(false);
+  const [sortModalVisible, setSortModalVisible] = useState(false);
+  const [currentSort, setCurrentSort] = useState<'newest' | 'oldest' | 'likes' | 'comments'>('newest');
+
+  const sortOptions = [
+    { value: 'newest', label: 'Más recientes', icon: 'time-outline' },
+    { value: 'oldest', label: 'Más antiguas', icon: 'calendar-outline' },
+    { value: 'likes', label: 'Más likes', icon: 'heart-outline' },
+    { value: 'comments', label: 'Más comentados', icon: 'chatbubble-outline' }
+  ];
+
+  const handleSort = (sortType: 'newest' | 'oldest' | 'likes' | 'comments') => {
+    setCurrentSort(sortType);
+    let sortedSongs = [...allCanciones];
+
+    switch (sortType) {
+      case 'newest':
+        sortedSongs.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        break;
+      case 'oldest':
+        sortedSongs.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+        break;
+      case 'likes':
+        // Obtener conteo de likes para cada canción
+        const getLikesCount = async (cancionId: number) => {
+          const { count } = await supabase
+            .from('likes_cancion')
+            .select('*', { count: 'exact' })
+            .eq('cancion_id', cancionId);
+          return count || 0;
+        };
+
+        // Ordenar por número de likes
+        Promise.all(sortedSongs.map(async song => ({
+          ...song,
+          likesCount: await getLikesCount(song.id)
+        }))).then(songsWithLikes => {
+          songsWithLikes.sort((a, b) => b.likesCount - a.likesCount);
+          setFilteredCanciones(songsWithLikes);
+        });
+        break;
+      case 'comments':
+        // Obtener conteo de comentarios para cada canción
+        const getCommentsCount = async (cancionId: number) => {
+          const { count } = await supabase
+            .from('comentario_cancion')
+            .select('*', { count: 'exact' })
+            .eq('cancion_id', cancionId);
+          return count || 0;
+        };
+
+        // Ordenar por número de comentarios
+        Promise.all(sortedSongs.map(async song => ({
+          ...song,
+          commentsCount: await getCommentsCount(song.id)
+        }))).then(songsWithComments => {
+          songsWithComments.sort((a, b) => b.commentsCount - a.commentsCount);
+          setFilteredCanciones(songsWithComments);
+        });
+        break;
+    }
+
+    if (sortType === 'newest' || sortType === 'oldest') {
+      setFilteredCanciones(sortedSongs);
+    }
+    setSortModalVisible(false);
+  };
 
   useEffect(() => {
     fetchSongs();
@@ -120,6 +186,7 @@ const Comunidad = () => {
             foto_perfil
           ),
           likes:likes_cancion(count),
+          comentarios:comentario_cancion(count),
           colaboracion:colaboracion!cancion_id (
             estado,
             usuario_id,
@@ -135,7 +202,7 @@ const Comunidad = () => {
           )
         `)
         .eq('colaboracion.estado', 'aceptada')
-        .order("created_at", { ascending: false });
+        .order('created_at', { ascending: false });
 
       if (showingFollowedOnly) {
         const followedUsers = await fetchFollowedUsers();
@@ -364,6 +431,20 @@ const Comunidad = () => {
             </TouchableOpacity>
 
             <TouchableOpacity
+              onPress={() => setSortModalVisible(true)}
+              className="bg-white rounded-md mx-2 px-3 h-8 flex-row items-center justify-center"
+            >
+              <Ionicons 
+                name={sortOptions.find(opt => opt.value === currentSort)?.icon || 'funnel'} 
+                size={20} 
+                color="#00BFA5" 
+              />
+              <Text className="ml-1 text-sm text-secondary-500">
+                Ordenar
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
               onPress={() => setShowingFollowedOnly(!showingFollowedOnly)}
               className={`bg-white rounded-md mx-2 px-3 h-8 flex-row items-center justify-center ${
                 showingFollowedOnly ? 'bg-secondary-500' : 'bg-white'
@@ -384,13 +465,6 @@ const Comunidad = () => {
             </TouchableOpacity>
 
             <TouchableOpacity
-              onPress={() => setIsUserSongsModalVisible(true)}
-              className="bg-white rounded-md mx-2 w-8 h-8 items-center justify-center"
-            >
-              <Ionicons name="library" size={24} color="#00BFA5" />
-            </TouchableOpacity>
-
-            <TouchableOpacity
               onPress={() => setIsUploadModalVisible(true)}
               className="bg-white rounded-md mx-2 w-8 h-8 items-center justify-center"
             >
@@ -404,6 +478,35 @@ const Comunidad = () => {
             sortedGenres={sortedGenres}
           />
         </View>
+
+        <Modal
+          visible={sortModalVisible}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setSortModalVisible(false)}
+        >
+          <TouchableOpacity
+            className="flex-1 bg-black/50 justify-center items-center"
+            activeOpacity={1}
+            onPress={() => setSortModalVisible(false)}
+          >
+            <View className="bg-white rounded-lg w-4/5 p-4">
+              {sortOptions.map((option) => (
+                <TouchableOpacity
+                  key={option.value}
+                  onPress={() => handleSort(option.value)}
+                  className={`flex-row items-center p-3 ${
+                    currentSort === option.value ? 'bg-primary-100' : ''
+                  }`}
+                >
+                  <Ionicons name={option.icon} size={24} color="#6D29D2" />
+                  <Text className="ml-3 text-primary-700">{option.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </TouchableOpacity>
+        </Modal>
+
         {filteredCanciones.length > 0 ? (
           <FlatList
             ref={songListRef}
