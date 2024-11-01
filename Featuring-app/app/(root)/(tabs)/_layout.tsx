@@ -59,7 +59,6 @@ const TopBar = ({ isMatchScreen }: { isMatchScreen: boolean }) => {
     <SafeAreaView className="bg-[#F6F8FA]">
       <View className="bg-[#F6F8FA] h-15 flex-row justify-between items-center px-5 mt-2 border-b-2 border-b-cyan-200">
         {isMatchScreen ? (
-          // Botón de preferencias para Match
           <TouchableOpacity 
             onPress={() => router.push("/preferencias")}
             className="relative"
@@ -67,7 +66,6 @@ const TopBar = ({ isMatchScreen }: { isMatchScreen: boolean }) => {
             <Ionicons name="settings-outline" size={24} color="#5416A0" />
           </TouchableOpacity>
         ) : (
-          // Botón de notificaciones para otras pantallas
           <TouchableOpacity 
             onPress={() => router.push("/(tabs)/notificaciones")} 
             className="relative"
@@ -115,7 +113,7 @@ const TopBar = ({ isMatchScreen }: { isMatchScreen: boolean }) => {
 // Layout general de la aplicación
 const Layout = () => {
   const segments = useSegments();
-  const isChatScreen = segments.includes('chat');
+  const isChatScreen = segments.includes('chat' as any);
   const isMatchScreen = segments[1] === 'match';
   const [isMenuVisible, setIsMenuVisible] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);

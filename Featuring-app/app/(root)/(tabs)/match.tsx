@@ -58,10 +58,36 @@ const Card: React.FC<CardProps> = ({
   const [imageError, setImageError] = useState(false);
   const router = useRouter();
   const position = useRef(new Animated.ValueXY()).current;
+  const [swipeDirection, setSwipeDirection] = useState<'none' | 'left' | 'right'>('none');
+
+  const likeOpacity = position.x.interpolate({
+    inputRange: [0, SWIPE_THRESHOLD],
+    outputRange: [0, 1],
+    extrapolate: 'clamp',
+  });
+
+  const nopeOpacity = position.x.interpolate({
+    inputRange: [-SWIPE_THRESHOLD, 0],
+    outputRange: [1, 0],
+    extrapolate: 'clamp',
+  });
+
   const rotate = position.x.interpolate({
     inputRange: [-SWIPE_THRESHOLD, 0, SWIPE_THRESHOLD],
     outputRange: ["-10deg", "0deg", "10deg"],
     extrapolate: "clamp",
+  });
+
+  const greenOverlayOpacity = position.x.interpolate({
+    inputRange: [0, SWIPE_THRESHOLD],
+    outputRange: [0, 0.2],
+    extrapolate: 'clamp',
+  });
+
+  const redOverlayOpacity = position.x.interpolate({
+    inputRange: [-SWIPE_THRESHOLD, 0],
+    outputRange: [0.2, 0],
+    extrapolate: 'clamp',
   });
 
   const panResponder = PanResponder.create({
@@ -69,28 +95,41 @@ const Card: React.FC<CardProps> = ({
     onMoveShouldSetPanResponder: () => true,
     onPanResponderMove: (_, gesture) => {
       position.setValue({ x: gesture.dx, y: gesture.dy });
+      // Actualizar dirección del swipe
+      if (gesture.dx > 0) {
+        setSwipeDirection('right');
+      } else if (gesture.dx < 0) {
+        setSwipeDirection('left');
+      }
     },
     onPanResponderRelease: (_, gesture) => {
       if (gesture.dx > SWIPE_THRESHOLD) {
+        console.log('Swipe derecha - Like');
         Animated.spring(position, {
           toValue: { x: SWIPE_THRESHOLD * 2, y: gesture.dy },
           useNativeDriver: true,
         }).start(() => {
           onLike && onLike(card.usuario_id);
+          setSwipeDirection('none');
         });
       } else if (gesture.dx < -SWIPE_THRESHOLD) {
+        console.log('Swipe izquierda - Rechazo');
         Animated.spring(position, {
           toValue: { x: -SWIPE_THRESHOLD * 2, y: gesture.dy },
           useNativeDriver: true,
         }).start(() => {
           onSwipe && onSwipe("left");
+          setSwipeDirection('none');
         });
       } else {
+        console.log('Regresando a posición inicial');
         Animated.spring(position, {
           toValue: { x: 0, y: 0 },
           friction: 4,
           useNativeDriver: true,
-        }).start();
+        }).start(() => {
+          setSwipeDirection('none');
+        });
       }
     },
   });
@@ -147,99 +186,132 @@ const Card: React.FC<CardProps> = ({
   };
 
   return (
-    <Animated.View
-      {...(isFirst ? panResponder.panHandlers : {})}
-      className={`absolute w-[90%] h-[75%] bg-white rounded-xl ${
-        isFirst ? "z-10" : ""
-      }`}
-      style={[
-        {
-          top: '3%',
-          left: '5%',
-          transform: [
-            { translateX: position.x },
-            { translateY: position.y },
-            { rotate: rotate },
-          ],
-        },
-      ]}
-    >
-      <View className="w-full h-full rounded-xl overflow-hidden relative">
-        {profileImageUrl && !imageError ? (
-          <Image
-            source={{ uri: profileImageUrl }}
-            className="w-full h-full"
-            resizeMode="cover"
+    <View className="absolute w-[90%] h-[75%]" style={{ top: '3%', left: '5%' }}>
+      <Animated.View
+        {...(isFirst ? panResponder.panHandlers : {})}
+        className="w-full h-full bg-white rounded-xl overflow-hidden"
+        style={[
+          {
+            transform: [
+              { translateX: position.x },
+              { translateY: position.y },
+              { rotate: rotate },
+            ],
+          },
+        ]}
+      >
+        {/* Overlay Verde para Like */}
+        {isFirst && (
+          <Animated.View 
+            style={{ 
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: '#00FF00',
+              opacity: greenOverlayOpacity,
+              zIndex: 2,
+            }}
           />
-        ) : (
-          <View className="w-full h-full bg-gray-300 justify-center items-center">
-            <Image source={icons.person} className="w-20 h-20 opacity-50" />
-          </View>
         )}
 
-        {/* Contenido superpuesto */}
-        <View className="absolute top-0 w-full p-4">
-          <View className="bg-primary-600/80 rounded-full w-3/4 mx-auto px-6 py-2">
-            <Text className="text-white text-center font-bold">{card.mensaje}</Text>
-          </View>
-        </View>
+        {/* Overlay Rojo para Nope */}
+        {isFirst && (
+          <Animated.View 
+            style={{ 
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: '#FF0000',
+              opacity: redOverlayOpacity,
+              zIndex: 2,
+            }}
+          />
+        )}
 
+        {/* Contenido de la tarjeta */}
+        <View className="w-full h-full rounded-xl overflow-hidden relative">
+          {profileImageUrl && !imageError ? (
+            <Image
+              source={{ uri: profileImageUrl }}
+              className="w-full h-full"
+              resizeMode="cover"
+            />
+          ) : (
+            <View className="w-full h-full bg-gray-300 justify-center items-center">
+              <Image source={icons.person} className="w-20 h-20 opacity-50" />
+            </View>
+          )}
 
-        {/* Información del usuario y habilidades */}
-        <View className="absolute bottom-0 w-full p-4 bg-black/50 rounded-b-xl">
-
-        {/* Botón Ver Perfil */}
-        <TouchableOpacity
-            onPress={() => router.push(
-              `/public-profile/${card.usuario_id}`
-            )}
-            className="bg-primary-500 px-2 py-1 rounded-full w-26 mx-auto
-              items-center justify-center text-center flex-row mb-2"
-          >
-            <Text className="text-white font-bold">Ver Perfil</Text>
-          </TouchableOpacity>
-          <View className="flex-row items-center justify-center mb-3">
-            <View>
-                    <Text className="text-white text-2xl font-bold text-center">{card.username}</Text>
-              <Text className="text-white/80 text-center">
-                {card.edad} años • {card.ubicacion}
-              </Text>
-              {card.distance !== undefined && (
-                <Text className="text-white/60 text-center">
-                  {card.distance.toFixed(1)} km de distancia
-                </Text>
-              )}
+          {/* Contenido superpuesto */}
+          <View className="absolute top-0 w-full p-4">
+            <View className="bg-primary-600/80 rounded-full w-3/4 mx-auto px-6 py-2">
+              <Text className="text-white text-center font-bold">{card.mensaje}</Text>
             </View>
           </View>
 
-          {/* Géneros */}
-          <View className="flex-row flex-wrap mb-2 justify-center">
-            {renderGeneros(card.perfil_genero)}
-          </View>
 
-          {/* Habilidades */}
-          <View className="flex-row flex-wrap mb-3 justify-center">
-            {renderHabilidades(card.perfil_habilidad)}
+          {/* Información del usuario y habilidades */}
+          <View className="absolute bottom-0 w-full p-4 bg-black/50 rounded-b-xl">
+
+          {/* Botón Ver Perfil */}
+          <TouchableOpacity
+              onPress={() => router.push(
+                `/public-profile/${card.usuario_id}`
+              )}
+              className="bg-primary-500 px-2 py-1 rounded-full w-26 mx-auto
+                items-center justify-center text-center flex-row mb-2"
+            >
+              <Text className="text-white font-bold">Ver Perfil</Text>
+            </TouchableOpacity>
+            <View className="flex-row items-center justify-center mb-3">
+              <View>
+                      <Text className="text-white text-2xl font-bold text-center">{card.username}</Text>
+                <Text className="text-white/80 text-center">
+                  {card.edad} años • {card.ubicacion}
+                </Text>
+                {card.distance !== undefined && (
+                  <Text className="text-white/60 text-center">
+                    {card.distance.toFixed(1)} km de distancia
+                  </Text>
+                )}
+              </View>
+            </View>
+
+            {/* Géneros */}
+            <View className="flex-row flex-wrap mb-2 justify-center">
+              {renderGeneros(card.perfil_genero)}
+            </View>
+
+            {/* Habilidades */}
+            <View className="flex-row flex-wrap mb-3 justify-center">
+              {renderHabilidades(card.perfil_habilidad)}
+            </View>
           </View>
         </View>
-      </View>
+      </Animated.View>
 
-      {/* Botones de acción */}
-      <View className="absolute bottom-[-75] w-full flex-row justify-center space-x-8">
-        <TouchableOpacity
-          className="bg-white w-16 h-16 rounded-full items-center justify-center shadow-lg"
-          onPress={() => onSwipe && onSwipe("left")}
-        >
-          <FontAwesome name="times" size={34} color="#FF3B30" />
-        </TouchableOpacity>
-        <TouchableOpacity
-          className="bg-white w-16 h-16 rounded-full items-center justify-center shadow-lg"
-          onPress={() => onLike && onLike(card.usuario_id)}
-        >
-          <FontAwesome name="music" size={34} color="#6D29D2" />
-        </TouchableOpacity>
-      </View>
-    </Animated.View>
+      {/* Botones fuera de la zona de deslizamiento */}
+      {isFirst && (
+        <View className="absolute bottom-[-75] w-full flex-row justify-center space-x-8">
+          <TouchableOpacity
+            className="bg-white w-16 h-16 rounded-full items-center justify-center shadow-lg"
+            onPress={() => onSwipe && onSwipe("left")}
+          >
+            <FontAwesome name="times" size={34} color="#FF3B30" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            className="bg-white w-16 h-16 rounded-full items-center justify-center shadow-lg"
+            onPress={() => onLike && onLike(card.usuario_id)}
+          >
+            <FontAwesome name="music" size={34} color="#34C759" />
+          </TouchableOpacity>
+        </View>
+      )}
+    </View>
   );
 };
 
