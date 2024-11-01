@@ -128,16 +128,25 @@ export default function ColaboracionesScreen() {
     }
   };
 
-  const checkIfRated = async (colaboracionId: number) => {
+  const checkIfRated = async (colaboracionId: number, otherUserId: string) => {
     try {
-      const { data, error } = await supabase
+      // Verificar si existe alguna valoración previa entre estos dos usuarios en cualquier dirección
+      const { data: valoracionExistente, error } = await supabase
         .from('valoracion_colaboracion')
         .select('id')
-        .eq('colaboracion_id', colaboracionId)
-        .eq('usuario_id', currentUserId)
-        .single();
+        .or(
+          `and(usuario_id.eq.${currentUserId},usuario_valorado_id.eq.${otherUserId}),` +
+          `and(usuario_id.eq.${otherUserId},usuario_valorado_id.eq.${currentUserId})`
+        )
+        .limit(1);
 
-      return !error && data;
+      if (error) {
+        console.error('Error al verificar valoración:', error);
+        return false;
+      }
+
+      // Si hay datos, significa que ya existe una valoración entre estos usuarios
+      return valoracionExistente && valoracionExistente.length > 0;
     } catch (error) {
       console.error('Error al verificar valoración:', error);
       return false;
@@ -192,11 +201,11 @@ export default function ColaboracionesScreen() {
 
     useEffect(() => {
       const checkRating = async () => {
-        const rated = await checkIfRated(item.id);
+        const rated = await checkIfRated(item.id, otherUserId);
         setHasRated(!!rated);
       };
       checkRating();
-    }, [item.id]);
+    }, [item.id, otherUserId]);
 
     return (
       <View className={`bg-white p-4 rounded-lg mb-3 shadow ${
@@ -269,26 +278,30 @@ export default function ColaboracionesScreen() {
           </View>
         )}
 
-        {item.estado === 'aceptada' && !hasRated && (
-          <TouchableOpacity
-            onPress={() => {
-              setSelectedColaboracion({
-                id: item.id,
-                otherUsername: otherUserProfile.username,
-                otherUserId: otherUserId
-              });
-              setIsRatingModalVisible(true);
-            }}
-            className="bg-primary-500 p-2 rounded mt-2"
-          >
-            <Text className="text-white text-center">Valorar colaboración</Text>
-          </TouchableOpacity>
-        )}
+        {item.estado === 'aceptada' && (
+          <>
+            {!hasRated && !item.valoracion && (
+              <TouchableOpacity
+                onPress={() => {
+                  setSelectedColaboracion({
+                    id: item.id,
+                    otherUsername: otherUserProfile.username,
+                    otherUserId: otherUserId
+                  });
+                  setIsRatingModalVisible(true);
+                }}
+                className="bg-primary-500 p-2 rounded mt-2"
+              >
+                <Text className="text-white text-center">Valorar colaboración</Text>
+              </TouchableOpacity>
+            )}
 
-        {hasRated && (
-          <Text className="text-gray-500 text-center mt-2">
-            Ya has valorado esta colaboración
-          </Text>
+            {(hasRated || item.valoracion) && (
+              <Text className="text-gray-500 text-center mt-2">
+                Ya has valorado esta colaboración
+              </Text>
+            )}
+          </>
         )}
 
         {item.estado === 'pendiente' && item.usuario_id2 === currentUserId && (

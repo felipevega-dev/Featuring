@@ -16,11 +16,10 @@ export const CollaborationProvider: React.FC<{ children: React.ReactNode }> = ({
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         const { count, error } = await supabase
-          .from('notificacion')
+          .from('colaboracion')
           .select('*', { count: 'exact' })
-          .eq('usuario_id', user.id)
-          .eq('leido', false)
-          .in('tipo_notificacion', ['solicitud_colaboracion', 'colaboracion_aceptada', 'colaboracion_rechazada']);
+          .eq('usuario_id2', user.id)
+          .eq('estado', 'pendiente');
 
         if (error) {
           console.error('Error al obtener conteo de colaboraciones:', error);
