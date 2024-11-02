@@ -16,6 +16,7 @@ import { Image } from "expo-image";
 import { useVideo } from "@/contexts/VideoContext";
 import Constants from "expo-constants";
 import { useLocalSearchParams } from 'expo-router';
+import { sendPushNotification } from '@/utils/pushNotifications';
 
 const { width, height } = Dimensions.get("window");
 
@@ -166,60 +167,76 @@ const VideoCard: React.FC<VideoCardProps> = ({
   };
 
   const handleLike = async () => {
-    try {
-      if (!currentUserId) return;
-
-      if (isLiked) {
-        const { error } = await supabase
-          .from("likes_video")
-          .delete()
-          .eq("video_id", video.id)
-          .eq("usuario_id", currentUserId);
-
-        if (error) throw error;
-        
-        setLikesCount((prev) => prev - 1);
-        setIsLiked(false);
-      } else {
-        const { error } = await supabase
-          .from("likes_video")
-          .insert({ 
-            video_id: video.id, 
-            usuario_id: currentUserId 
-          })
+    if (isLiked) {
+      await supabase
+        .from("likes_video")
+        .delete()
+        .eq("video_id", video.id)
+        .eq("usuario_id", currentUserId);
+      
+      setLikesCount((prev) => prev - 1);
+      setIsLiked(false);
+    } else {
+      try {
+        // Obtener el username del usuario que da like
+        const { data: userData, error: userError } = await supabase
+          .from('perfil')
+          .select('username')
+          .eq('usuario_id', currentUserId)
           .single();
 
-        if (error) {
-          // Si ya existe el like, no hacemos nada
-          if (error.code === '23505') { // Código de error para violación de restricción única
-            return;
+        if (userError) throw userError;
+
+        // Obtener el token de push del dueño del video
+        const { data: videoOwnerData, error: ownerError } = await supabase
+          .from('perfil')
+          .select('push_token')
+          .eq('usuario_id', video.usuario_id)
+          .single();
+
+        if (ownerError) throw ownerError;
+
+        const { data } = await supabase
+          .from("likes_video")
+          .insert({ video_id: video.id, usuario_id: currentUserId })
+          .select()
+          .single();
+
+        if (data) {
+          setLikesCount((prev) => prev + 1);
+          setIsLiked(true);
+          
+          // Si el usuario que da like no es el dueño del video
+          if (currentUserId !== video.usuario_id) {
+            // Enviar notificación push si el usuario tiene token
+            if (videoOwnerData?.push_token) {
+              await sendPushNotification(
+                videoOwnerData.push_token,
+                '¡Nuevo Like en tu video!',
+                `A ${userData.username} le ha gustado tu video`
+              );
+            }
+
+            // Crear notificación en la base de datos
+            const { error: notificationError } = await supabase
+              .from('notificacion')
+              .insert({
+                usuario_id: video.usuario_id,
+                tipo_notificacion: 'like_video',
+                leido: false,
+                usuario_origen_id: currentUserId,
+                contenido_id: video.id,
+                mensaje: `Le ha dado me gusta a tu video`
+              });
+
+            if (notificationError) {
+              console.error('Error al crear notificación de like:', notificationError);
+            }
           }
-          throw error;
         }
-
-        setLikesCount((prev) => prev + 1);
-        setIsLiked(true);
+      } catch (error) {
+        console.error('Error al dar like:', error);
       }
-
-      // Crear notificación si el like no es del dueño del video
-      if (currentUserId !== video.usuario_id) {
-        const { error: notificationError } = await supabase
-          .from('notificacion')
-          .insert({
-            usuario_id: video.usuario_id,
-            tipo_notificacion: 'like_video',
-            contenido_id: video.id,
-            mensaje: `Le ha dado me gusta a tu video`,
-            leido: false,
-            usuario_origen_id: currentUserId
-          });
-
-        if (notificationError) {
-          console.error('Error al crear notificación:', notificationError);
-        }
-      }
-    } catch (error) {
-      console.error('Error al dar like:', error);
     }
   };
 
