@@ -28,6 +28,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import { useUnreadMessages } from '@/contexts/UnreadMessagesContext';
 import Constants from 'expo-constants';
 import { ResizeMode } from 'expo-av';
+import { sendPushNotification } from '@/utils/pushNotifications';
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -298,6 +299,22 @@ export default function ChatDetail() {
         return;
       }
 
+      const { data: userData, error: userError } = await supabase
+        .from('perfil')
+        .select('username')
+        .eq('usuario_id', currentUserId)
+        .single();
+
+      if (userError) throw userError;
+
+      const { data: receiverData, error: receiverError } = await supabase
+        .from('perfil')
+        .select('push_token')
+        .eq('usuario_id', id)
+        .single();
+
+      if (receiverError) throw receiverError;
+
       const { data, error } = await supabase
         .from("mensaje")
         .insert({
@@ -310,6 +327,19 @@ export default function ChatDetail() {
         .select();
 
       if (error) throw error;
+
+      if (receiverData?.push_token) {
+        const mensajeNotificacion = tipo === "texto" 
+          ? content.slice(0, 50) + (content.length > 50 ? "..." : "")
+          : `Te ha enviado un ${tipo}`;
+
+        await sendPushNotification(
+          receiverData.push_token,
+          `Mensaje de ${userData.username}`,
+          mensajeNotificacion
+        );
+      }
+
       setNewMessage("");
     } catch (error) {
       console.error("Error al enviar mensaje:", error);
