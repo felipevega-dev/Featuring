@@ -382,6 +382,24 @@ const handleLike = async () => {
   const handleComment = async () => {
     if (nuevoComentario.trim()) {
       try {
+        // Obtener el username del usuario que comenta
+        const { data: userData, error: userError } = await supabase
+          .from('perfil')
+          .select('username')
+          .eq('usuario_id', currentUserId)
+          .single();
+
+        if (userError) throw userError;
+
+        // Obtener el token de push del dueño de la canción
+        const { data: songOwnerData, error: ownerError } = await supabase
+          .from('perfil')
+          .select('push_token')
+          .eq('usuario_id', cancion.usuario_id)
+          .single();
+
+        if (ownerError) throw ownerError;
+
         const { data, error } = await supabase
           .from("comentario_cancion")
           .insert({
@@ -417,8 +435,18 @@ const handleLike = async () => {
           setComentarios([newComentario, ...comentarios]);
           setNuevoComentario("");
 
-          // Crear notificación de comentario solo si el usuario que comenta no es el creador de la canción
+          // Si el usuario que comenta no es el dueño de la canción
           if (currentUserId !== cancion.usuario_id) {
+            // Enviar notificación push si el usuario tiene token
+            if (songOwnerData?.push_token) {
+              await sendPushNotification(
+                songOwnerData.push_token,
+                '¡Nuevo Comentario!',
+                `${userData.username} ha comentado en tu canción "${cancion.titulo}"`
+              );
+            }
+
+            // Crear notificación en la base de datos
             const { error: notificationError } = await supabase
               .from('notificacion')
               .insert({
