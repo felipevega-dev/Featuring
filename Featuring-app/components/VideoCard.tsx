@@ -347,63 +347,103 @@ const VideoCard: React.FC<VideoCardProps> = ({
     }
   };
 
-  const handleCommentLike = async (comentarioId: number, comentarioUsuarioId: string) => {
+  const handleCommentLike = async (comentarioId: number) => {
+    const comentario = comentarios.find((c) => c.id === comentarioId);
+    if (!comentario) return;
+
+    const newIsLiked = !comentario.isLiked;
+
     try {
-      const comentario = comentarios.find((c) => c.id === comentarioId);
-      if (!comentario) return;
-
-      const newIsLiked = !comentario.isLiked;
-
       if (newIsLiked) {
+        // Obtener el username del usuario que da like
+        const { data: userData, error: userError } = await supabase
+          .from('perfil')
+          .select('username')
+          .eq('usuario_id', currentUserId)
+          .single();
+
+        if (userError) throw userError;
+
+        // Obtener el token de push del dueño del comentario
+        const { data: commentOwnerData, error: ownerError } = await supabase
+          .from('perfil')
+          .select('push_token')
+          .eq('usuario_id', comentario.usuario_id)
+          .single();
+
+        if (ownerError) throw ownerError;
+
+        // Dar like
         await supabase
           .from("likes_comentario_video")
           .insert({ 
             comentario_id: comentarioId,
             usuario_id: currentUserId 
           });
+
+        // Actualizar el estado local inmediatamente
+        setComentarios(prevComentarios => 
+          prevComentarios.map(c => 
+            c.id === comentarioId 
+              ? {
+                  ...c,
+                  isLiked: true,
+                  likes_count: (c.likes_count || 0) + 1
+                }
+              : c
+          )
+        );
+
+        // Si el usuario que da like no es el dueño del comentario
+        if (currentUserId !== comentario.usuario_id) {
+          // Enviar notificación push si el usuario tiene token
+          if (commentOwnerData?.push_token) {
+            await sendPushNotification(
+              commentOwnerData.push_token,
+              '¡Nuevo Like en tu comentario!',
+              `A ${userData.username} le gustó tu comentario en el video`
+            );
+          }
+
+          // Crear notificación en la base de datos
+          const { error: notificationError } = await supabase
+            .from('notificacion')
+            .insert({
+              usuario_id: comentario.usuario_id,
+              tipo_notificacion: 'like_comentario_video',
+              leido: false,
+              usuario_origen_id: currentUserId,
+              contenido_id: comentarioId,
+              mensaje: `Le ha dado me gusta a tu comentario en el video`
+            });
+
+          if (notificationError) {
+            console.error('Error al crear notificación de like en comentario:', notificationError);
+          }
+        }
       } else {
+        // Quitar like
         await supabase
           .from("likes_comentario_video")
           .delete()
           .eq("comentario_id", comentarioId)
           .eq("usuario_id", currentUserId);
-      }
 
-      // Actualizar el estado local inmediatamente
-      setComentarios(prev =>
-        prev.map(c =>
-          c.id === comentarioId
-            ? {
-                ...c,
-                isLiked: newIsLiked,
-                likes_count: newIsLiked ? (c.likes_count || 0) + 1 : (c.likes_count || 1) - 1
-              }
-            : c
-        )
-      );
-
-      // Refrescar los comentarios para asegurar datos actualizados
-      await fetchComentarios();
-
-      // Crear notificación si el like no es del dueño del comentario
-      if (currentUserId !== comentarioUsuarioId) {
-        const { error: notificationError } = await supabase
-          .from('notificacion')
-          .insert({
-            usuario_id: comentarioUsuarioId,
-            tipo_notificacion: 'like_comentario_video',
-            contenido_id: comentarioId,
-            mensaje: `Le ha dado me gusta a tu comentario en un video`,
-            leido: false,
-            usuario_origen_id: currentUserId
-          });
-
-        if (notificationError) {
-          console.error('Error al crear notificación:', notificationError);
-        }
+        // Actualizar el estado local inmediatamente
+        setComentarios(prevComentarios => 
+          prevComentarios.map(c => 
+            c.id === comentarioId 
+              ? {
+                  ...c,
+                  isLiked: false,
+                  likes_count: Math.max(0, (c.likes_count || 0) - 1)
+                }
+              : c
+          )
+        );
       }
     } catch (error) {
-      console.error('Error al dar like al comentario:', error);
+      console.error("Error al dar/quitar like al comentario:", error);
     }
   };
 
@@ -650,7 +690,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
           </Text>
           <View className="flex-row items-center mt-2">
             <TouchableOpacity
-              onPress={() => handleCommentLike(item.id, item.usuario_id)}
+              onPress={() => handleCommentLike(item.id)}
               className="mr-4"
             >
               <Ionicons
