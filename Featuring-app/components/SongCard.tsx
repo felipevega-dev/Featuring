@@ -175,6 +175,56 @@ const SongCard: React.FC<SongCardProps> = ({
     }
   }, [initialShowComments]);
 
+  useEffect(() => {
+    // Suscripción a cambios en likes de comentarios
+    const channel = supabase
+      .channel(`likes-comentarios-${cancion.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'likes_comentario_cancion',
+          filter: `comentario_id=in.(${comentarios.map(c => c.id).join(',')})`
+        },
+        () => {
+          // Actualizar los likes de los comentarios
+          fetchLikesAndComments();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      if (channel) {
+        channel.unsubscribe();
+      }
+    };
+  }, [comentarios]);
+
+  useEffect(() => {
+    // Suscripción a cambios en likes de la canción
+    const channel = supabase
+      .channel(`likes-cancion-${cancion.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'likes_cancion',
+          filter: `cancion_id=eq.${cancion.id}`
+        },
+        () => {
+          // Actualizar los likes cuando haya cambios
+          fetchLikesAndComments();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      channel.unsubscribe();
+    };
+  }, [cancion.id]);
+
   const subscribeToComments = async () => {
     const subscription = supabase
       .channel(`public:comentario_cancion:cancion_id=eq.${cancion.id}`)
@@ -314,7 +364,10 @@ const handleLike = async () => {
       .delete()
       .eq("cancion_id", cancion.id)
       .eq("usuario_id", currentUserId);
+    
+    // Actualizar el estado local inmediatamente
     setLikes(likes.filter((like) => like.usuario_id !== currentUserId));
+    setIsLiked(false);
   } else {
     try {
       // Obtener el username del usuario que da like
@@ -342,7 +395,9 @@ const handleLike = async () => {
         .single();
 
       if (data) {
+        // Actualizar el estado local inmediatamente
         setLikes([...likes, data]);
+        setIsLiked(true);
         
         // Si el usuario que da like no es el dueño de la canción
         if (currentUserId !== cancion.usuario_id) {
@@ -376,7 +431,6 @@ const handleLike = async () => {
       console.error('Error al dar like:', error);
     }
   }
-  setIsLiked(!isLiked);
 };
 //funcion que maneja los comentarios de las canciones
   const handleComment = async () => {
@@ -478,7 +532,6 @@ const handleLike = async () => {
     if (!comentario) return;
 
     const newIsLiked = !comentario.isLiked;
-    const likeDelta = newIsLiked ? 1 : -1;
 
     try {
       if (newIsLiked) {
@@ -500,12 +553,26 @@ const handleLike = async () => {
 
         if (ownerError) throw ownerError;
 
+        // Dar like
         await supabase
           .from("likes_comentario_cancion")
           .insert({ 
             comentario_id: comentarioId,
             usuario_id: currentUserId 
           });
+
+        // Actualizar el estado local inmediatamente
+        setComentarios(prevComentarios => 
+          prevComentarios.map(c => 
+            c.id === comentarioId 
+              ? {
+                  ...c,
+                  isLiked: true,
+                  likes_count: (c.likes_count || 0) + 1
+                }
+              : c
+          )
+        );
 
         // Si el usuario que da like no es el dueño del comentario
         if (currentUserId !== comentario.usuario_id) {
@@ -535,24 +602,26 @@ const handleLike = async () => {
           }
         }
       } else {
+        // Quitar like
         await supabase
           .from("likes_comentario_cancion")
           .delete()
           .eq("comentario_id", comentarioId)
           .eq("usuario_id", currentUserId);
-      }
 
-      setComentarios((prev) =>
-        prev.map((c) =>
-          c.id === comentarioId
-            ? {
-                ...c,
-                isLiked: newIsLiked,
-                likes_count: (c.likes_count || 0) + likeDelta,
-              }
-            : c
-        )
-      );
+        // Actualizar el estado local inmediatamente
+        setComentarios(prevComentarios => 
+          prevComentarios.map(c => 
+            c.id === comentarioId 
+              ? {
+                  ...c,
+                  isLiked: false,
+                  likes_count: Math.max(0, (c.likes_count || 0) - 1)
+                }
+              : c
+          )
+        );
+      }
     } catch (error) {
       console.error("Error al dar/quitar like al comentario:", error);
     }
@@ -849,10 +918,42 @@ const handleLike = async () => {
     setRespuestaTexto(`@${comentario.perfil.username} `);
   };
 
-  const handleEnviarRespuesta = async () => {
-    if (respuestaTexto.trim() === '' || !respondingTo) return;
+  const handleResponderComentario = async () => {
+    if (!respuestaTexto.trim() || !respondingTo) return;
 
     try {
+      // Obtener el username del usuario que responde
+      const { data: userData, error: userError } = await supabase
+        .from('perfil')
+        .select('username')
+        .eq('usuario_id', currentUserId)
+        .single();
+
+      if (userError) throw userError;
+
+      // Obtener el usuario_id y token de push del dueño del comentario
+      const { data: commentData, error: commentError } = await supabase
+        .from('comentario_cancion')
+        .select(`
+          usuario_id,
+          perfil:usuario_id (
+            push_token
+          )
+        `)
+        .eq('id', respondingTo.id)
+        .single();
+
+      if (commentError) throw commentError;
+
+      // Obtener el token de push del dueño del comentario
+      const { data: commentOwnerData, error: ownerError } = await supabase
+        .from('perfil')
+        .select('push_token')
+        .eq('usuario_id', commentData.usuario_id)
+        .single();
+
+      if (ownerError) throw ownerError;
+
       const { data, error } = await supabase
         .from("comentario_cancion")
         .insert({
@@ -863,7 +964,11 @@ const handleLike = async () => {
         })
         .select(
           `
-          *,
+          id,
+          usuario_id,
+          cancion_id,
+          contenido,
+          created_at,
           perfil (
             usuario_id,
             username,
@@ -876,32 +981,36 @@ const handleLike = async () => {
       if (error) throw error;
 
       if (data) {
-        const newRespuesta: Comentario = {
+        const newComentario: Comentario = {
           ...data,
           likes_count: 0,
-          perfil: data.perfil,
+          perfil: data.perfil[0] as Perfil,
           isLiked: false
         };
+        setComentarios([newComentario, ...comentarios]);
+        setRespuestaTexto("");
+        setRespondingTo(null);
 
-        setComentarios(prevComentarios => 
-          prevComentarios.map(c => 
-            c.id === respondingTo.id
-              ? { ...c, respuestas: [...(c.respuestas || []), newRespuesta] }
-              : c
-          )
-        );
+        // Si el usuario que responde no es el dueño del comentario
+        if (currentUserId !== commentData.usuario_id) {
+          // Enviar notificación push si el usuario tiene token
+          if (commentOwnerData?.push_token) {
+            await sendPushNotification(
+              commentOwnerData.push_token,
+              '¡Nueva Respuesta!',
+              `${userData.username} ha respondido a tu comentario en "${cancion.titulo}"`
+            );
+          }
 
-        // Agregar notificación para la respuesta al comentario
-        const comentarioOriginal = comentarios.find(c => c.id === respondingTo.id);
-        if (comentarioOriginal && comentarioOriginal.usuario_id !== currentUserId) {
+          // Crear notificación en la base de datos
           const { error: notificationError } = await supabase
             .from('notificacion')
             .insert({
-              usuario_id: comentarioOriginal.usuario_id,
+              usuario_id: commentData.usuario_id,
               tipo_notificacion: 'respuesta_comentario',
               leido: false,
               usuario_origen_id: currentUserId,
-              contenido_id: cancion.id,
+              contenido_id: data.id,
               mensaje: `Ha respondido a tu comentario en "${cancion.titulo}": "${respuestaTexto.slice(0, 50)}${respuestaTexto.length > 50 ? '...' : ''}"`
             });
 
@@ -909,13 +1018,13 @@ const handleLike = async () => {
             console.error('Error al crear notificación de respuesta:', notificationError);
           }
         }
-
-        setRespuestaTexto('');
-        setRespondingTo(null);
       }
     } catch (error) {
-      console.error("Error al enviar la respuesta:", error);
-      Alert.alert("Error", "No se pudo enviar la respuesta. Por favor, intenta de nuevo.");
+      console.error("Error al responder al comentario:", error);
+      Alert.alert(
+        "Error",
+        "No se pudo enviar la respuesta. Por favor, intenta de nuevo."
+      );
     }
   };
 
@@ -1007,7 +1116,7 @@ const handleLike = async () => {
             placeholderTextColor="#858585"
           />
           <TouchableOpacity
-            onPress={handleEnviarRespuesta}
+            onPress={handleResponderComentario}
             className="bg-primary-500 rounded-full py-2 items-center"
           >
             <Text className="text-white font-JakartaBold">Enviar respuesta</Text>
