@@ -474,39 +474,51 @@ const handleLike = async () => {
   };
 //función que manej likes de comentarios de las canciones publicadas
   const handleCommentLike = async (comentarioId: number) => {
-    const likes = comentarioLikes[comentarioId] || [];
-    const isLiked = likes.some((like) => like.usuario_id === currentUserId);
+    const comentario = comentarios.find((c) => c.id === comentarioId);
+    if (!comentario) return;
 
-    if (isLiked) {
-      await supabase
-        .from("likes_comentario_cancion")
-        .delete()
-        .eq("comentario_id", comentarioId)
-        .eq("usuario_id", currentUserId);
+    const newIsLiked = !comentario.isLiked;
+    const likeDelta = newIsLiked ? 1 : -1;
 
-      setComentarioLikes((prev) => ({
-        ...prev,
-        [comentarioId]: prev[comentarioId].filter(
-          (like) => like.usuario_id !== currentUserId
-        ),
-      }));
-    } else {
-      const { data } = await supabase
-        .from("likes_comentario_cancion")
-        .insert({ comentario_id: comentarioId, usuario_id: currentUserId })
-        .select()
-        .single();
+    try {
+      if (newIsLiked) {
+        // Obtener el username del usuario que da like
+        const { data: userData, error: userError } = await supabase
+          .from('perfil')
+          .select('username')
+          .eq('usuario_id', currentUserId)
+          .single();
 
-      if (data) {
-        setComentarioLikes((prev) => ({
-          ...prev,
-          [comentarioId]: [...(prev[comentarioId] || []), data],
-        }));
+        if (userError) throw userError;
 
-        // Obtener el usuario_id del comentario
-        const comentario = comentarios.find(c => c.id === comentarioId);
-        if (comentario && comentario.usuario_id !== currentUserId) {
-          // Crear notificación de like en comentario solo si el usuario que da like no es el creador del comentario
+        // Obtener el token de push del dueño del comentario
+        const { data: commentOwnerData, error: ownerError } = await supabase
+          .from('perfil')
+          .select('push_token')
+          .eq('usuario_id', comentario.usuario_id)
+          .single();
+
+        if (ownerError) throw ownerError;
+
+        await supabase
+          .from("likes_comentario_cancion")
+          .insert({ 
+            comentario_id: comentarioId,
+            usuario_id: currentUserId 
+          });
+
+        // Si el usuario que da like no es el dueño del comentario
+        if (currentUserId !== comentario.usuario_id) {
+          // Enviar notificación push si el usuario tiene token
+          if (commentOwnerData?.push_token) {
+            await sendPushNotification(
+              commentOwnerData.push_token,
+              '¡Nuevo Like en tu comentario!',
+              `A ${userData.username} le gustó tu comentario en "${cancion.titulo}"`
+            );
+          }
+
+          // Crear notificación en la base de datos
           const { error: notificationError } = await supabase
             .from('notificacion')
             .insert({
@@ -522,16 +534,28 @@ const handleLike = async () => {
             console.error('Error al crear notificación de like en comentario:', notificationError);
           }
         }
+      } else {
+        await supabase
+          .from("likes_comentario_cancion")
+          .delete()
+          .eq("comentario_id", comentarioId)
+          .eq("usuario_id", currentUserId);
       }
-    }
 
-    setComentarios((prev) =>
-      prev.map((comentario) =>
-        comentario.id === comentarioId
-          ? { ...comentario, isLiked: !isLiked }
-          : comentario
-      )
-    );
+      setComentarios((prev) =>
+        prev.map((c) =>
+          c.id === comentarioId
+            ? {
+                ...c,
+                isLiked: newIsLiked,
+                likes_count: (c.likes_count || 0) + likeDelta,
+              }
+            : c
+        )
+      );
+    } catch (error) {
+      console.error("Error al dar/quitar like al comentario:", error);
+    }
   };
 
   const formatCommentDate = (dateString: string) => {
