@@ -256,89 +256,12 @@ const Card: React.FC<CardProps> = ({
 
           {/* Botón Ver Perfil - Corregido */}
           <TouchableOpacity
-            onPress={() => setModalVisible(true)}
+            onPress={() => router.push(`/public-profile/${card.usuario_id}`)}
             className="bg-primary-500 px-2 py-1 rounded-full w-26 mx-auto
               items-center justify-center text-center flex-row mb-2"
           >
             <Text className="text-white font-bold">Ver Perfil</Text>
           </TouchableOpacity>
-
-          {/* Modal de Perfil */}
-          <Modal
-            animationType="slide"
-            transparent={true}
-            visible={modalVisible}
-            onRequestClose={() => setModalVisible(false)}
-          >
-            <View className="flex-1 justify-center items-center bg-black bg-opacity-50">
-              <View className="bg-white rounded-xl p-5 w-[90%] max-h-[90%]">
-                <TouchableOpacity
-                  className="absolute right-2 top-2 z-10"
-                  onPress={() => setModalVisible(false)}
-                >
-                  <FontAwesome name="close" size={24} color="black" />
-                </TouchableOpacity>
-                <ScrollView>
-                  <Image
-                    source={
-                      card.foto_perfil 
-                        ? { uri: `${supabaseUrl}/storage/v1/object/public/fotoperfil/${card.foto_perfil}` }
-                        : icons.person
-                    }
-                    className="w-32 h-32 rounded-full self-center mb-4"
-                  />
-                  <Text className="text-2xl font-bold text-center mb-2">
-                    {card.username}
-                  </Text>
-                  <Text className="text-center mb-2">
-                    {card.edad} años • {card.ubicacion}
-                  </Text>
-                  <Text className="text-center mb-4">{card.biografia}</Text>
-                  
-                  <Text className="font-bold mb-2">Habilidades:</Text>
-                  <View className="flex-row flex-wrap mb-4">
-                    {card.perfil_habilidad.map((h, index) => (
-                      <View key={index} className="bg-secondary-100 rounded-full px-3 py-1 m-1">
-                        <Text className="text-xs text-secondary-700">{h.habilidad}</Text>
-                      </View>
-                    ))}
-                  </View>
-
-                  <Text className="font-bold mb-2">Géneros favoritos:</Text>
-                  <View className="flex-row flex-wrap mb-4">
-                    {card.perfil_genero.map((g, index) => (
-                      <View key={index} className="bg-primary-100 rounded-full px-3 py-1 m-1">
-                        <Text className="text-xs text-primary-700">{g.genero}</Text>
-                      </View>
-                    ))}
-                  </View>
-
-                  <Text className="font-bold mb-2">Redes Sociales:</Text>
-                  <View className="flex-row flex-wrap justify-center mb-4">
-                    {card.red_social && card.red_social.length > 0 ? (
-                      card.red_social.map((red, index) => (
-                        <TouchableOpacity
-                          key={index}
-                          onPress={() => handleRedSocialPress(red.url)}
-                          className="m-2"
-                        >
-                          <FontAwesome
-                            name={getRedSocialIcon(red.nombre)}
-                            size={30}
-                            color="#4B5563"
-                          />
-                        </TouchableOpacity>
-                      ))
-                    ) : (
-                      <Text className="text-gray-500">
-                        No hay redes sociales agregadas
-                      </Text>
-                    )}
-                  </View>
-                </ScrollView>
-              </View>
-            </View>
-          </Modal>
 
             <View className="flex-row items-center justify-center mb-3">
               <View>
@@ -715,10 +638,10 @@ const Match = () => {
 
         if (userError) throw userError;
 
-        // Obtener el token de push del usuario que recibe el like
+        // Obtener el token de push y username del usuario que recibe el like
         const { data: likedUserData, error: likedUserError } = await supabase
           .from('perfil')
-          .select('push_token')
+          .select('username, push_token')
           .eq('usuario_id', likedUserId)
           .single();
 
@@ -726,7 +649,7 @@ const Match = () => {
 
         const isMatch = await saveConnection(currentUserId, likedUserId);
 
-        // Enviar notificación push si el usuario tiene token
+        // Enviar notificación push de like si el usuario tiene token
         if (likedUserData?.push_token) {
           await sendPushNotification(
             likedUserData.push_token,
@@ -742,7 +665,7 @@ const Match = () => {
           return newCards;
         });
 
-        // Crear notificación
+        // Crear notificación de like
         const { error: notificationError } = await supabase
           .from('notificacion')
           .insert({
@@ -759,6 +682,31 @@ const Match = () => {
 
         if (isMatch) {
           showMatchAlert(likedUserId);
+
+          // Enviar notificación push de match a ambos usuarios
+          if (likedUserData?.push_token) {
+            await sendPushNotification(
+              likedUserData.push_token,
+              '¡Nuevo Match!',
+              `¡Has hecho match con ${userData.username}!`
+            );
+          }
+
+          // Obtener el push token del usuario actual para notificarle también
+          const { data: currentUserData } = await supabase
+            .from('perfil')
+            .select('push_token')
+            .eq('usuario_id', currentUserId)
+            .single();
+
+          if (currentUserData?.push_token) {
+            await sendPushNotification(
+              currentUserData.push_token,
+              '¡Nuevo Match!',
+              `¡Has hecho match con ${likedUserData.username}!`
+            );
+          }
+
           // Crear notificaciones de match
           const { error: matchNotificationError } = await supabase
             .from('notificacion')
@@ -790,17 +738,74 @@ const Match = () => {
     }
   };
 
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderMove: (_, gesture) => {
+        position.setValue({ x: gesture.dx, y: gesture.dy });
+      },
+      onPanResponderRelease: (_, gesture) => {
+        if (gesture.dx > SWIPE_THRESHOLD) {
+          Animated.spring(position, {
+            toValue: { x: SWIPE_THRESHOLD * 2, y: gesture.dy },
+            useNativeDriver: true,
+          }).start(() => {
+            const currentCard = cards[0];
+            if (currentCard) {
+              handleLike(currentCard.usuario_id);
+            }
+          });
+        } else if (gesture.dx < -SWIPE_THRESHOLD) {
+          Animated.spring(position, {
+            toValue: { x: -SWIPE_THRESHOLD * 2, y: gesture.dy },
+            useNativeDriver: true,
+          }).start(() => {
+            handleSwipe("left");
+          });
+        } else {
+          Animated.spring(position, {
+            toValue: { x: 0, y: 0 },
+            friction: 4,
+            useNativeDriver: true,
+          }).start();
+        }
+      },
+    })
+  ).current;
+
   const renderCards = () => {
     return cards
-      .map((card, index) => (
-        <Card
-          key={card.usuario_id}
-          card={card}
-          isFirst={index === 0}
-          onSwipe={handleSwipe}
-          onLike={handleLike}
-        />
-      ))
+      .map((card, index) => {
+        if (index === 0) {
+          return (
+            <Card
+              key={card.usuario_id}
+              card={card}
+              isFirst={true}
+              onSwipe={handleSwipe}
+              onLike={handleLike}
+              panHandlers={panResponder.panHandlers}
+              style={{
+                transform: [
+                  { translateX: position.x },
+                  { translateY: position.y },
+                  { rotate: rotate },
+                ],
+              }}
+            />
+          );
+        }
+        return (
+          <Card
+            key={card.usuario_id}
+            card={card}
+            isFirst={false}
+            onSwipe={handleSwipe}
+            onLike={handleLike}
+          />
+        );
+      })
       .reverse();
   };
 
