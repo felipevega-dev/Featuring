@@ -23,6 +23,7 @@ import * as Location from "expo-location";
 import { useLocalSearchParams } from 'expo-router';
 import Constants from "expo-constants";
 import { sendPushNotification } from '@/utils/pushNotifications';
+import { RealtimeChannel } from 'supabase-js';
 
 const SWIPE_THRESHOLD = 120;
 
@@ -57,9 +58,11 @@ const Card: React.FC<CardProps> = ({
   ...rest
 }) => {
   const [imageError, setImageError] = useState(false);
+  const [modalVisible, setModalVisible] = useState(false);
   const router = useRouter();
   const position = useRef(new Animated.ValueXY()).current;
   const [swipeDirection, setSwipeDirection] = useState<'none' | 'left' | 'right'>('none');
+  const supabaseUrl = Constants.expoConfig?.extra?.supabaseUrl;
 
   const likeOpacity = position.x.interpolate({
     inputRange: [0, SWIPE_THRESHOLD],
@@ -135,17 +138,10 @@ const Card: React.FC<CardProps> = ({
     },
   });
 
-  // Actualizar la URL del bucket de Supabase
-  const supabaseUrl = Constants.expoConfig?.extra?.supabaseUrl;
-  const getProfileImageUrl = (fotoPerfilPath: string | null) => {
-    if (!fotoPerfilPath) {
-      return null;
-    }
-    return `${supabaseUrl}/storage/v1/object/public/fotoperfil/${fotoPerfilPath}`;
-  };
-
-  // Usar la nueva función para obtener la URL
-  const profileImageUrl = card.foto_perfil ? getProfileImageUrl(card.foto_perfil) : null;
+  // Usar la variable supabaseUrl que ya está declarada en el componente padre
+  const profileImageUrl = card.foto_perfil 
+    ? `${supabaseUrl}/storage/v1/object/public/fotoperfil/${card.foto_perfil}`
+    : null;
 
   const renderHabilidades = (habilidades: { habilidad: string }[]) => {
     return habilidades.slice(0, 3).map((h, index) => (
@@ -258,16 +254,92 @@ const Card: React.FC<CardProps> = ({
           {/* Información del usuario y habilidades */}
           <View className="absolute bottom-0 w-full p-4 bg-black/50 rounded-b-xl">
 
-          {/* Botón Ver Perfil */}
+          {/* Botón Ver Perfil - Corregido */}
           <TouchableOpacity
-              onPress={() => router.push(
-                `/public-profile/${card.usuario_id}`
-              )}
-              className="bg-primary-500 px-2 py-1 rounded-full w-26 mx-auto
-                items-center justify-center text-center flex-row mb-2"
-            >
-              <Text className="text-white font-bold">Ver Perfil</Text>
-            </TouchableOpacity>
+            onPress={() => setModalVisible(true)}
+            className="bg-primary-500 px-2 py-1 rounded-full w-26 mx-auto
+              items-center justify-center text-center flex-row mb-2"
+          >
+            <Text className="text-white font-bold">Ver Perfil</Text>
+          </TouchableOpacity>
+
+          {/* Modal de Perfil */}
+          <Modal
+            animationType="slide"
+            transparent={true}
+            visible={modalVisible}
+            onRequestClose={() => setModalVisible(false)}
+          >
+            <View className="flex-1 justify-center items-center bg-black bg-opacity-50">
+              <View className="bg-white rounded-xl p-5 w-[90%] max-h-[90%]">
+                <TouchableOpacity
+                  className="absolute right-2 top-2 z-10"
+                  onPress={() => setModalVisible(false)}
+                >
+                  <FontAwesome name="close" size={24} color="black" />
+                </TouchableOpacity>
+                <ScrollView>
+                  <Image
+                    source={
+                      card.foto_perfil 
+                        ? { uri: `${supabaseUrl}/storage/v1/object/public/fotoperfil/${card.foto_perfil}` }
+                        : icons.person
+                    }
+                    className="w-32 h-32 rounded-full self-center mb-4"
+                  />
+                  <Text className="text-2xl font-bold text-center mb-2">
+                    {card.username}
+                  </Text>
+                  <Text className="text-center mb-2">
+                    {card.edad} años • {card.ubicacion}
+                  </Text>
+                  <Text className="text-center mb-4">{card.biografia}</Text>
+                  
+                  <Text className="font-bold mb-2">Habilidades:</Text>
+                  <View className="flex-row flex-wrap mb-4">
+                    {card.perfil_habilidad.map((h, index) => (
+                      <View key={index} className="bg-secondary-100 rounded-full px-3 py-1 m-1">
+                        <Text className="text-xs text-secondary-700">{h.habilidad}</Text>
+                      </View>
+                    ))}
+                  </View>
+
+                  <Text className="font-bold mb-2">Géneros favoritos:</Text>
+                  <View className="flex-row flex-wrap mb-4">
+                    {card.perfil_genero.map((g, index) => (
+                      <View key={index} className="bg-primary-100 rounded-full px-3 py-1 m-1">
+                        <Text className="text-xs text-primary-700">{g.genero}</Text>
+                      </View>
+                    ))}
+                  </View>
+
+                  <Text className="font-bold mb-2">Redes Sociales:</Text>
+                  <View className="flex-row flex-wrap justify-center mb-4">
+                    {card.red_social && card.red_social.length > 0 ? (
+                      card.red_social.map((red, index) => (
+                        <TouchableOpacity
+                          key={index}
+                          onPress={() => handleRedSocialPress(red.url)}
+                          className="m-2"
+                        >
+                          <FontAwesome
+                            name={getRedSocialIcon(red.nombre)}
+                            size={30}
+                            color="#4B5563"
+                          />
+                        </TouchableOpacity>
+                      ))
+                    ) : (
+                      <Text className="text-gray-500">
+                        No hay redes sociales agregadas
+                      </Text>
+                    )}
+                  </View>
+                </ScrollView>
+              </View>
+            </View>
+          </Modal>
+
             <View className="flex-row items-center justify-center mb-3">
               <View>
                       <Text className="text-white text-2xl font-bold text-center">{card.username}</Text>
@@ -332,6 +404,7 @@ const Match = () => {
   const [shownCards, setShownCards] = useState<Set<string>>(new Set());
   const [userLocation, setUserLocation] =
     useState<Location.LocationObject | null>(null);
+  const [subscription, setSubscription] = useState<RealtimeChannel | null>(null);
 
   useEffect(() => {
     getCurrentUser();
@@ -343,6 +416,38 @@ const Match = () => {
       fetchUsers();
     }
   }, [currentUserId, userLocation, update]);
+
+  useEffect(() => {
+    if (currentUserId) {
+      // Suscribirse a cambios en la tabla conexion
+      const channel = supabase
+        .channel(`conexion-changes-${currentUserId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'conexion',
+            filter: `or(usuario1_id.eq.${currentUserId},usuario2_id.eq.${currentUserId})`
+          },
+          (payload) => {
+            console.log('Cambio en conexiones:', payload);
+            // Actualizar la lista de usuarios cuando hay cambios
+            fetchUsers();
+          }
+        )
+        .subscribe();
+
+      setSubscription(channel);
+
+      // Limpieza al desmontar
+      return () => {
+        if (channel) {
+          channel.unsubscribe();
+        }
+      };
+    }
+  }, [currentUserId]);
 
   const getCurrentUser = async () => {
     try {
@@ -630,7 +735,14 @@ const Match = () => {
           );
         }
 
-        // Crear notificación de like en la base de datos
+        // Actualizar inmediatamente el estado local
+        setCards((prevCards) => {
+          const newCards = prevCards.filter(card => card.usuario_id !== likedUserId);
+          setShownCards((prev) => new Set(prev).add(likedUserId));
+          return newCards;
+        });
+
+        // Crear notificación
         const { error: notificationError } = await supabase
           .from('notificacion')
           .insert({
@@ -645,23 +757,9 @@ const Match = () => {
           console.error('Error al crear notificación de like:', notificationError);
         }
 
-        setCards((prevCards) => {
-          setShownCards((prev) => new Set(prev).add(likedUserId));
-          return prevCards.slice(1);
-        });
-
         if (isMatch) {
           showMatchAlert(likedUserId);
-          // Obtener el username del usuario que recibe el match
-          const { data: matchedUserData, error: matchedUserError } = await supabase
-            .from('perfil')
-            .select('username')
-            .eq('usuario_id', likedUserId)
-            .single();
-
-          if (matchedUserError) throw matchedUserError;
-
-          // Crear notificaciones de match para ambos usuarios
+          // Crear notificaciones de match
           const { error: matchNotificationError } = await supabase
             .from('notificacion')
             .insert([
@@ -676,7 +774,7 @@ const Match = () => {
                 usuario_id: currentUserId,
                 tipo_notificacion: 'match',
                 usuario_origen_id: likedUserId,
-                mensaje: `¡Has hecho match con ${matchedUserData.username}!`,
+                mensaje: `¡Has hecho match con ${likedUserData.username}!`,
                 leido: false
               }
             ]);
@@ -686,7 +784,6 @@ const Match = () => {
           }
         }
 
-        position.setValue({ x: 0, y: 0 });
       } catch (error) {
         console.error('Error en handleLike:', error);
       }

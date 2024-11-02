@@ -20,6 +20,7 @@ import RatingsList from '@/components/RatingsList';
 import ProfileSongCard from "@/components/ProfileSongCard";
 import ProfileVideoCard from "@/components/ProfileVideoCard";
 import Constants from "expo-constants";
+import { RealtimeChannel } from "supabase-js";
 
 interface Perfil {
   usuario_id: string;
@@ -94,6 +95,7 @@ export default function PublicProfile() {
   const [isFollowing, setIsFollowing] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [seguidoresCount, setSeguidoresCount] = useState(0);
+  const [subscription, setSubscription] = useState<RealtimeChannel | null>(null);
 
   useEffect(() => {
     fetchPerfil();
@@ -114,6 +116,37 @@ export default function PublicProfile() {
   useEffect(() => {
     if (id) {
       fetchSeguidores();
+    }
+  }, [id]);
+
+  useEffect(() => {
+    if (id) {
+      // Suscribirse a cambios en la tabla seguidor
+      const channel = supabase
+        .channel(`seguidor-changes-${id}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'seguidor',
+            filter: `usuario_id.eq.${id}`
+          },
+          () => {
+            // Actualizar el contador cuando haya cambios
+            fetchSeguidores();
+          }
+        )
+        .subscribe();
+
+      setSubscription(channel);
+
+      // Limpieza al desmontar
+      return () => {
+        if (channel) {
+          channel.unsubscribe();
+        }
+      };
     }
   }, [id]);
 
@@ -335,7 +368,10 @@ export default function PublicProfile() {
           .eq('seguidor_id', currentUserId);
 
         if (error) throw error;
+        
         setIsFollowing(false);
+        // Actualizar el contador inmediatamente
+        setSeguidoresCount(prev => prev - 1);
       } else {
         // Seguir
         const { error } = await supabase
@@ -346,7 +382,10 @@ export default function PublicProfile() {
           });
 
         if (error) throw error;
+        
         setIsFollowing(true);
+        // Actualizar el contador inmediatamente
+        setSeguidoresCount(prev => prev + 1);
       }
     } catch (error) {
       console.error('Error al cambiar estado de seguimiento:', error);
