@@ -6,7 +6,6 @@ import {
   Switch, 
   TouchableOpacity, 
   Alert,
-  Platform,
   ActivityIndicator
 } from "react-native";
 import { supabase } from "@/lib/supabase";
@@ -14,6 +13,7 @@ import { Ionicons } from "@expo/vector-icons";
 import Slider from '@react-native-community/slider';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { habilidadesMusicales, generosMusicales } from "@/constants/musicData";
+import { hispanicCountryCodes } from "@/utils/countryCodes";
 
 
 interface PreferenciasUsuario {
@@ -53,6 +53,9 @@ interface OpcionSexo {
   label: string;
 }
 
+// Obtener las nacionalidades del objeto hispanicCountryCodes
+const nacionalidadesDisponibles: string[] = Object.keys(hispanicCountryCodes);
+
 export default function Preferencias() {
   const [preferencias, setPreferencias] = useState<PreferenciasUsuario | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -62,7 +65,8 @@ export default function Preferencias() {
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [expandedSections, setExpandedSections] = useState({
     generos: false,
-    habilidades: false
+    habilidades: false,
+    nacionalidades: false
   });
 
   const opciones: OpcionSexo[] = [
@@ -82,7 +86,7 @@ export default function Preferencias() {
     }
   }, [generosMusicales, habilidadesMusicales]);
 
-  const toggleSection = (section: 'generos' | 'habilidades') => {
+  const toggleSection = (section: 'generos' | 'habilidades' | 'nacionalidades') => {
     setExpandedSections(prev => ({
       ...prev,
       [section]: !prev[section]
@@ -364,46 +368,6 @@ export default function Preferencias() {
               )}
             </View>
 
-            {/* Filtrar por Nacionalidad */}
-            <View className="space-y-2">
-              <View className="flex-row justify-between items-start space-x-4">
-                <View className="flex-1 flex-shrink">
-                  <Text className="text-base font-medium break-words">
-                    Filtrar por Nacionalidad
-                  </Text>
-                  <Text className="text-sm text-gray-500 break-words">
-                    Mostrar solo perfiles de ciertas nacionalidades
-                  </Text>
-                </View>
-                <Switch
-                  value={preferencias?.match_filtrar_nacionalidad}
-                  onValueChange={(value) => 
-                    actualizarPreferencia("match_filtrar_nacionalidad", value)
-                  }
-                />
-              </View>
-
-              {preferencias?.match_filtrar_nacionalidad && (
-                <View className="mt-4 bg-gray-50 rounded-lg p-4">
-                  <View className="flex-row flex-wrap gap-2">
-                    {preferencias.match_nacionalidades.map((nacionalidad, index) => (
-                      <View 
-                        key={index} 
-                        className="bg-white border border-primary-200 rounded-full px-4 py-2"
-                      >
-                        <Text className="text-primary-600 font-medium">{nacionalidad}</Text>
-                      </View>
-                    ))}
-                    {preferencias.match_nacionalidades.length === 0 && (
-                      <Text className="text-gray-500 text-sm">
-                        No hay nacionalidades seleccionadas
-                      </Text>
-                    )}
-                  </View>
-                </View>
-              )}
-            </View>
-
             {/* Filtrar por Distancia */}
             <View className="space-y-2">
               <View className="flex-row justify-between items-start space-x-4">
@@ -451,6 +415,67 @@ export default function Preferencias() {
               )}
             </View>
 
+            {/* Filtrar por Nacionalidad */}
+            <View className="space-y-2">
+              <TouchableOpacity 
+                onPress={() => toggleSection('nacionalidades')}
+                className="flex-row justify-between items-center bg-white p-4 rounded-lg"
+              >
+                <View>
+                  <Text className="text-base font-medium">Filtrar por Nacionalidad</Text>
+                  <Text className="text-sm text-gray-500">
+                    {preferencias?.match_nacionalidades?.length || 0} nacionalidades seleccionadas
+                  </Text>
+                </View>
+                <Switch
+                  value={preferencias?.match_filtrar_nacionalidad}
+                  onValueChange={(value) => 
+                    actualizarPreferencia("match_filtrar_nacionalidad", value)
+                  }
+                />
+              </TouchableOpacity>
+
+              {preferencias?.match_filtrar_nacionalidad && (
+                <View className="mt-4 bg-gray-50 rounded-lg p-4">
+                  <View className="flex-row flex-wrap gap-2">
+                    {nacionalidadesDisponibles.map((nacionalidad: string) => (
+                      <TouchableOpacity
+                        key={nacionalidad}
+                        onPress={() => {
+                          const currentNacionalidades = preferencias?.match_nacionalidades || [];
+                          let newNacionalidades: string[];
+                          if (currentNacionalidades.includes(nacionalidad)) {
+                            newNacionalidades = currentNacionalidades.filter(n => n !== nacionalidad);
+                          } else {
+                            newNacionalidades = [...currentNacionalidades, nacionalidad];
+                          }
+                          actualizarPreferencia('match_nacionalidades', newNacionalidades);
+                        }}
+                        className={`px-3 py-2 rounded-full ${
+                          preferencias?.match_nacionalidades?.includes(nacionalidad)
+                            ? 'bg-primary-500'
+                            : 'bg-white border border-gray-200'
+                        }`}
+                      >
+                        <Text className={`${
+                          preferencias?.match_nacionalidades?.includes(nacionalidad)
+                            ? 'text-white'
+                            : 'text-gray-600'
+                        } text-sm`}>
+                          {nacionalidad}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                  {preferencias?.match_nacionalidades?.length === 0 && (
+                    <Text className="text-gray-500 text-sm text-center mt-2">
+                      Selecciona las nacionalidades que prefieres
+                    </Text>
+                  )}
+                </View>
+              )}
+            </View>
+            
             {/* Géneros Musicales */}
             <View className="space-y-2">
               <TouchableOpacity 
