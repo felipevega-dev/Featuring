@@ -33,6 +33,14 @@
         {
           "origin": "https://uber.com/"
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/FeatLogo.png",
+          "color": "#ffffff",
+          "sounds": ["./assets/notification-sound.wav"]
+        }
       ]
     ],
     "experiments": {
@@ -40,7 +48,7 @@
     },
     "extra": {
       "eas": {
-        "projectId": "3c032550-ab89-4b62-aadf-92576aa5ee1d"
+        "projectId": "503d5abc-4d4d-47ef-81bd-0ccbd546d35a"
       }
     }
   }

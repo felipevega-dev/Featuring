@@ -22,6 +22,8 @@ import { useRouter } from "expo-router";
 import * as Location from "expo-location";
 import { useLocalSearchParams } from 'expo-router';
 import Constants from "expo-constants";
+import { sendPushNotification } from '@/utils/pushNotifications';
+import { RealtimeChannel } from 'supabase-js';
 
 const SWIPE_THRESHOLD = 120;
 
@@ -56,9 +58,11 @@ const Card: React.FC<CardProps> = ({
   ...rest
 }) => {
   const [imageError, setImageError] = useState(false);
+  const [modalVisible, setModalVisible] = useState(false);
   const router = useRouter();
   const position = useRef(new Animated.ValueXY()).current;
   const [swipeDirection, setSwipeDirection] = useState<'none' | 'left' | 'right'>('none');
+  const supabaseUrl = Constants.expoConfig?.extra?.supabaseUrl;
 
   const likeOpacity = position.x.interpolate({
     inputRange: [0, SWIPE_THRESHOLD],
@@ -134,17 +138,10 @@ const Card: React.FC<CardProps> = ({
     },
   });
 
-  // Actualizar la URL del bucket de Supabase
-  const supabaseUrl = Constants.expoConfig?.extra?.supabaseUrl;
-  const getProfileImageUrl = (fotoPerfilPath: string | null) => {
-    if (!fotoPerfilPath) {
-      return null;
-    }
-    return `${supabaseUrl}/storage/v1/object/public/fotoperfil/${fotoPerfilPath}`;
-  };
-
-  // Usar la nueva función para obtener la URL
-  const profileImageUrl = card.foto_perfil ? getProfileImageUrl(card.foto_perfil) : null;
+  // Usar la variable supabaseUrl que ya está declarada en el componente padre
+  const profileImageUrl = card.foto_perfil 
+    ? `${supabaseUrl}/storage/v1/object/public/fotoperfil/${card.foto_perfil}`
+    : null;
 
   const renderHabilidades = (habilidades: { habilidad: string }[]) => {
     return habilidades.slice(0, 3).map((h, index) => (
@@ -257,16 +254,15 @@ const Card: React.FC<CardProps> = ({
           {/* Información del usuario y habilidades */}
           <View className="absolute bottom-0 w-full p-4 bg-black/50 rounded-b-xl">
 
-          {/* Botón Ver Perfil */}
+          {/* Botón Ver Perfil - Corregido */}
           <TouchableOpacity
-              onPress={() => router.push(
-                `/public-profile/${card.usuario_id}`
-              )}
-              className="bg-primary-500 px-2 py-1 rounded-full w-26 mx-auto
-                items-center justify-center text-center flex-row mb-2"
-            >
-              <Text className="text-white font-bold">Ver Perfil</Text>
-            </TouchableOpacity>
+            onPress={() => router.push(`/public-profile/${card.usuario_id}`)}
+            className="bg-primary-500 px-2 py-1 rounded-full w-26 mx-auto
+              items-center justify-center text-center flex-row mb-2"
+          >
+            <Text className="text-white font-bold">Ver Perfil</Text>
+          </TouchableOpacity>
+
             <View className="flex-row items-center justify-center mb-3">
               <View>
                       <Text className="text-white text-2xl font-bold text-center">{card.username}</Text>
@@ -331,6 +327,7 @@ const Match = () => {
   const [shownCards, setShownCards] = useState<Set<string>>(new Set());
   const [userLocation, setUserLocation] =
     useState<Location.LocationObject | null>(null);
+  const [subscription, setSubscription] = useState<RealtimeChannel | null>(null);
 
   useEffect(() => {
     getCurrentUser();
@@ -342,6 +339,38 @@ const Match = () => {
       fetchUsers();
     }
   }, [currentUserId, userLocation, update]);
+
+  useEffect(() => {
+    if (currentUserId) {
+      // Suscribirse a cambios en la tabla conexion
+      const channel = supabase
+        .channel(`conexion-changes-${currentUserId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'conexion',
+            filter: `or(usuario1_id.eq.${currentUserId},usuario2_id.eq.${currentUserId})`
+          },
+          (payload) => {
+            console.log('Cambio en conexiones:', payload);
+            // Actualizar la lista de usuarios cuando hay cambios
+            fetchUsers();
+          }
+        )
+        .subscribe();
+
+      setSubscription(channel);
+
+      // Limpieza al desmontar
+      return () => {
+        if (channel) {
+          channel.unsubscribe();
+        }
+      };
+    }
+  }, [currentUserId]);
 
   const getCurrentUser = async () => {
     try {
@@ -609,7 +638,32 @@ const Match = () => {
 
         if (userError) throw userError;
 
+        // Obtener el token de push y username del usuario que recibe el like
+        const { data: likedUserData, error: likedUserError } = await supabase
+          .from('perfil')
+          .select('username, push_token')
+          .eq('usuario_id', likedUserId)
+          .single();
+
+        if (likedUserError) throw likedUserError;
+
         const isMatch = await saveConnection(currentUserId, likedUserId);
+
+        // Enviar notificación push de like si el usuario tiene token
+        if (likedUserData?.push_token) {
+          await sendPushNotification(
+            likedUserData.push_token,
+            '¡Nuevo Like!',
+            `${userData.username} te ha dado like`
+          );
+        }
+
+        // Actualizar inmediatamente el estado local
+        setCards((prevCards) => {
+          const newCards = prevCards.filter(card => card.usuario_id !== likedUserId);
+          setShownCards((prev) => new Set(prev).add(likedUserId));
+          return newCards;
+        });
 
         // Crear notificación de like
         const { error: notificationError } = await supabase
@@ -626,23 +680,34 @@ const Match = () => {
           console.error('Error al crear notificación de like:', notificationError);
         }
 
-        setCards((prevCards) => {
-          setShownCards((prev) => new Set(prev).add(likedUserId));
-          return prevCards.slice(1);
-        });
-
         if (isMatch) {
           showMatchAlert(likedUserId);
-          // Obtener el username del usuario que recibe el match
-          const { data: matchedUserData, error: matchedUserError } = await supabase
+
+          // Enviar notificación push de match a ambos usuarios
+          if (likedUserData?.push_token) {
+            await sendPushNotification(
+              likedUserData.push_token,
+              '¡Nuevo Match!',
+              `¡Has hecho match con ${userData.username}!`
+            );
+          }
+
+          // Obtener el push token del usuario actual para notificarle también
+          const { data: currentUserData } = await supabase
             .from('perfil')
-            .select('username')
-            .eq('usuario_id', likedUserId)
+            .select('push_token')
+            .eq('usuario_id', currentUserId)
             .single();
 
-          if (matchedUserError) throw matchedUserError;
+          if (currentUserData?.push_token) {
+            await sendPushNotification(
+              currentUserData.push_token,
+              '¡Nuevo Match!',
+              `¡Has hecho match con ${likedUserData.username}!`
+            );
+          }
 
-          // Crear notificaciones de match para ambos usuarios
+          // Crear notificaciones de match
           const { error: matchNotificationError } = await supabase
             .from('notificacion')
             .insert([
@@ -657,7 +722,7 @@ const Match = () => {
                 usuario_id: currentUserId,
                 tipo_notificacion: 'match',
                 usuario_origen_id: likedUserId,
-                mensaje: `¡Has hecho match con ${matchedUserData.username}!`,
+                mensaje: `¡Has hecho match con ${likedUserData.username}!`,
                 leido: false
               }
             ]);
@@ -667,24 +732,80 @@ const Match = () => {
           }
         }
 
-        position.setValue({ x: 0, y: 0 });
       } catch (error) {
         console.error('Error en handleLike:', error);
       }
     }
   };
 
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderMove: (_, gesture) => {
+        position.setValue({ x: gesture.dx, y: gesture.dy });
+      },
+      onPanResponderRelease: (_, gesture) => {
+        if (gesture.dx > SWIPE_THRESHOLD) {
+          Animated.spring(position, {
+            toValue: { x: SWIPE_THRESHOLD * 2, y: gesture.dy },
+            useNativeDriver: true,
+          }).start(() => {
+            const currentCard = cards[0];
+            if (currentCard) {
+              handleLike(currentCard.usuario_id);
+            }
+          });
+        } else if (gesture.dx < -SWIPE_THRESHOLD) {
+          Animated.spring(position, {
+            toValue: { x: -SWIPE_THRESHOLD * 2, y: gesture.dy },
+            useNativeDriver: true,
+          }).start(() => {
+            handleSwipe("left");
+          });
+        } else {
+          Animated.spring(position, {
+            toValue: { x: 0, y: 0 },
+            friction: 4,
+            useNativeDriver: true,
+          }).start();
+        }
+      },
+    })
+  ).current;
+
   const renderCards = () => {
     return cards
-      .map((card, index) => (
-        <Card
-          key={card.usuario_id}
-          card={card}
-          isFirst={index === 0}
-          onSwipe={handleSwipe}
-          onLike={handleLike}
-        />
-      ))
+      .map((card, index) => {
+        if (index === 0) {
+          return (
+            <Card
+              key={card.usuario_id}
+              card={card}
+              isFirst={true}
+              onSwipe={handleSwipe}
+              onLike={handleLike}
+              panHandlers={panResponder.panHandlers}
+              style={{
+                transform: [
+                  { translateX: position.x },
+                  { translateY: position.y },
+                  { rotate: rotate },
+                ],
+              }}
+            />
+          );
+        }
+        return (
+          <Card
+            key={card.usuario_id}
+            card={card}
+            isFirst={false}
+            onSwipe={handleSwipe}
+            onLike={handleLike}
+          />
+        );
+      })
       .reverse();
   };
 
