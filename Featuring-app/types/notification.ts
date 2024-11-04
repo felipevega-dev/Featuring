@@ -13,7 +13,8 @@ export type NotificationType =
   | 'comentario_video'
   | 'like_comentario_video'
   | 'respuesta_comentario'
-  | 'respuesta_comentario_video';
+  | 'respuesta_comentario_video'
+  | 'nuevo_seguidor';
 
 export interface NotificationRedirect {
   route: string;
@@ -126,5 +127,11 @@ export const NOTIFICATION_REDIRECTS: Record<NotificationType, NotificationRedire
   colaboracion_rechazada: {
     route: '/colaboraciones',
     getParams: () => ({})
+  },
+  nuevo_seguidor: {
+    route: '/public-profile/[id]',
+    getParams: (notification) => ({ 
+      id: notification.usuario_origen_id 
+    })
   }
 }; 

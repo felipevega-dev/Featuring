@@ -1,7 +1,17 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, ScrollView, Switch, TouchableOpacity, Alert } from "react-native";
+import { 
+  View, 
+  Text, 
+  ScrollView, 
+  Switch, 
+  TouchableOpacity, 
+  Alert,
+  Platform 
+} from "react-native";
 import { supabase } from "@/lib/supabase";
 import { Ionicons } from "@expo/vector-icons";
+import Slider from '@react-native-community/slider';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface PreferenciasUsuario {
   // Privacidad del perfil
@@ -24,14 +34,29 @@ interface PreferenciasUsuario {
   match_filtrar_nacionalidad: boolean;
   match_filtrar_edad: boolean;
   match_filtrar_sexo: boolean;
-  match_rango_edad: [number, number];
+  match_rango_edad: number[];
   match_nacionalidades: string[]; // Array de nacionalidades preferidas
-  match_sexo_preferido: string; // 'M', 'F', 'O', 'todos'
+  match_sexo_preferido: 'M' | 'F' | 'O' | 'todos'; // 'M', 'F', 'O', 'todos'
+}
+
+interface OpcionSexo {
+  valor: 'M' | 'F' | 'O' | 'todos';
+  label: string;
 }
 
 export default function Preferencias() {
   const [preferencias, setPreferencias] = useState<PreferenciasUsuario | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [edadMinima, setEdadMinima] = useState(18);
+  const [edadMaxima, setEdadMaxima] = useState(99);
+  const insets = useSafeAreaInsets();
+
+  const opciones: OpcionSexo[] = [
+    { valor: 'M', label: 'Masculino' },
+    { valor: 'F', label: 'Femenino' },
+    { valor: 'O', label: 'Otro' },
+    { valor: 'todos', label: 'Todos' }
+  ];
 
   useEffect(() => {
     fetchPreferencias();
@@ -42,23 +67,30 @@ export default function Preferencias() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Usuario no autenticado");
 
-      // Primero obtenemos el perfil
-      const { data: perfilData, error: perfilError } = await supabase
-        .from("perfil")
-        .select("usuario_id")
+      // Primero intentamos obtener las preferencias existentes
+      let { data, error } = await supabase
+        .from("preferencias_usuario")
+        .select("*")
         .eq("usuario_id", user.id)
         .single();
 
-      if (perfilError) throw perfilError;
+      // Si no existe un registro, lo creamos con valores por defecto
+      if (error && error.code === 'PGRST116') {
+        const { data: newPrefs, error: insertError } = await supabase
+          .from("preferencias_usuario")
+          .insert({
+            usuario_id: user.id,
+            // Los demás campos usarán los valores por defecto definidos en la tabla
+          })
+          .select()
+          .single();
 
-      // Luego obtenemos las preferencias usando el usuario_id del perfil
-      const { data, error } = await supabase
-        .from("preferencias_usuario")
-        .select("*")
-        .eq("usuario_id", perfilData.usuario_id)
-        .single();
+        if (insertError) throw insertError;
+        data = newPrefs;
+      } else if (error) {
+        throw error;
+      }
 
-      if (error) throw error;
       setPreferencias(data);
     } catch (error) {
       console.error("Error al cargar preferencias:", error);
@@ -87,6 +119,14 @@ export default function Preferencias() {
     }
   };
 
+  const actualizarRangoEdad = async () => {
+    try {
+      await actualizarPreferencia('match_rango_edad', [edadMinima, edadMaxima]);
+    } catch (error) {
+      console.error('Error al actualizar rango de edad:', error);
+    }
+  };
+
   if (isLoading) {
     return (
       <View className="flex-1 justify-center items-center bg-gray-100">
@@ -96,19 +136,25 @@ export default function Preferencias() {
   }
 
   return (
-    <ScrollView className="flex-1 bg-gray-100">
-      <View className="p-4">
-        {/* Sección de Privacidad del Perfil */}
-        <View className="bg-white rounded-lg p-4 mb-4">
+    <ScrollView 
+      className="flex-1 bg-gray-100"
+      contentContainerStyle={{
+        paddingBottom: insets.bottom + 100
+      }}
+    >
+      <View className="p-4 space-y-4">
+        {/* Cada sección ahora tiene mejores clases responsivas */}
+        <View className="bg-white rounded-lg p-4">
           <Text className="text-lg font-bold mb-4 text-primary-600">
             Privacidad del Perfil
           </Text>
           
           <View className="space-y-4">
-            <View className="flex-row justify-between items-center">
-              <View>
-                <Text className="text-base font-medium">Mostrar Edad</Text>
-                <Text className="text-sm text-gray-500">
+            {/* Cada elemento de configuración tiene mejor estructura */}
+            <View className="flex-row justify-between items-start space-x-4">
+              <View className="flex-1 flex-shrink">
+                <Text className="text-base font-medium break-words">Mostrar Edad</Text>
+                <Text className="text-sm text-gray-500 break-words">
                   Tu edad será visible en tu perfil
                 </Text>
               </View>
@@ -120,10 +166,10 @@ export default function Preferencias() {
               />
             </View>
 
-            <View className="flex-row justify-between items-center">
-              <View>
-                <Text className="text-base font-medium">Mostrar Ubicación</Text>
-                <Text className="text-sm text-gray-500">
+            <View className="flex-row justify-between items-start space-x-4">
+              <View className="flex-1 flex-shrink">
+                <Text className="text-base font-medium break-words">Mostrar Ubicación</Text>
+                <Text className="text-sm text-gray-500 break-words">
                   Tu ubicación será visible en tu perfil
                 </Text>
               </View>
@@ -135,10 +181,10 @@ export default function Preferencias() {
               />
             </View>
 
-            <View className="flex-row justify-between items-center">
-              <View>
-                <Text className="text-base font-medium">Mostrar Redes Sociales</Text>
-                <Text className="text-sm text-gray-500">
+            <View className="flex-row justify-between items-start space-x-4">
+              <View className="flex-1 flex-shrink">
+                <Text className="text-base font-medium break-words">Mostrar Redes Sociales</Text>
+                <Text className="text-sm text-gray-500 break-words">
                   Tus redes sociales serán visibles en tu perfil
                 </Text>
               </View>
@@ -150,10 +196,10 @@ export default function Preferencias() {
               />
             </View>
 
-            <View className="flex-row justify-between items-center">
-              <View>
-                <Text className="text-base font-medium">Mostrar Valoraciones</Text>
-                <Text className="text-sm text-gray-500">
+            <View className="flex-row justify-between items-start space-x-4">
+              <View className="flex-1 flex-shrink">
+                <Text className="text-base font-medium break-words">Mostrar Valoraciones</Text>
+                <Text className="text-sm text-gray-500 break-words">
                   Tus valoraciones serán visibles en tu perfil
                 </Text>
               </View>
@@ -167,245 +213,169 @@ export default function Preferencias() {
           </View>
         </View>
 
-        {/* Sección de Privacidad del Contenido */}
-        <View className="bg-white rounded-lg p-4 mb-4">
-          <Text className="text-lg font-bold mb-4 text-primary-600">
-            Privacidad del Contenido
-          </Text>
-          
-          <View className="space-y-4">
-            <View className="flex-row justify-between items-center">
-              <View>
-                <Text className="text-base font-medium">Permitir Comentarios</Text>
-                <Text className="text-sm text-gray-500">
-                  Otros usuarios podrán comentar tu contenido
-                </Text>
-              </View>
-              <Switch
-                value={preferencias?.permitir_comentarios_general}
-                onValueChange={(value) => 
-                  actualizarPreferencia("permitir_comentarios_general", value)
-                }
-              />
-            </View>
-          </View>
-        </View>
-
-        {/* Sección de Notificaciones */}
-        <View className="bg-white rounded-lg p-4 mb-4">
-          <Text className="text-lg font-bold mb-4 text-primary-600">
-            Notificaciones
-          </Text>
-          
-          <View className="space-y-4">
-            <View className="flex-row justify-between items-center">
-              <View>
-                <Text className="text-base font-medium">Mensajes</Text>
-                <Text className="text-sm text-gray-500">
-                  Recibe notificaciones de mensajes nuevos
-                </Text>
-              </View>
-              <Switch
-                value={preferencias?.notificaciones_mensajes}
-                onValueChange={(value) => 
-                  actualizarPreferencia("notificaciones_mensajes", value)
-                }
-              />
-            </View>
-
-            <View className="flex-row justify-between items-center">
-              <View>
-                <Text className="text-base font-medium">Match</Text>
-                <Text className="text-sm text-gray-500">
-                  Recibe notificaciones de match nuevos
-                </Text>
-              </View>
-              <Switch
-                value={preferencias?.notificaciones_match}
-                onValueChange={(value) => 
-                  actualizarPreferencia("notificaciones_match", value)
-                }
-              />
-            </View>
-
-            <View className="flex-row justify-between items-center">
-              <View>
-                <Text className="text-base font-medium">Valoraciones</Text>
-                <Text className="text-sm text-gray-500">
-                  Recibe notificaciones de valoraciones nuevas
-                </Text>
-              </View>
-              <Switch
-                value={preferencias?.notificaciones_valoraciones}
-                onValueChange={(value) => 
-                  actualizarPreferencia("notificaciones_valoraciones", value)
-                }
-              />
-            </View>
-
-            <View className="flex-row justify-between items-center">
-              <View>
-                <Text className="text-base font-medium">Comentarios</Text>
-                <Text className="text-sm text-gray-500">
-                  Recibe notificaciones de comentarios nuevos
-                </Text>
-              </View>
-              <Switch
-                value={preferencias?.notificaciones_comentarios}
-                onValueChange={(value) => 
-                  actualizarPreferencia("notificaciones_comentarios", value)
-                }
-              />
-            </View>
-
-            <View className="flex-row justify-between items-center">
-              <View>
-                <Text className="text-base font-medium">Seguidores</Text>
-                <Text className="text-sm text-gray-500">
-                  Recibe notificaciones de nuevos seguidores
-                </Text>
-              </View>
-              <Switch
-                value={preferencias?.notificaciones_seguidores}
-                onValueChange={(value) => 
-                  actualizarPreferencia("notificaciones_seguidores", value)
-                }
-              />
-            </View>
-          </View>
-        </View>
-
         {/* Sección de Preferencias de Match */}
-        <View className="bg-white rounded-lg p-4 mb-4">
+        <View className="bg-white rounded-lg p-4">
           <Text className="text-lg font-bold mb-4 text-primary-600">
             Preferencias de Match
           </Text>
-          
-          <View className="space-y-4">
-            <View className="flex-row justify-between items-center">
-              <View>
-                <Text className="text-base font-medium">Filtrar Nacionalidad</Text>
-                <Text className="text-sm text-gray-500">
-                  Solo mostrará usuarios de las nacionalidades preferidas
-                </Text>
-              </View>
-              <Switch
-                value={preferencias?.match_filtrar_nacionalidad}
-                onValueChange={(value) => 
-                  actualizarPreferencia("match_filtrar_nacionalidad", value)
-                }
-              />
-            </View>
 
-            <View className="flex-row justify-between items-center">
-              <View>
-                <Text className="text-base font-medium">Filtrar Edad</Text>
-                <Text className="text-sm text-gray-500">
-                  Solo mostrará usuarios de la edad preferida
-                </Text>
-              </View>
-              <Switch
-                value={preferencias?.match_filtrar_edad}
-                onValueChange={(value) => 
-                  actualizarPreferencia("match_filtrar_edad", value)
-                }
-              />
-            </View>
-
-            <View className="flex-row justify-between items-center">
-              <View>
-                <Text className="text-base font-medium">Filtrar Sexo</Text>
-                <Text className="text-sm text-gray-500">
-                  Solo mostrará usuarios del sexo preferido
-                </Text>
-              </View>
-              <Switch
-                value={preferencias?.match_filtrar_sexo}
-                onValueChange={(value) => 
-                  actualizarPreferencia("match_filtrar_sexo", value)
-                }
-              />
-            </View>
-
-            <View className="flex-row justify-between items-center">
-              <View>
-                <Text className="text-base font-medium">Rango de Edad</Text>
-                <Text className="text-sm text-gray-500">
-                  Solo mostrará usuarios dentro del rango de edad preferido
-                </Text>
-              </View>
-              <Switch
-                value={preferencias?.match_rango_edad}
-                onValueChange={(value) => 
-                  actualizarPreferencia("match_rango_edad", value)
-                }
-              />
-            </View>
-
-            <View className="flex-row justify-between items-center">
-              <View>
-                <Text className="text-base font-medium">Nacionalidades</Text>
-                <Text className="text-sm text-gray-500">
-                  Solo mostrará usuarios de las nacionalidades preferidas
-                </Text>
-              </View>
-              <TouchableOpacity 
-                className="flex-row justify-between items-center py-2"
-                onPress={() => {/* Abrir selector de nacionalidades */}}
-              >
-                <Text className="text-base font-medium">Nacionalidades</Text>
-                <View className="flex-row items-center">
-                  <Text className="mr-2 text-gray-600">
-                    {preferencias?.match_nacionalidades.join(", ") || "Nacionalidades"}
+          <View className="space-y-6">
+            {/* Filtrar por Sexo */}
+            <View className="space-y-2">
+              <View className="flex-row justify-between items-start space-x-4">
+                <View className="flex-1 flex-shrink">
+                  <Text className="text-base font-medium break-words">Filtrar por Sexo</Text>
+                  <Text className="text-sm text-gray-500 break-words">
+                    Mostrar solo perfiles del sexo seleccionado
                   </Text>
-                  <Ionicons name="chevron-forward" size={20} color="#666" />
                 </View>
-              </TouchableOpacity>
+                <Switch
+                  value={preferencias?.match_filtrar_sexo}
+                  onValueChange={(value) => 
+                    actualizarPreferencia("match_filtrar_sexo", value)
+                  }
+                />
+              </View>
+              
+              {preferencias?.match_filtrar_sexo && (
+                <View className="mt-4 bg-gray-50 rounded-lg p-2">
+                  <View className="flex-row flex-wrap gap-2">
+                    {opciones.map((opcion) => (
+                      <TouchableOpacity
+                        key={opcion.valor}
+                        className={`flex-1 min-w-[45%] p-3 rounded-lg ${
+                          preferencias?.match_sexo_preferido === opcion.valor
+                            ? 'bg-primary-500'
+                            : 'bg-white border border-gray-200'
+                        }`}
+                        onPress={() => actualizarPreferencia('match_sexo_preferido', opcion.valor)}
+                      >
+                        <Text className={`text-center font-medium ${
+                          preferencias?.match_sexo_preferido === opcion.valor
+                            ? 'text-white'
+                            : 'text-gray-600'
+                        }`}>
+                          {opcion.label}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+              )}
             </View>
 
-            <View className="flex-row justify-between items-center">
-              <View>
-                <Text className="text-base font-medium">Sexo Preferido</Text>
-                <Text className="text-sm text-gray-500">
-                  Solo mostrará usuarios del sexo preferido
-                </Text>
-              </View>
-              <TouchableOpacity 
-                className="flex-row justify-between items-center py-2"
-                onPress={() => {/* Abrir selector de sexo */}}
-              >
-                <Text className="text-base font-medium">Sexo Preferido</Text>
-                <View className="flex-row items-center">
-                  <Text className="mr-2 text-gray-600">
-                    {preferencias?.match_sexo_preferido || "Sexo"}
+            {/* Filtrar por Edad */}
+            <View className="space-y-2">
+              <View className="flex-row justify-between items-start space-x-4">
+                <View className="flex-1 flex-shrink">
+                  <Text className="text-base font-medium break-words">Filtrar por Edad</Text>
+                  <Text className="text-sm text-gray-500 break-words">
+                    Mostrar solo perfiles dentro del rango de edad
                   </Text>
-                  <Ionicons name="chevron-forward" size={20} color="#666" />
                 </View>
-              </TouchableOpacity>
+                <Switch
+                  value={preferencias?.match_filtrar_edad}
+                  onValueChange={(value) => 
+                    actualizarPreferencia("match_filtrar_edad", value)
+                  }
+                />
+              </View>
+              
+              {preferencias?.match_filtrar_edad && (
+                <View className="mt-4 bg-gray-50 rounded-lg p-4">
+                  <View className="space-y-6">
+                    {/* Edad Mínima */}
+                    <View>
+                      <View className="flex-row justify-between mb-2">
+                        <Text className="text-sm font-medium text-gray-600">
+                          Edad mínima
+                        </Text>
+                        <Text className="text-sm font-bold text-primary-600">
+                          {edadMinima} años
+                        </Text>
+                      </View>
+                      <Slider
+                        style={{ width: '100%', height: 40 }}
+                        minimumValue={13}
+                        maximumValue={edadMaxima}
+                        step={1}
+                        value={edadMinima}
+                        onValueChange={setEdadMinima}
+                        onSlidingComplete={actualizarRangoEdad}
+                        minimumTrackTintColor="#6D29D2"
+                        maximumTrackTintColor="#D1D5DB"
+                        thumbTintColor="#6D29D2"
+                      />
+                    </View>
+
+                    {/* Edad Máxima */}
+                    <View>
+                      <View className="flex-row justify-between mb-2">
+                        <Text className="text-sm font-medium text-gray-600">
+                          Edad máxima
+                        </Text>
+                        <Text className="text-sm font-bold text-primary-600">
+                          {edadMaxima} años
+                        </Text>
+                      </View>
+                      <Slider
+                        style={{ width: '100%', height: 40 }}
+                        minimumValue={edadMinima}
+                        maximumValue={99}
+                        step={1}
+                        value={edadMaxima}
+                        onValueChange={setEdadMaxima}
+                        onSlidingComplete={actualizarRangoEdad}
+                        minimumTrackTintColor="#6D29D2"
+                        maximumTrackTintColor="#D1D5DB"
+                        thumbTintColor="#6D29D2"
+                      />
+                    </View>
+                  </View>
+                </View>
+              )}
+            </View>
+
+            {/* Filtrar por Nacionalidad */}
+            <View className="space-y-2">
+              <View className="flex-row justify-between items-start space-x-4">
+                <View className="flex-1 flex-shrink">
+                  <Text className="text-base font-medium break-words">
+                    Filtrar por Nacionalidad
+                  </Text>
+                  <Text className="text-sm text-gray-500 break-words">
+                    Mostrar solo perfiles de ciertas nacionalidades
+                  </Text>
+                </View>
+                <Switch
+                  value={preferencias?.match_filtrar_nacionalidad}
+                  onValueChange={(value) => 
+                    actualizarPreferencia("match_filtrar_nacionalidad", value)
+                  }
+                />
+              </View>
+
+              {preferencias?.match_filtrar_nacionalidad && (
+                <View className="mt-4 bg-gray-50 rounded-lg p-4">
+                  <View className="flex-row flex-wrap gap-2">
+                    {preferencias.match_nacionalidades.map((nacionalidad, index) => (
+                      <View 
+                        key={index} 
+                        className="bg-white border border-primary-200 rounded-full px-4 py-2"
+                      >
+                        <Text className="text-primary-600 font-medium">{nacionalidad}</Text>
+                      </View>
+                    ))}
+                    {preferencias.match_nacionalidades.length === 0 && (
+                      <Text className="text-gray-500 text-sm">
+                        No hay nacionalidades seleccionadas
+                      </Text>
+                    )}
+                  </View>
+                </View>
+              )}
             </View>
           </View>
-        </View>
-
-        {/* Sección de Idioma y Región */}
-        <View className="bg-white rounded-lg p-4 mb-4">
-          <Text className="text-lg font-bold mb-4 text-primary-600">
-            Idioma y Región
-          </Text>
-          
-          <TouchableOpacity 
-            className="flex-row justify-between items-center py-2"
-            onPress={() => {/* Abrir selector de idioma */}}
-          >
-            <Text className="text-base font-medium">Idioma</Text>
-            <View className="flex-row items-center">
-              <Text className="mr-2 text-gray-600">
-                {preferencias?.idioma || "Español"}
-              </Text>
-              <Ionicons name="chevron-forward" size={20} color="#666" />
-            </View>
-          </TouchableOpacity>
-
-          {/* Más opciones de idioma y región... */}
         </View>
       </View>
     </ScrollView>
