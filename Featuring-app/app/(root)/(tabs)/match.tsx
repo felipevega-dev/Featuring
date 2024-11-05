@@ -13,6 +13,7 @@ import {
   Modal,
   ScrollView,
   Linking,
+  Dimensions,
 } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { FontAwesome, Ionicons } from "@expo/vector-icons";
@@ -23,7 +24,7 @@ import * as Location from "expo-location";
 import { useLocalSearchParams } from 'expo-router';
 import Constants from "expo-constants";
 import { sendPushNotification } from '@/utils/pushNotifications';
-import { RealtimeChannel } from 'supabase-js';
+import { RealtimeChannel } from '@supabase/supabase-js';
 
 const SWIPE_THRESHOLD = 120;
 
@@ -94,12 +95,35 @@ const Card: React.FC<CardProps> = ({
     extrapolate: 'clamp',
   });
 
+  const handleProfilePress = () => {
+    router.push(`/public-profile/${card.usuario_id}`);
+  };
+
   const panResponder = PanResponder.create({
-    onStartShouldSetPanResponder: () => true,
-    onMoveShouldSetPanResponder: () => true,
+    onStartShouldSetPanResponder: (evt, gestureState) => {
+      const { locationX } = evt.nativeEvent;
+      const cardWidth = Dimensions.get('window').width * 0.9; // 90% del ancho de la pantalla
+      const lateralZoneWidth = cardWidth * 0.3; // 30% de cada lado
+
+      // Solo activar el panResponder si el toque está en los laterales
+      return locationX < lateralZoneWidth || locationX > (cardWidth - lateralZoneWidth);
+    },
+    onMoveShouldSetPanResponder: (evt, gestureState) => {
+      const { locationX } = evt.nativeEvent;
+      const cardWidth = Dimensions.get('window').width * 0.9;
+      const lateralZoneWidth = cardWidth * 0.3;
+
+      // Solo permitir el movimiento si comenzó en los laterales
+      return locationX < lateralZoneWidth || locationX > (cardWidth - lateralZoneWidth);
+    },
+    onPanResponderGrant: () => {
+      position.setOffset({
+        x: position.x.__getValue(),
+        y: position.y.__getValue()
+      });
+    },
     onPanResponderMove: (_, gesture) => {
       position.setValue({ x: gesture.dx, y: gesture.dy });
-      // Actualizar dirección del swipe
       if (gesture.dx > 0) {
         setSwipeDirection('right');
       } else if (gesture.dx < 0) {
@@ -107,8 +131,8 @@ const Card: React.FC<CardProps> = ({
       }
     },
     onPanResponderRelease: (_, gesture) => {
+      position.flattenOffset();
       if (gesture.dx > SWIPE_THRESHOLD) {
-        console.log('Swipe derecha - Like');
         Animated.spring(position, {
           toValue: { x: SWIPE_THRESHOLD * 2, y: gesture.dy },
           useNativeDriver: true,
@@ -117,7 +141,6 @@ const Card: React.FC<CardProps> = ({
           setSwipeDirection('none');
         });
       } else if (gesture.dx < -SWIPE_THRESHOLD) {
-        console.log('Swipe izquierda - Rechazo');
         Animated.spring(position, {
           toValue: { x: -SWIPE_THRESHOLD * 2, y: gesture.dy },
           useNativeDriver: true,
@@ -126,7 +149,6 @@ const Card: React.FC<CardProps> = ({
           setSwipeDirection('none');
         });
       } else {
-        console.log('Regresando a posición inicial');
         Animated.spring(position, {
           toValue: { x: 0, y: 0 },
           friction: 4,
@@ -135,7 +157,7 @@ const Card: React.FC<CardProps> = ({
           setSwipeDirection('none');
         });
       }
-    },
+    }
   });
 
   // Usar la variable supabaseUrl que ya está declarada en el componente padre
@@ -182,8 +204,53 @@ const Card: React.FC<CardProps> = ({
     );
   };
 
+  // Crear transformaciones animadas para los botones
+  const buttonTransform = {
+    transform: [
+      {
+        translateX: position.x.interpolate({
+          inputRange: [-SWIPE_THRESHOLD * 2, 0, SWIPE_THRESHOLD * 2],
+          outputRange: [-SWIPE_THRESHOLD * 2, 0, SWIPE_THRESHOLD * 2],
+        }),
+      },
+      {
+        translateY: position.y,
+      },
+      {
+        rotate: rotate,
+      },
+    ],
+  };
+
   return (
     <View className="absolute w-[90%] h-[75%]" style={{ top: '3%', left: '5%' }}>
+      {/* Botón Ver Perfil animado - Ajustado */}
+      <Animated.View 
+        style={[buttonTransform]}
+        className="absolute top-[56%] left-[30%] right-[30%] z-50"
+      >
+        <TouchableOpacity
+          onPress={() => router.push(`/public-profile/${card.usuario_id}`)}
+        >
+          <View className="bg-primary-500 px-4 py-2 rounded-full">
+            <Text className="text-white font-bold text-center">Ver Perfil</Text>
+          </View>
+        </TouchableOpacity>
+      </Animated.View>
+
+      {/* Botón Settings animado - Ajustado */}
+      <Animated.View 
+        style={[buttonTransform]}
+        className="absolute top-4 left-2 z-50"
+      >
+        <TouchableOpacity
+          onPress={() => router.push("/preferencias")}
+          className="bg-secondary-400 p-2 rounded-full shadow-md"
+        >
+          <Ionicons name="settings-outline" size={20} color="white" />
+        </TouchableOpacity>
+      </Animated.View>
+
       <Animated.View
         {...(isFirst ? panResponder.panHandlers : {})}
         className="w-full h-full bg-white rounded-xl overflow-hidden"
@@ -253,19 +320,11 @@ const Card: React.FC<CardProps> = ({
 
           {/* Información del usuario y habilidades */}
           <View className="absolute bottom-0 w-full p-4 bg-black/50 rounded-b-xl">
-
-          {/* Botón Ver Perfil - Corregido */}
-          <TouchableOpacity
-            onPress={() => router.push(`/public-profile/${card.usuario_id}`)}
-            className="bg-primary-500 px-2 py-1 rounded-full w-26 mx-auto
-              items-center justify-center text-center flex-row mb-2"
-          >
-            <Text className="text-white font-bold">Ver Perfil</Text>
-          </TouchableOpacity>
-
             <View className="flex-row items-center justify-center mb-3">
               <View>
-                      <Text className="text-white text-2xl font-bold text-center">{card.username}</Text>
+                <Text className="text-white text-2xl font-bold text-center">
+                  {card.username}
+                </Text>
                 <Text className="text-white/80 text-center">
                   {card.edad} años • {card.ubicacion}
                 </Text>
@@ -827,13 +886,6 @@ const Match = () => {
     <GestureHandlerRootView className="flex-1">
       <View className="flex-1 items-center justify-center bg-gray-100">
         <TouchableOpacity
-          onPress={() => router.push("/preferencias")}
-          className="absolute top-8 left-7 z-50 bg-secondary-400 p-2 rounded-full shadow-md"
-        >
-          <Ionicons name="settings-outline" size={20} color="white" />
-        </TouchableOpacity>
-
-        <TouchableOpacity
           onPress={refreshCards}
           className="absolute top-10 right-5 bg-white p-2 rounded-full shadow-md"
         >
@@ -841,7 +893,9 @@ const Match = () => {
         </TouchableOpacity>
 
         {cards.length > 0 ? (
-          renderCards()
+          <View className="absolute w-[90%] h-[95%]" style={{ top: '3%', left: '5%' }}>
+            {renderCards()}
+          </View>
         ) : (
           <Text className="text-xl text-center">No hay más perfiles disponibles</Text>
         )}

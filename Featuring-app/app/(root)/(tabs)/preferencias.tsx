@@ -6,12 +6,15 @@ import {
   Switch, 
   TouchableOpacity, 
   Alert,
-  Platform 
+  ActivityIndicator
 } from "react-native";
 import { supabase } from "@/lib/supabase";
 import { Ionicons } from "@expo/vector-icons";
 import Slider from '@react-native-community/slider';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { habilidadesMusicales, generosMusicales } from "@/constants/musicData";
+import { hispanicCountryCodes } from "@/utils/countryCodes";
+
 
 interface PreferenciasUsuario {
   // Privacidad del perfil
@@ -21,22 +24,28 @@ interface PreferenciasUsuario {
   mostrar_valoraciones: boolean;
   
   // Privacidad del contenido
-  permitir_comentarios_general: boolean; // Configuración general para comentarios
+  permitir_comentarios_general: boolean;
   
   // Notificaciones
   notificaciones_mensajes: boolean;
   notificaciones_match: boolean;
   notificaciones_valoraciones: boolean;
   notificaciones_comentarios: boolean;
-  notificaciones_seguidores: boolean; // Añadido nuevo seguidor
+  notificaciones_seguidores: boolean;
   
   // Preferencias de Match
   match_filtrar_nacionalidad: boolean;
   match_filtrar_edad: boolean;
   match_filtrar_sexo: boolean;
   match_rango_edad: number[];
-  match_nacionalidades: string[]; // Array de nacionalidades preferidas
-  match_sexo_preferido: 'M' | 'F' | 'O' | 'todos'; // 'M', 'F', 'O', 'todos'
+  match_nacionalidades: string[];
+  match_sexo_preferido: 'M' | 'F' | 'O' | 'todos';
+  
+  // Preferencias adicionales
+  preferencias_genero: string[];
+  preferencias_habilidad: string[];
+  preferencias_distancia: number;
+  sin_limite_distancia: boolean;
 }
 
 interface OpcionSexo {
@@ -44,12 +53,21 @@ interface OpcionSexo {
   label: string;
 }
 
+// Obtener las nacionalidades del objeto hispanicCountryCodes
+const nacionalidadesDisponibles: string[] = Object.keys(hispanicCountryCodes);
+
 export default function Preferencias() {
   const [preferencias, setPreferencias] = useState<PreferenciasUsuario | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [edadMinima, setEdadMinima] = useState(18);
   const [edadMaxima, setEdadMaxima] = useState(99);
   const insets = useSafeAreaInsets();
+  const [isLoadingData, setIsLoadingData] = useState(true);
+  const [expandedSections, setExpandedSections] = useState({
+    generos: false,
+    habilidades: false,
+    nacionalidades: false
+  });
 
   const opciones: OpcionSexo[] = [
     { valor: 'M', label: 'Masculino' },
@@ -61,6 +79,19 @@ export default function Preferencias() {
   useEffect(() => {
     fetchPreferencias();
   }, []);
+
+  useEffect(() => {
+    if (generosMusicales && habilidadesMusicales) {
+      setIsLoadingData(false);
+    }
+  }, [generosMusicales, habilidadesMusicales]);
+
+  const toggleSection = (section: 'generos' | 'habilidades' | 'nacionalidades') => {
+    setExpandedSections(prev => ({
+      ...prev,
+      [section]: !prev[section]
+    }));
+  };
 
   const fetchPreferencias = async () => {
     try {
@@ -127,10 +158,11 @@ export default function Preferencias() {
     }
   };
 
-  if (isLoading) {
+  if (isLoading || isLoadingData) {
     return (
       <View className="flex-1 justify-center items-center bg-gray-100">
-        <Text>Cargando preferencias...</Text>
+        <ActivityIndicator size="large" color="#6D29D2" />
+        <Text className="mt-4 text-gray-600">Cargando preferencias...</Text>
       </View>
     );
   }
@@ -336,15 +368,63 @@ export default function Preferencias() {
               )}
             </View>
 
-            {/* Filtrar por Nacionalidad */}
+            {/* Filtrar por Distancia */}
             <View className="space-y-2">
               <View className="flex-row justify-between items-start space-x-4">
                 <View className="flex-1 flex-shrink">
-                  <Text className="text-base font-medium break-words">
-                    Filtrar por Nacionalidad
-                  </Text>
+                  <Text className="text-base font-medium break-words">Distancia</Text>
                   <Text className="text-sm text-gray-500 break-words">
-                    Mostrar solo perfiles de ciertas nacionalidades
+                    Mostrar perfiles dentro de esta distancia
+                  </Text>
+                </View>
+                <Switch
+                  value={!preferencias?.sin_limite_distancia}
+                  onValueChange={(value) => {
+                    actualizarPreferencia("sin_limite_distancia", !value);
+                    if (!value) {
+                      actualizarPreferencia("preferencias_distancia", 100);
+                    }
+                  }}
+                />
+              </View>
+              
+              {!preferencias?.sin_limite_distancia && (
+                <View className="mt-4 bg-gray-50 rounded-lg p-4">
+                  <View className="flex-row justify-between mb-2">
+                    <Text className="text-sm font-medium text-gray-600">
+                      Distancia máxima
+                    </Text>
+                    <Text className="text-sm font-bold text-primary-600">
+                      {preferencias?.preferencias_distancia} km
+                    </Text>
+                  </View>
+                  <Slider
+                    style={{ width: '100%', height: 40 }}
+                    minimumValue={1}
+                    maximumValue={100}
+                    step={1}
+                    value={preferencias?.preferencias_distancia || 10}
+                    onValueChange={(value) => 
+                      actualizarPreferencia("preferencias_distancia", value)
+                    }
+                    minimumTrackTintColor="#6D29D2"
+                    maximumTrackTintColor="#D1D5DB"
+                    thumbTintColor="#6D29D2"
+                  />
+                </View>
+              )}
+            </View>
+
+            {/* Filtrar por Nacionalidad */}
+            <View className="space-y-2">
+              <TouchableOpacity 
+                onPress={() => toggleSection('nacionalidades')}
+                className="flex-row justify-between items-center bg-white p-4 rounded-lg"
+              >
+                <View>
+                  <Text className="text-base font-medium">Filtrar por Nacionalidad</Text>
+                  <Text className="text-sm text-gray-500">
+                    {preferencias?.match_nacionalidades?.length || 0} nacionalidades seleccionadas
                   </Text>
                 </View>
                 <Switch
@@ -353,24 +433,160 @@ export default function Preferencias() {
                     actualizarPreferencia("match_filtrar_nacionalidad", value)
                   }
                 />
-              </View>
+              </TouchableOpacity>
 
               {preferencias?.match_filtrar_nacionalidad && (
                 <View className="mt-4 bg-gray-50 rounded-lg p-4">
                   <View className="flex-row flex-wrap gap-2">
-                    {preferencias.match_nacionalidades.map((nacionalidad, index) => (
-                      <View 
-                        key={index} 
-                        className="bg-white border border-primary-200 rounded-full px-4 py-2"
+                    {nacionalidadesDisponibles.map((nacionalidad: string) => (
+                      <TouchableOpacity
+                        key={nacionalidad}
+                        onPress={() => {
+                          const currentNacionalidades = preferencias?.match_nacionalidades || [];
+                          let newNacionalidades: string[];
+                          if (currentNacionalidades.includes(nacionalidad)) {
+                            newNacionalidades = currentNacionalidades.filter(n => n !== nacionalidad);
+                          } else {
+                            newNacionalidades = [...currentNacionalidades, nacionalidad];
+                          }
+                          actualizarPreferencia('match_nacionalidades', newNacionalidades);
+                        }}
+                        className={`px-3 py-2 rounded-full ${
+                          preferencias?.match_nacionalidades?.includes(nacionalidad)
+                            ? 'bg-primary-500'
+                            : 'bg-white border border-gray-200'
+                        }`}
                       >
-                        <Text className="text-primary-600 font-medium">{nacionalidad}</Text>
-                      </View>
+                        <Text className={`${
+                          preferencias?.match_nacionalidades?.includes(nacionalidad)
+                            ? 'text-white'
+                            : 'text-gray-600'
+                        } text-sm`}>
+                          {nacionalidad}
+                        </Text>
+                      </TouchableOpacity>
                     ))}
-                    {preferencias.match_nacionalidades.length === 0 && (
-                      <Text className="text-gray-500 text-sm">
-                        No hay nacionalidades seleccionadas
-                      </Text>
-                    )}
+                  </View>
+                  {preferencias?.match_nacionalidades?.length === 0 && (
+                    <Text className="text-gray-500 text-sm text-center mt-2">
+                      Selecciona las nacionalidades que prefieres
+                    </Text>
+                  )}
+                </View>
+              )}
+            </View>
+            
+            {/* Géneros Musicales */}
+            <View className="space-y-2">
+              <TouchableOpacity 
+                onPress={() => toggleSection('generos')}
+                className="flex-row justify-between items-center bg-white p-4 rounded-lg"
+              >
+                <View>
+                  <Text className="text-base font-medium">Géneros Musicales</Text>
+                  <Text className="text-sm text-gray-500">
+                    {preferencias?.preferencias_genero?.length || 0}/5 seleccionados
+                  </Text>
+                </View>
+                {expandedSections.generos ? (
+                  <Ionicons name="chevron-up" size={24} color="#6D29D2" />
+                ) : (
+                  <Ionicons name="chevron-down" size={24} color="#6D29D2" />
+                )}
+              </TouchableOpacity>
+
+              {expandedSections.generos && (
+                <View className="bg-gray-50 rounded-lg p-4">
+                  <View className="flex-row flex-wrap gap-2">
+                    {generosMusicales?.map((genero: string) => (
+                      <TouchableOpacity
+                        key={genero}
+                        onPress={() => {
+                          const currentGeneros = preferencias?.preferencias_genero || [];
+                          let newGeneros;
+                          if (currentGeneros.includes(genero)) {
+                            newGeneros = currentGeneros.filter(g => g !== genero);
+                          } else if (currentGeneros.length < 5) {
+                            newGeneros = [...currentGeneros, genero];
+                          } else {
+                            Alert.alert('Límite alcanzado', 'Solo puedes seleccionar hasta 5 géneros');
+                            return;
+                          }
+                          actualizarPreferencia('preferencias_genero', newGeneros);
+                        }}
+                        className={`px-3 py-2 rounded-full ${
+                          preferencias?.preferencias_genero?.includes(genero)
+                            ? 'bg-primary-500'
+                            : 'bg-white border border-gray-200'
+                        }`}
+                      >
+                        <Text className={`${
+                          preferencias?.preferencias_genero?.includes(genero)
+                            ? 'text-white'
+                            : 'text-gray-600'
+                        } text-sm`}>
+                          {genero}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+              )}
+            </View>
+
+            {/* Habilidades Musicales */}
+            <View className="space-y-2">
+              <TouchableOpacity 
+                onPress={() => toggleSection('habilidades')}
+                className="flex-row justify-between items-center bg-white p-4 rounded-lg"
+              >
+                <View>
+                  <Text className="text-base font-medium">Habilidades Musicales</Text>
+                  <Text className="text-sm text-gray-500">
+                    {preferencias?.preferencias_habilidad?.length || 0}/5 seleccionadas
+                  </Text>
+                </View>
+                {expandedSections.habilidades ? (
+                  <Ionicons name="chevron-up" size={24} color="#6D29D2" />
+                ) : (
+                  <Ionicons name="chevron-down" size={24} color="#6D29D2" />
+                )}
+              </TouchableOpacity>
+
+              {expandedSections.habilidades && (
+                <View className="bg-gray-50 rounded-lg p-4">
+                  <View className="flex-row flex-wrap gap-2">
+                    {habilidadesMusicales?.map((habilidad: string) => (
+                      <TouchableOpacity
+                        key={habilidad}
+                        onPress={() => {
+                          const currentHabilidades = preferencias?.preferencias_habilidad || [];
+                          let newHabilidades;
+                          if (currentHabilidades.includes(habilidad)) {
+                            newHabilidades = currentHabilidades.filter(h => h !== habilidad);
+                          } else if (currentHabilidades.length < 5) {
+                            newHabilidades = [...currentHabilidades, habilidad];
+                          } else {
+                            Alert.alert('Límite alcanzado', 'Solo puedes seleccionar hasta 5 habilidades');
+                            return;
+                          }
+                          actualizarPreferencia('preferencias_habilidad', newHabilidades);
+                        }}
+                        className={`px-3 py-2 rounded-full ${
+                          preferencias?.preferencias_habilidad?.includes(habilidad)
+                            ? 'bg-secondary-500'
+                            : 'bg-white border border-gray-200'
+                        }`}
+                      >
+                        <Text className={`${
+                          preferencias?.preferencias_habilidad?.includes(habilidad)
+                            ? 'text-white'
+                            : 'text-gray-600'
+                        } text-sm`}>
+                          {habilidad}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
                   </View>
                 </View>
               )}
