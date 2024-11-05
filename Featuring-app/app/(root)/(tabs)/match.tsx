@@ -13,6 +13,7 @@ import {
   Modal,
   ScrollView,
   Linking,
+  Dimensions,
 } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { FontAwesome, Ionicons } from "@expo/vector-icons";
@@ -94,12 +95,36 @@ const Card: React.FC<CardProps> = ({
     extrapolate: 'clamp',
   });
 
+  const handleProfilePress = () => {
+    router.push(`/public-profile/${card.usuario_id}`);
+  };
+
   const panResponder = PanResponder.create({
-    onStartShouldSetPanResponder: () => true,
-    onMoveShouldSetPanResponder: () => true,
+    onStartShouldSetPanResponder: (evt, gestureState) => {
+      const { locationX } = evt.nativeEvent;
+      const cardWidth = Dimensions.get('window').width * 0.9; // 90% del ancho de la pantalla
+      const lateralZoneWidth = cardWidth * 0.3; // 30% de cada lado
+
+      // Solo activar el panResponder si el toque está en los laterales
+      return locationX < lateralZoneWidth || locationX > (cardWidth - lateralZoneWidth);
+    },
+    onMoveShouldSetPanResponder: (evt, gestureState) => {
+      const { locationX } = evt.nativeEvent;
+      const cardWidth = Dimensions.get('window').width * 0.9;
+      const lateralZoneWidth = cardWidth * 0.3;
+
+      // Solo permitir el movimiento si comenzó en los laterales
+      return locationX < lateralZoneWidth || locationX > (cardWidth - lateralZoneWidth);
+    },
+    onPanResponderGrant: () => {
+      // Cuando se inicia el gesto
+      position.setOffset({
+        x: position.x._value,
+        y: position.y._value
+      });
+    },
     onPanResponderMove: (_, gesture) => {
       position.setValue({ x: gesture.dx, y: gesture.dy });
-      // Actualizar dirección del swipe
       if (gesture.dx > 0) {
         setSwipeDirection('right');
       } else if (gesture.dx < 0) {
@@ -107,8 +132,8 @@ const Card: React.FC<CardProps> = ({
       }
     },
     onPanResponderRelease: (_, gesture) => {
+      position.flattenOffset();
       if (gesture.dx > SWIPE_THRESHOLD) {
-        console.log('Swipe derecha - Like');
         Animated.spring(position, {
           toValue: { x: SWIPE_THRESHOLD * 2, y: gesture.dy },
           useNativeDriver: true,
@@ -117,7 +142,6 @@ const Card: React.FC<CardProps> = ({
           setSwipeDirection('none');
         });
       } else if (gesture.dx < -SWIPE_THRESHOLD) {
-        console.log('Swipe izquierda - Rechazo');
         Animated.spring(position, {
           toValue: { x: -SWIPE_THRESHOLD * 2, y: gesture.dy },
           useNativeDriver: true,
@@ -126,7 +150,6 @@ const Card: React.FC<CardProps> = ({
           setSwipeDirection('none');
         });
       } else {
-        console.log('Regresando a posición inicial');
         Animated.spring(position, {
           toValue: { x: 0, y: 0 },
           friction: 4,
@@ -135,7 +158,7 @@ const Card: React.FC<CardProps> = ({
           setSwipeDirection('none');
         });
       }
-    },
+    }
   });
 
   // Usar la variable supabaseUrl que ya está declarada en el componente padre
@@ -253,19 +276,11 @@ const Card: React.FC<CardProps> = ({
 
           {/* Información del usuario y habilidades */}
           <View className="absolute bottom-0 w-full p-4 bg-black/50 rounded-b-xl">
-
-          {/* Botón Ver Perfil - Corregido */}
-          <TouchableOpacity
-            onPress={() => router.push(`/public-profile/${card.usuario_id}`)}
-            className="bg-primary-500 px-2 py-1 rounded-full w-26 mx-auto
-              items-center justify-center text-center flex-row mb-2"
-          >
-            <Text className="text-white font-bold">Ver Perfil</Text>
-          </TouchableOpacity>
-
             <View className="flex-row items-center justify-center mb-3">
               <View>
-                      <Text className="text-white text-2xl font-bold text-center">{card.username}</Text>
+                <Text className="text-white text-2xl font-bold text-center">
+                  {card.username}
+                </Text>
                 <Text className="text-white/80 text-center">
                   {card.edad} años • {card.ubicacion}
                 </Text>
@@ -289,6 +304,16 @@ const Card: React.FC<CardProps> = ({
           </View>
         </View>
       </Animated.View>
+
+      {/* Botón Ver Perfil en el centro */}
+      <TouchableOpacity
+        onPress={() => router.push(`/public-profile/${card.usuario_id}`)}
+        className="absolute top-[58%] left-[30%] right-[30%] z-50"
+      >
+      <View className="bg-primary-500 px-4 py-2 rounded-full">
+        <Text className="text-white font-bold text-center">Ver Perfil</Text>
+        </View>
+      </TouchableOpacity>
 
       {/* Botones fuera de la zona de deslizamiento */}
       {isFirst && (
