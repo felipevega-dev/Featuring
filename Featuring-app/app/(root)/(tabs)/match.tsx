@@ -24,7 +24,7 @@ import * as Location from "expo-location";
 import { useLocalSearchParams } from 'expo-router';
 import Constants from "expo-constants";
 import { sendPushNotification } from '@/utils/pushNotifications';
-import { RealtimeChannel } from 'supabase-js';
+import { RealtimeChannel } from '@supabase/supabase-js';
 
 const SWIPE_THRESHOLD = 120;
 
@@ -117,10 +117,9 @@ const Card: React.FC<CardProps> = ({
       return locationX < lateralZoneWidth || locationX > (cardWidth - lateralZoneWidth);
     },
     onPanResponderGrant: () => {
-      // Cuando se inicia el gesto
       position.setOffset({
-        x: position.x._value,
-        y: position.y._value
+        x: position.x.__getValue(),
+        y: position.y.__getValue()
       });
     },
     onPanResponderMove: (_, gesture) => {
@@ -205,8 +204,53 @@ const Card: React.FC<CardProps> = ({
     );
   };
 
+  // Crear transformaciones animadas para los botones
+  const buttonTransform = {
+    transform: [
+      {
+        translateX: position.x.interpolate({
+          inputRange: [-SWIPE_THRESHOLD * 2, 0, SWIPE_THRESHOLD * 2],
+          outputRange: [-SWIPE_THRESHOLD * 2, 0, SWIPE_THRESHOLD * 2],
+        }),
+      },
+      {
+        translateY: position.y,
+      },
+      {
+        rotate: rotate,
+      },
+    ],
+  };
+
   return (
     <View className="absolute w-[90%] h-[75%]" style={{ top: '3%', left: '5%' }}>
+      {/* Botón Ver Perfil animado - Ajustado */}
+      <Animated.View 
+        style={[buttonTransform]}
+        className="absolute top-[56%] left-[30%] right-[30%] z-50"
+      >
+        <TouchableOpacity
+          onPress={() => router.push(`/public-profile/${card.usuario_id}`)}
+        >
+          <View className="bg-primary-500 px-4 py-2 rounded-full">
+            <Text className="text-white font-bold text-center">Ver Perfil</Text>
+          </View>
+        </TouchableOpacity>
+      </Animated.View>
+
+      {/* Botón Settings animado - Ajustado */}
+      <Animated.View 
+        style={[buttonTransform]}
+        className="absolute top-4 left-2 z-50"
+      >
+        <TouchableOpacity
+          onPress={() => router.push("/preferencias")}
+          className="bg-secondary-400 p-2 rounded-full shadow-md"
+        >
+          <Ionicons name="settings-outline" size={20} color="white" />
+        </TouchableOpacity>
+      </Animated.View>
+
       <Animated.View
         {...(isFirst ? panResponder.panHandlers : {})}
         className="w-full h-full bg-white rounded-xl overflow-hidden"
@@ -304,16 +348,6 @@ const Card: React.FC<CardProps> = ({
           </View>
         </View>
       </Animated.View>
-
-      {/* Botón Ver Perfil en el centro */}
-      <TouchableOpacity
-        onPress={() => router.push(`/public-profile/${card.usuario_id}`)}
-        className="absolute top-[58%] left-[30%] right-[30%] z-50"
-      >
-      <View className="bg-primary-500 px-4 py-2 rounded-full">
-        <Text className="text-white font-bold text-center">Ver Perfil</Text>
-        </View>
-      </TouchableOpacity>
 
       {/* Botones fuera de la zona de deslizamiento */}
       {isFirst && (
@@ -852,13 +886,6 @@ const Match = () => {
     <GestureHandlerRootView className="flex-1">
       <View className="flex-1 items-center justify-center bg-gray-100">
         <TouchableOpacity
-          onPress={() => router.push("/preferencias")}
-          className="absolute top-8 left-7 z-50 bg-secondary-400 p-2 rounded-full shadow-md"
-        >
-          <Ionicons name="settings-outline" size={20} color="white" />
-        </TouchableOpacity>
-
-        <TouchableOpacity
           onPress={refreshCards}
           className="absolute top-10 right-5 bg-white p-2 rounded-full shadow-md"
         >
@@ -866,7 +893,9 @@ const Match = () => {
         </TouchableOpacity>
 
         {cards.length > 0 ? (
-          renderCards()
+          <View className="absolute w-[90%] h-[95%]" style={{ top: '3%', left: '5%' }}>
+            {renderCards()}
+          </View>
         ) : (
           <Text className="text-xl text-center">No hay más perfiles disponibles</Text>
         )}
