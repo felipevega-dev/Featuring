@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { PreguntasState, PreguntasAction } from '@/types/preguntas';
-import { habilidadesMusicalesCompletas } from '@/constants/musicData';
+import { habilidadesMusicales as habilidadesDisponibles } from '@/constants/musicData';
 
 interface SlideHabilidadesMusicalesProps {
   state: PreguntasState;
@@ -45,7 +45,7 @@ export function SlideHabilidadesMusicales({ state, dispatch, onValidationComplet
         showsVerticalScrollIndicator={true}
       >
         <View className="flex-row flex-wrap justify-center">
-          {habilidadesMusicalesCompletas.map((habilidad) => (
+          {habilidadesDisponibles.map((habilidad) => (
             <TouchableOpacity
               key={habilidad}
               onPress={() => toggleHabilidadMusical(habilidad)}

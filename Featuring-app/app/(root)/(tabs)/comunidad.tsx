@@ -11,7 +11,7 @@ import UserSongsModal from "@/components/UserSongsModal";
 import SearchBar from "@/components/SearchBar";
 import GlobalAudioPlayer from "@/components/GlobalAudioPlayer";
 import { AudioPlayerProvider } from "@/contexts/AudioPlayerContext";
-import { generosMusicalesCompletos } from '@/constants/musicData';
+import { generosMusicales } from '@/constants/musicData';
 
 type CancionDB = Database["public"]["Tables"]["cancion"]["Row"];
 type PerfilDB = Database["public"]["Tables"]["perfil"]["Row"];
@@ -260,7 +260,7 @@ const Comunidad = () => {
       }, {} as Record<string, number>) || {};
 
       setSortedGenres(
-        generosMusicalesCompletos.sort((a, b) => (genreCount[b] || 0) - (genreCount[a] || 0))
+        generosMusicales.sort((a, b) => (genreCount[b] || 0) - (genreCount[a] || 0))
       );
     } catch (err) {
       setError("Error al cargar las canciones");

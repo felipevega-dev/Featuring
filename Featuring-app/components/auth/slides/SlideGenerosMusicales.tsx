@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { PreguntasState, PreguntasAction } from '@/types/preguntas';
-import { generosMusicalesCompletos } from '@/constants/musicData';
+import { generosMusicales as generosDisponibles } from '@/constants/musicData';
 
 interface SlideGenerosMusicalesProps {
   state: PreguntasState;
@@ -45,7 +45,7 @@ export function SlideGenerosMusicales({ state, dispatch, onValidationComplete }:
         showsVerticalScrollIndicator={true}
       >
         <View className="flex-row flex-wrap justify-center">
-          {generosMusicalesCompletos.map((genero) => (
+          {generosDisponibles.map((genero) => (
             <TouchableOpacity
               key={genero}
               onPress={() => toggleGeneroMusical(genero)}

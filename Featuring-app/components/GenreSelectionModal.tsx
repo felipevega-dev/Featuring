@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, FlatList, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { generosMusicalesCompletos } from '@/constants/musicData';
+import { generosMusicales } from '@/constants/musicData';
 
 interface GenreSelectionModalProps {
   isVisible: boolean;
@@ -26,7 +26,7 @@ export default function GenreSelectionModal({
           <Text className="text-white text-lg font-bold ml-4">Elige un género</Text>
         </View>
         <FlatList
-          data={generosMusicalesCompletos}
+          data={generosMusicales}
           keyExtractor={(item) => item}
           renderItem={({ item }) => (
             <TouchableOpacity
