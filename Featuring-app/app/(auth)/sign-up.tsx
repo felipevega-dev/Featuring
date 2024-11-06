@@ -11,11 +11,11 @@ import {
 import { icons, images } from "@/constants";
 import InputField from "@/components/InputField";
 import CustomButton from "@/components/CustomButton";
-import CustomCheckbox from "@/components/CustomCheckbox";
 import { Link, router } from "expo-router";
 import { ReactNativeModal } from "react-native-modal";
 import { supabase } from "@/lib/supabase";
 import OAuth from "@/components/OAuth";
+import LegalAgreementModal from '@/components/LegalAgreementModal';
 
 const PASSWORD_MIN_LENGTH = 8;
 const PASSWORD_MAX_LENGTH = 14;
@@ -25,7 +25,8 @@ export default function SignUp() {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [acceptTerms, setAcceptTerms] = useState(false);
+  const [showLegalModal, setShowLegalModal] = useState(false);
+  const [formData, setFormData] = useState<any>(null);
 
   const [form, setForm] = useState({
     nombreCompleto: "",
@@ -124,11 +125,12 @@ export default function SignUp() {
       return;
     }
 
-    if (!acceptTerms) {
-      Alert.alert("Error", "Debes aceptar los términos y condiciones para registrarte.");
-      return;
-    }
+    setShowLegalModal(true);
+  };
 
+  const handleLegalAccept = async () => {
+    setShowLegalModal(false);
+    
     try {
       const { data: existingUser } = await supabase
         .from('perfil')
@@ -207,129 +209,139 @@ export default function SignUp() {
     }
   };
 
+  const handleLegalDecline = () => {
+    setShowLegalModal(false);
+    Alert.alert(
+      "Registro Cancelado",
+      "Debes aceptar los términos legales para crear una cuenta."
+    );
+  };
+
   return (
-    <ScrollView className="flex-1 bg-white px-4 py-2">
-      <View className="items-center justify-center mt-5 mb-1">
-        <Image source={images.FeatLogo} className="w-[120px] h-[72px]" />
-        <Text className="text-xl font-bold text-primary-600">Registro</Text>
-      </View>
+    <>
+      <ScrollView className="flex-1 bg-white px-4 py-2">
+        <View className="items-center justify-center mt-5 mb-1">
+          <Image source={images.FeatLogo} className="w-[120px] h-[72px]" />
+          <Text className="text-xl font-bold text-primary-600">Registro</Text>
+        </View>
 
-      <View>
-        <InputField
-          label="Nombre Completo"
-          placeholder="Ingresa tu nombre completo"
-          icon={icons.person}
-          value={form.nombreCompleto}
-          onChangeText={(value) => {
-            setForm({ ...form, nombreCompleto: value });
-            if (!touched.nombreCompleto) setTouched({ ...touched, nombreCompleto: true });
-            validateField("nombreCompleto", value);
-          }}
-        />
-        {touched.nombreCompleto && errors.nombreCompleto ? (
-          <Text className="text-red-500 text-xs -mt-1">{errors.nombreCompleto}</Text>
-        ) : null}
-
-        <InputField
-          label="Email"
-          placeholder="Ingresa tu correo"
-          icon={icons.email}
-          value={form.email}
-          onChangeText={(value) => {
-            setForm({ ...form, email: value.trim() });
-            if (!touched.email) setTouched({ ...touched, email: true });
-            validateField("email", value.trim());
-          }}
-          keyboardType="email-address"
-          autoCapitalize="none"
-        />
-        {touched.email && errors.email ? (
-          <Text className="text-red-500 text-xs -mt-1">{errors.email}</Text>
-        ) : null}
-
-        <View className="relative">
+        <View>
           <InputField
-            label="Contraseña"
-            placeholder="Ingresa tu contraseña"
-            icon={icons.lock}
-            secureTextEntry={!showPassword}
-            value={form.password}
+            label="Nombre Completo"
+            placeholder="Ingresa tu nombre completo"
+            icon={icons.person}
+            value={form.nombreCompleto}
             onChangeText={(value) => {
-              setForm({ ...form, password: value });
-              if (!touched.password) setTouched({ ...touched, password: true });
-              validateField("password", value);
+              setForm({ ...form, nombreCompleto: value });
+              if (!touched.nombreCompleto) setTouched({ ...touched, nombreCompleto: true });
+              validateField("nombreCompleto", value);
             }}
+          />
+          {touched.nombreCompleto && errors.nombreCompleto ? (
+            <Text className="text-red-500 text-xs -mt-1">{errors.nombreCompleto}</Text>
+          ) : null}
+
+          <InputField
+            label="Email"
+            placeholder="Ingresa tu correo"
+            icon={icons.email}
+            value={form.email}
+            onChangeText={(value) => {
+              setForm({ ...form, email: value.trim() });
+              if (!touched.email) setTouched({ ...touched, email: true });
+              validateField("email", value.trim());
+            }}
+            keyboardType="email-address"
             autoCapitalize="none"
           />
-          <TouchableOpacity
-            className="absolute right-3 top-10"
-            onPress={() => setShowPassword(!showPassword)}
-          >
-            <Image
-              source={showPassword ? icons.hidePassword : icons.showPassword}
-              className="w-6 h-6"
-            />
-          </TouchableOpacity>
-        </View>
-        {touched.password && errors.password ? (
-          <Text className="text-red-500 text-xs -mt-1">{errors.password}</Text>
-        ) : null}
+          {touched.email && errors.email ? (
+            <Text className="text-red-500 text-xs -mt-1">{errors.email}</Text>
+          ) : null}
 
-        <View className="relative">
-          <InputField
-            label="Confirmar Contraseña"
-            placeholder="Confirma tu contraseña"
-            icon={icons.lock}
-            secureTextEntry={!showConfirmPassword}
-            value={form.confirmPassword}
-            onChangeText={(value) => {
-              setForm({ ...form, confirmPassword: value });
-              if (!touched.confirmPassword) setTouched({ ...touched, confirmPassword: true });
-              validateField("confirmPassword", value);
-            }}
-            autoCapitalize="none"
+          <View className="relative">
+            <InputField
+              label="Contraseña"
+              placeholder="Ingresa tu contraseña"
+              icon={icons.lock}
+              secureTextEntry={!showPassword}
+              value={form.password}
+              onChangeText={(value) => {
+                setForm({ ...form, password: value });
+                if (!touched.password) setTouched({ ...touched, password: true });
+                validateField("password", value);
+              }}
+              autoCapitalize="none"
+            />
+            <TouchableOpacity
+              className="absolute right-3 top-10"
+              onPress={() => setShowPassword(!showPassword)}
+            >
+              <Image
+                source={showPassword ? icons.hidePassword : icons.showPassword}
+                className="w-6 h-6"
+              />
+            </TouchableOpacity>
+          </View>
+          {touched.password && errors.password ? (
+            <Text className="text-red-500 text-xs -mt-1">{errors.password}</Text>
+          ) : null}
+
+          <View className="relative">
+            <InputField
+              label="Confirmar Contraseña"
+              placeholder="Confirma tu contraseña"
+              icon={icons.lock}
+              secureTextEntry={!showConfirmPassword}
+              value={form.confirmPassword}
+              onChangeText={(value) => {
+                setForm({ ...form, confirmPassword: value });
+                if (!touched.confirmPassword) setTouched({ ...touched, confirmPassword: true });
+                validateField("confirmPassword", value);
+              }}
+              autoCapitalize="none"
+            />
+            <TouchableOpacity
+              className="absolute right-3 top-10"
+              onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+            >
+              <Image
+                source={showConfirmPassword ? icons.hidePassword : icons.showPassword}
+                className="w-6 h-6"
+              />
+            </TouchableOpacity>
+          </View>
+          {touched.confirmPassword && errors.confirmPassword ? (
+            <Text className="text-red-500 text-xs -mt-1">{errors.confirmPassword}</Text>
+          ) : null}
+
+          <CustomButton
+            title="Registrarse"
+            onPress={onSignUpPress}
+            className="mt-2"
           />
-          <TouchableOpacity
-            className="absolute right-3 top-10"
-            onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-          >
-            <Image
-              source={showConfirmPassword ? icons.hidePassword : icons.showPassword}
-              className="w-6 h-6"
-            />
-          </TouchableOpacity>
-        </View>
-        {touched.confirmPassword && errors.confirmPassword ? (
-          <Text className="text-red-500 text-xs -mt-1">{errors.confirmPassword}</Text>
-        ) : null}
-
-        <CustomCheckbox
-          title="Acepto los términos y condiciones"
-          checked={acceptTerms}
-          onPress={() => setAcceptTerms(!acceptTerms)}
-        />
-
-        <CustomButton
-          title="Registrarse"
-          onPress={onSignUpPress}
-          className="mt-2"
-        />
-        
-        <OAuth />
-        
-        <View className="flex-1 items-center justify-center mt-1">
+          
+          <OAuth />
+          
+          <View className="flex-1 items-center justify-center mt-1">
             <Text className="font-JakartaMedium text-base sm:text-md text-general-200">
               ¿Ya estás registrado?
             </Text>
-          <Link href="/sign-in" asChild>
-            <TouchableOpacity>
-              <Text className="font-JakartaMedium text-base sm:text-lg text-secondary-500 ml-1">
-                Iniciar sesión
-              </Text>
-            </TouchableOpacity>
-          </Link>
+            <Link href="/sign-in" asChild>
+              <TouchableOpacity>
+                <Text className="font-JakartaMedium text-base sm:text-lg text-secondary-500 ml-1">
+                  Iniciar sesión
+                </Text>
+              </TouchableOpacity>
+            </Link>
+          </View>
         </View>
-      </View>
+      </ScrollView>
+
+      <LegalAgreementModal
+        isVisible={showLegalModal}
+        onAccept={handleLegalAccept}
+        onDecline={handleLegalDecline}
+      />
 
       <ReactNativeModal isVisible={showSuccessModal}>
         <View className="bg-white px-5 py-6 rounded-2xl">
@@ -352,6 +364,6 @@ export default function SignUp() {
           />
         </View>
       </ReactNativeModal>
-    </ScrollView>
+    </>
   );
 }
