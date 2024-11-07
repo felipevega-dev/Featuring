@@ -816,12 +816,7 @@ export default function ChatDetail() {
                   onChangeText={setNewMessage}
                   placeholder="Escribe un mensaje..."
                 />
-                <TouchableOpacity
-                  onPress={pickDocument}
-                  className="bg-primary-500 rounded-full p-2 mr-2"
-                >
-                  <FontAwesome name="paperclip" size={20} color="white" />
-                </TouchableOpacity>
+
                 <TouchableOpacity
                   onPress={pickImage}
                   className="bg-primary-500 rounded-full p-2 mr-2"
