@@ -19,26 +19,18 @@ export default function Login() {
     setError(null)
 
     try {
-      console.log('Intentando login con:', email)
-      
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({ 
         email, 
         password 
       })
 
-      console.log('Resultado auth:', { authData, authError })
-
       if (authError) throw authError
-
-      console.log('Verificando rol para:', authData.user.id)
       
       const { data: adminData, error: adminError } = await supabase
         .from('admin_roles')
         .select('role')
         .eq('id', authData.user.id)
         .single()
-
-      console.log('Resultado admin check:', { adminData, adminError })
 
       if (adminError || !adminData) {
         await supabase.auth.signOut()

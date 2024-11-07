@@ -8,6 +8,8 @@ import Constants from 'expo-constants';
 import { CollaborationProvider } from '@/contexts/CollaborationContext';
 import { registerForPushNotificationsAsync } from '@/utils/pushNotifications';
 import { supabase } from '@/lib/supabase';
+import { useSuspensionCheck } from '@/hooks/useSuspensionCheck';
+import { SuspendedScreen } from '@/components/SuspendedScreen';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -24,6 +26,7 @@ export default function RootLayout() {
   });
 
   const router = useRouter();
+  const { isSuspended } = useSuspensionCheck();
 
   useEffect(() => {
     if (fontsLoaded) {
@@ -86,6 +89,11 @@ export default function RootLayout() {
 
   if (!fontsLoaded) {
     return null;
+  }
+
+  // Si el usuario está suspendido, mostrar la pantalla de suspensión
+  if (isSuspended) {
+    return <SuspendedScreen />;
   }
 
   return (

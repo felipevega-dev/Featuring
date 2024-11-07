@@ -82,8 +82,6 @@ export default function WatchReports() {
     const reporte = reportes.find(r => r.id === reporteId);
     if (!reporte) return;
 
-    console.log('Reporte seleccionado:', reporte);
-
     if (reporte.tipo_contenido === 'video') {
       try {
         const { data, error } = await supabaseAdmin
