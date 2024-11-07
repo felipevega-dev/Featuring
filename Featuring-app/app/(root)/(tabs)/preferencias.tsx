@@ -205,7 +205,7 @@ export default function Preferencias() {
               <View className="flex-1 flex-shrink">
                 <Text className="text-base font-medium break-words">Mostrar Ubicación</Text>
                 <Text className="text-sm text-gray-500 break-words">
-                  Tu ubicación será visible en tu perfil
+                  Tu ubicación será visible en tu perfi
                 </Text>
               </View>
               <Switch
