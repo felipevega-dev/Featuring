@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { router } from 'expo-router'
 
 export const useSuspensionCheck = () => {
   const [isSuspended, setIsSuspended] = useState(false)
@@ -12,7 +11,6 @@ export const useSuspensionCheck = () => {
       
       if (!session) return false
 
-      // Verificar si el usuario está suspendido
       const { data: perfil } = await supabase
         .from('perfil')
         .select('suspended')
@@ -20,7 +18,6 @@ export const useSuspensionCheck = () => {
         .single()
 
       if (perfil?.suspended) {
-        // Obtener detalles de la suspensión
         const { data: suspensiones } = await supabase
           .from('sancion_administrativa')
           .select('*')
@@ -32,7 +29,6 @@ export const useSuspensionCheck = () => {
         if (suspensiones) {
           setIsSuspended(true)
           setSuspensionDetails(suspensiones)
-          router.replace('/(auth)/suspended')
           return true
         }
       }
@@ -45,39 +41,6 @@ export const useSuspensionCheck = () => {
 
   useEffect(() => {
     checkSuspension()
-
-    // Suscribirse a cambios de autenticación
-    const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (event === 'SIGNED_IN' && session) {
-          await checkSuspension()
-        }
-      }
-    )
-
-    // Suscribirse a cambios en la tabla perfil
-    const channel = supabase
-      .channel('suspension-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'perfil',
-          filter: `usuario_id=eq.${supabase.auth.getSession()?.data?.session?.user.id}`
-        },
-        async (payload) => {
-          if (payload.new.suspended) {
-            await checkSuspension()
-          }
-        }
-      )
-      .subscribe()
-
-    return () => {
-      authSubscription.unsubscribe()
-      channel.unsubscribe()
-    }
   }, [])
 
   return { isSuspended, suspensionDetails, checkSuspension }

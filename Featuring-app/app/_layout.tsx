@@ -26,7 +26,7 @@ export default function RootLayout() {
   });
 
   const router = useRouter();
-  const { isSuspended } = useSuspensionCheck();
+  const { isSuspended, suspensionDetails } = useSuspensionCheck();
 
   useEffect(() => {
     if (fontsLoaded) {
@@ -48,7 +48,10 @@ export default function RootLayout() {
 
       // Auth state change listener
       const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-        if (event === 'SIGNED_IN' && session?.user) {
+        if (event === 'SIGNED_OUT') {
+          // Cuando se cierra sesión, redirigir al índice
+          router.replace('/')
+        } else if (event === 'SIGNED_IN' && session?.user) {
           const token = await registerForPushNotificationsAsync();
           console.log('Token registrado después de inicio de sesión:', token);
         }
@@ -91,8 +94,8 @@ export default function RootLayout() {
     return null;
   }
 
-  // Si el usuario está suspendido, mostrar la pantalla de suspensión
-  if (isSuspended) {
+  // Solo mostrar SuspendedScreen si las fuentes están cargadas y el usuario está suspendido
+  if (fontsLoaded && isSuspended && suspensionDetails) {
     return <SuspendedScreen />;
   }
 

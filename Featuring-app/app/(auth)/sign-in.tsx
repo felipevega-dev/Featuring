@@ -113,28 +113,20 @@ const SignIn = () => {
           await AsyncStorage.setItem("rememberMe", "false");
         }
 
-        const isSuspended = await checkSuspension();
+        const isProfileComplete = await checkProfileCompletion(data.user.id);
+        const nextRoute = isProfileComplete ? "/(root)/(tabs)/home" : "/(auth)/preguntas";
         
-        if (!isSuspended) {
-          const isProfileComplete = await checkProfileCompletion(data.user.id);
-          if (isProfileComplete) {
-            router.replace("/(root)/(tabs)/home");
-          } else {
-            router.replace("/(auth)/preguntas");
-          }
-        }
+        router.replace(nextRoute);
         
       } else {
         Alert.alert("Error", "No se pudo obtener la información del usuario. Por favor, intenta de nuevo.");
       }
-    } catch (error) {
-      if (error.message !== 'User is suspended') {
-        Alert.alert("Error", "Ocurrió un error inesperado durante el inicio de sesión. Por favor, intenta de nuevo.");
-      }
+    } catch (error: any) {
+      Alert.alert("Error", "Ocurrió un error inesperado durante el inicio de sesión. Por favor, intenta de nuevo.");
     } finally {
       setIsLoading(false);
     }
-  }, [form.email, form.password, rememberMe, router, checkSuspension]);
+  }, [form.email, form.password, rememberMe, router]);
 
   return (
     <ScrollView className="flex-1 bg-white">
