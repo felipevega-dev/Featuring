@@ -85,6 +85,7 @@ CREATE TABLE cancion (
     archivo_audio TEXT NOT NULL,
     caratula TEXT NOT NULL,
     contenido TEXT NOT NULL,
+    estado TEXT DEFAULT 'pendiente' CHECK (estado IN ('pendiente', 'aprobado', 'rechazado')),
     created_at TIMESTAMPTZ DEFAULT NOW(),
     CONSTRAINT fk_usuario_cancion FOREIGN KEY (usuario_id) REFERENCES perfil (usuario_id) ON DELETE CASCADE
   );
@@ -189,6 +190,7 @@ CREATE TABLE video (
     usuario_id UUID NOT NULL,
     descripcion TEXT,
     url TEXT,
+    estado TEXT DEFAULT 'pendiente' CHECK (estado IN ('pendiente', 'aprobado', 'rechazado')),
     created_at TIMESTAMPTZ DEFAULT NOW(),
     CONSTRAINT fk_usuario_video FOREIGN KEY (usuario_id) REFERENCES perfil (usuario_id) ON DELETE CASCADE
   );
@@ -461,6 +463,9 @@ CREATE INDEX idx_mensaje_leido ON mensaje (receptor_id, emisor_id, leido);
 
 CREATE INDEX idx_admin_roles_id ON admin_roles (id);
 CREATE INDEX idx_admin_roles_role ON admin_roles (role);
+
+CREATE INDEX idx_cancion_estado ON cancion(estado);
+CREATE INDEX idx_video_estado ON video(estado);
 
 ------------------------------------------
 -- 5. CREATE FUNCTIONS
