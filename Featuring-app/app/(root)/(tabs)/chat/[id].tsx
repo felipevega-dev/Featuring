@@ -870,6 +870,12 @@ export default function ChatDetail() {
               >
                 <Text style={[styles.optionText, { color: 'white' }]}>Cancelar conexión</Text>
               </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setModalVisible(false)}
+                style={[styles.optionButton, { marginTop: 10, backgroundColor: '#6D29D2' }]}
+              >
+                <Text style={[styles.optionText, { color: 'white' }]}>Cerrar</Text>
+              </TouchableOpacity>
             </View>
           </View>
         </Modal>
