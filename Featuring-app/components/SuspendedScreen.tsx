@@ -1,24 +1,18 @@
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native'
 import { supabase } from '@/lib/supabase'
 import { useSuspensionCheck } from '@/hooks/useSuspensionCheck'
-import { useRouter } from 'expo-router'
+import { router } from 'expo-router'
 
 export const SuspendedScreen = () => {
   const { suspensionDetails } = useSuspensionCheck()
-  const router = useRouter()
-
-  console.log('Suspension details:', suspensionDetails) // Para debug
 
   const handleLogout = async () => {
     try {
-      // Primero cerrar sesión
       await supabase.auth.signOut()
-      
-      // En lugar de usar router.replace, simplemente limpiar la sesión
-      // La app debería redirigir automáticamente al detectar que no hay sesión
-      
+      router.replace('/')
     } catch (error) {
       console.error('Error al cerrar sesión:', error)
+      router.replace('/')
     }
   }
 

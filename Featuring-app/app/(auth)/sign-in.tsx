@@ -16,6 +16,7 @@ import { Link, useRouter } from "expo-router";
 import OAuth from "@/components/OAuth";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { supabase } from "@/lib/supabase";
+import { useSuspensionCheck } from "@/hooks/useSuspensionCheck";
 
 interface FormState {
   email: string;
@@ -34,6 +35,8 @@ const SignIn = () => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [rememberMe, setRememberMe] = useState<boolean>(false);
   const [showPassword, setShowPassword] = useState<boolean>(false);
+
+  const { checkSuspension } = useSuspensionCheck();
 
   useEffect(() => {
     const loadSavedData = async () => {
@@ -110,22 +113,28 @@ const SignIn = () => {
           await AsyncStorage.setItem("rememberMe", "false");
         }
 
-        const isProfileComplete = await checkProfileCompletion(data.user.id);
-
-        if (isProfileComplete) {
-          router.replace("/(root)/(tabs)/home");
-        } else {
-          router.replace("/(auth)/preguntas");
+        const isSuspended = await checkSuspension();
+        
+        if (!isSuspended) {
+          const isProfileComplete = await checkProfileCompletion(data.user.id);
+          if (isProfileComplete) {
+            router.replace("/(root)/(tabs)/home");
+          } else {
+            router.replace("/(auth)/preguntas");
+          }
         }
+        
       } else {
         Alert.alert("Error", "No se pudo obtener la información del usuario. Por favor, intenta de nuevo.");
       }
     } catch (error) {
-      Alert.alert("Error", "Ocurrió un error inesperado durante el inicio de sesión. Por favor, intenta de nuevo.");
+      if (error.message !== 'User is suspended') {
+        Alert.alert("Error", "Ocurrió un error inesperado durante el inicio de sesión. Por favor, intenta de nuevo.");
+      }
     } finally {
       setIsLoading(false);
     }
-  }, [form.email, form.password, rememberMe, router]);
+  }, [form.email, form.password, rememberMe, router, checkSuspension]);
 
   return (
     <ScrollView className="flex-1 bg-white">
