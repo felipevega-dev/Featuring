@@ -6,7 +6,8 @@ import {
   Switch, 
   TouchableOpacity, 
   Alert,
-  ActivityIndicator
+  ActivityIndicator,
+  Modal
 } from "react-native";
 import { supabase } from "@/lib/supabase";
 import { Ionicons } from "@expo/vector-icons";
@@ -14,6 +15,7 @@ import Slider from '@react-native-community/slider';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { habilidadesMusicales, generosMusicales } from "@/constants/musicData";
 import { hispanicCountryCodes } from "@/utils/countryCodes";
+import BlockedUsersList from '@/components/BlockedUsersList';
 
 
 interface PreferenciasUsuario {
@@ -68,6 +70,7 @@ export default function Preferencias() {
     habilidades: false,
     nacionalidades: false
   });
+  const [showBlockedUsers, setShowBlockedUsers] = useState(false);
 
   const opciones: OpcionSexo[] = [
     { valor: 'M', label: 'Masculino' },
@@ -243,6 +246,22 @@ export default function Preferencias() {
               />
             </View>
           </View>
+        </View>
+
+        {/* Sección de Usuarios Bloqueados - NUEVO */}
+        <View className="bg-white rounded-lg p-4">
+          <TouchableOpacity
+            onPress={() => setShowBlockedUsers(true)}
+            className="flex-row items-center justify-between"
+          >
+            <View className="flex-row items-center">
+              <Ionicons name="shield-outline" size={24} color="#6D29D2" />
+              <Text className="text-lg font-bold text-primary-600 ml-2">
+                Usuarios Bloqueados
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={24} color="#6D29D2" />
+          </TouchableOpacity>
         </View>
 
         {/* Sección de Preferencias de Match */}
@@ -593,6 +612,18 @@ export default function Preferencias() {
             </View>
           </View>
         </View>
+
+        {/* Modal de Usuarios Bloqueados - NUEVO */}
+        <Modal
+          visible={showBlockedUsers}
+          animationType="slide"
+          presentationStyle="pageSheet"
+        >
+          <BlockedUsersList
+            isVisible={showBlockedUsers}
+            onClose={() => setShowBlockedUsers(false)}
+          />
+        </Modal>
       </View>
     </ScrollView>
   );
