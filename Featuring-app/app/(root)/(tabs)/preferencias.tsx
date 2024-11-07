@@ -190,7 +190,7 @@ export default function Preferencias() {
               <View className="flex-1 flex-shrink">
                 <Text className="text-base font-medium break-words">Mostrar Edad</Text>
                 <Text className="text-sm text-gray-500 break-words">
-                  Tu edad será visible en tu perfil
+                  Tu edad será visible en tu perfi
                 </Text>
               </View>
               <Switch
