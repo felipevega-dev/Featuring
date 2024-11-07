@@ -20,6 +20,7 @@ DROP TABLE IF EXISTS valoracion_colaboracion CASCADE;
 DROP TABLE IF EXISTS red_social CASCADE;
 DROP TABLE IF EXISTS perfil_genero CASCADE;
 DROP TABLE IF EXISTS perfil_habilidad CASCADE;
+DROP TABLE IF EXISTS admin_roles CASCADE;
 
 ------------------------------------------
 -- 2. CREATE TABLES
@@ -320,6 +321,13 @@ CREATE TABLE preferencias_usuario (
     constraint fk_usuario_preferencias foreign key (usuario_id) references perfil (usuario_id) on delete cascade
 );
 
+-- Tabla admin_roles
+CREATE TABLE admin_roles (
+  id UUID PRIMARY KEY REFERENCES auth.users ON DELETE CASCADE,
+  role TEXT NOT NULL CHECK (role IN ('admin', 'super_admin')),
+  created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
 ------------------------------------------
 -- 3. CREATE POLICIES
 ------------------------------------------
@@ -359,6 +367,71 @@ CREATE POLICY "permitirtodo ftpnhqo_1" ON storage.objects FOR UPDATE TO public U
 CREATE POLICY "permitirtodo ftpnhqo_2" ON storage.objects FOR INSERT TO public WITH CHECK (bucket_id = 'fotoperfil');
 CREATE POLICY "permitirtodo ftpnhqo_3" ON storage.objects FOR DELETE TO public USING (bucket_id = 'fotoperfil');
 
+-- Políticas para admin_roles
+ALTER TABLE admin_roles ENABLE ROW LEVEL SECURITY;
+
+-- Política para lectura (SELECT)
+CREATE POLICY "permitir_lectura_autenticados"
+ON admin_roles
+FOR SELECT
+TO authenticated
+USING (true);
+
+-- Política para inserción (INSERT)
+CREATE POLICY "permitir_insert_super_admin"
+ON admin_roles
+FOR INSERT
+TO authenticated
+WITH CHECK (
+  EXISTS (
+    SELECT 1 FROM admin_roles ar 
+    WHERE ar.id = auth.uid() 
+    AND ar.role = 'super_admin'
+  )
+);
+
+-- Política para actualización (UPDATE)
+CREATE POLICY "permitir_update_super_admin"
+ON admin_roles
+FOR UPDATE
+TO authenticated
+USING (
+  EXISTS (
+    SELECT 1 FROM admin_roles ar 
+    WHERE ar.id = auth.uid() 
+    AND ar.role = 'super_admin'
+  )
+);
+
+-- Política para eliminación (DELETE)
+CREATE POLICY "permitir_delete_super_admin"
+ON admin_roles
+FOR DELETE
+TO authenticated
+USING (
+  EXISTS (
+    SELECT 1 FROM admin_roles ar 
+    WHERE ar.id = auth.uid() 
+    AND ar.role = 'super_admin'
+  )
+);
+
+-- Solo los super_admin pueden ver roles
+CREATE POLICY "Solo super_admin pueden ver roles"
+  ON admin_roles
+  FOR SELECT
+  USING (auth.uid() IN (
+    SELECT id FROM admin_roles WHERE role = 'super_admin'
+  ));
+
+-- Solo super_admin pueden modificar roles
+CREATE POLICY "Solo super_admin pueden modificar roles"
+  ON admin_roles
+  FOR ALL
+  USING (auth.uid() IN (
+    SELECT id FROM admin_roles WHERE role = 'super_admin'
+  ));
+
 ------------------------------------------
 -- 4. CREATE INDEXES
 ------------------------------------------
@@ -385,6 +458,9 @@ CREATE INDEX idx_colaboracion_usuarios ON colaboracion(usuario_id, cancion_id);
 CREATE INDEX idx_notificacion_tipo ON notificacion(tipo_notificacion);
 CREATE INDEX idx_preferencias_usuario ON preferencias_usuario (usuario_id);
 CREATE INDEX idx_mensaje_leido ON mensaje (receptor_id, emisor_id, leido);
+
+CREATE INDEX idx_admin_roles_id ON admin_roles (id);
+CREATE INDEX idx_admin_roles_role ON admin_roles (role);
 
 ------------------------------------------
 -- 5. CREATE FUNCTIONS
