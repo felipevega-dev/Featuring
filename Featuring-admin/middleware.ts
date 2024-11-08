@@ -1,6 +1,7 @@
 import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import { metricsMiddleware } from './middleware/metrics'
 
 export async function middleware(req: NextRequest) {
   const res = NextResponse.next()
@@ -31,6 +32,10 @@ export async function middleware(req: NextRequest) {
       return NextResponse.redirect(new URL('/login', req.url))
     }
   }
+
+  // Primero aplicar el middleware de métricas
+  const metricsRes = await metricsMiddleware(req)
+  if (metricsRes) return metricsRes
 
   return res
 }
