@@ -6,6 +6,9 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { Menu, Transition } from '@headlessui/react'
 import { ChevronDownIcon } from '@heroicons/react/20/solid'
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { Session } from '@supabase/supabase-js'
+import { notificationService } from '../../../services/notificationService';
 
 interface Reporte {
   id: string;
@@ -30,6 +33,13 @@ interface ContentDetails {
   usuario_id: string;
 }
 
+interface ResolutionForm {
+  tipo: 'amonestacion' | 'suspension_temporal' | 'suspension_permanente';
+  motivo: string;
+  duracion?: number | undefined;
+  eliminarContenido: boolean;
+}
+
 const REPORTES_PER_PAGE = 20
 
 export default function CommunityReports() {
@@ -40,10 +50,35 @@ export default function CommunityReports() {
   const [totalReportes, setTotalReportes] = useState(0)
   const [expandedReporte, setExpandedReporte] = useState<string | null>(null)
   const [contentDetails, setContentDetails] = useState<ContentDetails | null>(null)
+  const [showResolutionModal, setShowResolutionModal] = useState(false);
+  const [selectedReporte, setSelectedReporte] = useState<Reporte | null>(null);
+  const [resolutionForm, setResolutionForm] = useState<ResolutionForm>({
+    tipo: 'amonestacion',
+    motivo: '',
+    duracion: undefined,
+    eliminarContenido: false
+  });
+  const [session, setSession] = useState<Session | null>(null)
+  const supabase = createClientComponentClient()
 
   useEffect(() => {
     fetchReportes()
   }, [currentPage])
+
+  useEffect(() => {
+    const fetchSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      setSession(session)
+    }
+
+    fetchSession()
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session)
+    })
+
+    return () => subscription.unsubscribe()
+  }, [supabase])
 
   async function fetchReportes() {
     setLoading(true)
@@ -125,32 +160,181 @@ export default function CommunityReports() {
   };
 
   const handleReporteAction = async (reporteId: string, action: 'resolve' | 'dismiss' | 'open') => {
-    try {
-      let newStatus;
-      switch (action) {
-        case 'resolve':
-          newStatus = 'resuelto';
-          break;
-        case 'dismiss':
-          newStatus = 'desestimado';
-          break;
-        case 'open':
-          newStatus = 'abierto';
-          break;
-      }
+    if (action === 'resolve') {
+      const reporte = reportes.find(r => r.id === reporteId);
+      if (!reporte) return;
+      setSelectedReporte(reporte);
+      setShowResolutionModal(true);
+      return;
+    }
 
+    try {
+      const newStatus = action === 'dismiss' ? 'desestimado' : 'abierto';
+      
       await supabaseAdmin
         .from('reporte')
         .update({ estado: newStatus })
         .eq('id', reporteId);
 
-      // Refresh the report list after action
       fetchReportes();
     } catch (error) {
       console.error(`Error actualizando el estado del reporte:`, error);
       setError(`No se pudo actualizar el estado del reporte. Por favor, intente de nuevo.`);
     }
   };
+
+  const handleResolveReport = async () => {
+    if (!selectedReporte || !resolutionForm.motivo || !session?.user?.id) {
+      setError('No se puede resolver el reporte. Asegúrese de estar autenticado y proporcionar un motivo.');
+      return;
+    }
+
+    try {
+      await notificationService.handleReportValidation({
+        reporterId: selectedReporte.usuario_reportante_id,
+        reportedUserId: selectedReporte.usuario_reportado_id,
+        contentId: selectedReporte.contenido_id || undefined,
+        adminId: session.user.id,
+        motivo: resolutionForm.motivo,
+        sanctionType: resolutionForm.tipo
+      });
+
+      if (resolutionForm.eliminarContenido && selectedReporte.contenido_id) {
+        await supabaseAdmin
+          .from('cancion')
+          .delete()
+          .eq('id', selectedReporte.contenido_id);
+      }
+
+      await supabaseAdmin
+        .from('reporte')
+        .update({ estado: 'resuelto' })
+        .eq('id', selectedReporte.id);
+
+      setShowResolutionModal(false);
+      setSelectedReporte(null);
+      setResolutionForm({
+        tipo: 'amonestacion',
+        motivo: '',
+        duracion: undefined,
+        eliminarContenido: false
+      });
+
+      fetchReportes();
+
+    } catch (error) {
+      console.error('Error al resolver el reporte:', error);
+      setError('No se pudo resolver el reporte. Por favor, intente de nuevo.');
+    }
+  };
+
+  const renderResolutionModal = () => (
+    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+      <div className="relative top-4 mx-auto p-5 border w-11/12 max-w-2xl shadow-lg rounded-md bg-white">
+        <div className="mt-3">
+          <h3 className="text-lg font-medium leading-6 text-gray-900 mb-4">
+            Resolver Reporte
+          </h3>
+          
+          <div className="mt-2 space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Tipo de Sanción
+              </label>
+              <select
+                value={resolutionForm.tipo}
+                onChange={(e) => setResolutionForm({
+                  ...resolutionForm,
+                  tipo: e.target.value as 'amonestacion' | 'suspension_temporal' | 'suspension_permanente'
+                })}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+              >
+                <option value="amonestacion">Amonestación</option>
+                <option value="suspension_temporal">Suspensión Temporal</option>
+                <option value="suspension_permanente">Suspensión Permanente</option>
+              </select>
+            </div>
+
+            {resolutionForm.tipo === 'suspension_temporal' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Duración (días)
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  value={resolutionForm.duracion || ''}
+                  onChange={(e) => setResolutionForm({
+                    ...resolutionForm,
+                    duracion: e.target.value ? parseInt(e.target.value) : undefined
+                  })}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                />
+              </div>
+            )}
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Motivo de la Sanción
+              </label>
+              <textarea
+                value={resolutionForm.motivo}
+                onChange={(e) => setResolutionForm({
+                  ...resolutionForm,
+                  motivo: e.target.value
+                })}
+                rows={3}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                placeholder="Describa el motivo de la sanción..."
+              />
+            </div>
+
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                id="eliminarContenido"
+                checked={resolutionForm.eliminarContenido}
+                onChange={(e) => setResolutionForm({
+                  ...resolutionForm,
+                  eliminarContenido: e.target.checked
+                })}
+                className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+              />
+              <label htmlFor="eliminarContenido" className="ml-2 block text-sm text-gray-900">
+                Eliminar el contenido reportado
+              </label>
+            </div>
+          </div>
+
+          <div className="mt-5 sm:mt-6 space-y-2">
+            <button
+              type="button"
+              onClick={handleResolveReport}
+              className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-primary-600 text-base font-medium text-white hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 sm:text-sm"
+            >
+              Resolver Reporte
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setShowResolutionModal(false);
+                setSelectedReporte(null);
+                setResolutionForm({
+                  tipo: 'amonestacion',
+                  motivo: '',
+                  duracion: undefined,
+                  eliminarContenido: false
+                });
+              }}
+              className="w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 sm:text-sm"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 
   const totalPages = Math.ceil(totalReportes / REPORTES_PER_PAGE)
 
@@ -202,7 +386,7 @@ export default function CommunityReports() {
                         onClick={() => handleExpandReporte(reporte.id)}
                         className="text-primary-600 hover:text-secondary-500 text-base sm:text-lg font-medium mb-32"
                       >
-                         -> Ver detalles
+                        {'>'}Ver detalles
                       </button>
                       <Menu as="div" className="relative inline-block text-left mb-32">
                         <div>
@@ -322,27 +506,81 @@ export default function CommunityReports() {
                         <p className="whitespace-pre-wrap">{reporte.contenido}</p>
                       </div>
                       
-                      {contentDetails && reporte.tipo_contenido === 'cancion' && (
+                      {contentDetails ? (
                         <div className="md:w-1/2 mt-6 md:mt-0 md:ml-6">
                           <h4 className="text-xl font-semibold mb-4">Detalles de la Canción</h4>
                           <div className="flex flex-col items-center">
-                            <Image 
-                              src={contentDetails.caratula || "https://via.placeholder.com/200"}
-                              alt="Carátula"
-                              width={200}
-                              height={200}
-                              className="rounded-md mb-4"
-                            />
-                            <div className="text-center">
-                              <p><strong>Título:</strong> {contentDetails.titulo}</p>
-                              <p><strong>Artista:</strong> {reporte.usuario_reportado.username}</p>
+                            {contentDetails.titulo ? (
+                              <>
+                                <Image 
+                                  src={contentDetails.caratula || "https://via.placeholder.com/200"}
+                                  alt="Carátula"
+                                  width={200}
+                                  height={200}
+                                  className="rounded-md mb-4"
+                                />
+                                <div className="text-center">
+                                  <p><strong>Título:</strong> {contentDetails.titulo}</p>
+                                  <p><strong>Artista:</strong> {reporte.usuario_reportado.username}</p>
+                                </div>
+                                <div className="mt-4 w-full">
+                                  <audio controls className="w-full mb-4">
+                                    <source src={contentDetails.archivo_audio || ""} type="audio/mpeg" />
+                                    Tu navegador no soporta el elemento de audio.
+                                  </audio>
+                                </div>
+                              </>
+                            ) : (
+                              <div className="flex flex-col items-center justify-center p-8 bg-gray-50 rounded-lg">
+                                <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4">
+                                  <svg 
+                                    className="w-8 h-8 text-red-500" 
+                                    fill="none" 
+                                    stroke="currentColor" 
+                                    viewBox="0 0 24 24"
+                                  >
+                                    <path 
+                                      strokeLinecap="round" 
+                                      strokeLinejoin="round" 
+                                      strokeWidth={2} 
+                                      d="M6 18L18 6M6 6l12 12"
+                                    />
+                                  </svg>
+                                </div>
+                                <h5 className="text-lg font-medium text-gray-900 mb-2">
+                                  Contenido Eliminado
+                                </h5>
+                                <p className="text-gray-500 text-center">
+                                  Esta canción ha sido eliminada del sistema
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ) : reporte.tipo_contenido === 'cancion' && (
+                        <div className="md:w-1/2 mt-6 md:mt-0 md:ml-6">
+                          <div className="flex flex-col items-center justify-center p-8 bg-gray-50 rounded-lg">
+                            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4">
+                              <svg 
+                                className="w-8 h-8 text-red-500" 
+                                fill="none" 
+                                stroke="currentColor" 
+                                viewBox="0 0 24 24"
+                              >
+                                <path 
+                                  strokeLinecap="round" 
+                                  strokeLinejoin="round" 
+                                  strokeWidth={2} 
+                                  d="M6 18L18 6M6 6l12 12"
+                                />
+                              </svg>
                             </div>
-                            <div className="mt-4 w-full">
-                              <audio controls className="w-full mb-4">
-                                <source src={contentDetails.archivo_audio || ""} type="audio/mpeg" />
-                                Tu navegador no soporta el elemento de audio.
-                              </audio>
-                            </div>
+                            <h5 className="text-lg font-medium text-gray-900 mb-2">
+                              Contenido Eliminado
+                            </h5>
+                            <p className="text-gray-500 text-center">
+                              Esta canción ha sido eliminada del sistema
+                            </p>
                           </div>
                         </div>
                       )}
@@ -365,6 +603,8 @@ export default function CommunityReports() {
           </div>
         </div>
       )}
+
+      {showResolutionModal && renderResolutionModal()}
     </div>
   )
 }

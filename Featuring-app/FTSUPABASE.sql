@@ -49,6 +49,7 @@ CREATE TABLE perfil (
     preferencias_distancia INT,
     push_token TEXT,
     suspended BOOLEAN DEFAULT false,
+    puntos_reputacion INT DEFAULT 0,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     tutorial_completado BOOLEAN DEFAULT FALSE
   );
@@ -493,6 +494,7 @@ CREATE INDEX idx_video_estado ON video(estado);
 CREATE INDEX idx_sancion_administrativa_usuario ON sancion_administrativa(usuario_id);
 CREATE INDEX idx_sancion_administrativa_estado ON sancion_administrativa(estado);
 
+CREATE INDEX idx_perfil_puntos_reputacion ON perfil(puntos_reputacion);
 ------------------------------------------
 -- 5. CREATE FUNCTIONS
 ------------------------------------------
@@ -956,3 +958,26 @@ $$;
 SELECT cron.schedule('0 0 * * *', $$
     SELECT refresh_storage_metrics();
 $$);
+
+-- Función para incrementar puntos
+CREATE OR REPLACE FUNCTION increment(x integer)
+RETURNS integer
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RETURN x + 1;
+END;
+$$;
+
+-- Función para incrementar puntos de reputación
+CREATE OR REPLACE FUNCTION increment_reputation_points(user_id uuid, points integer)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+    UPDATE perfil
+    SET puntos_reputacion = COALESCE(puntos_reputacion, 0) + points
+    WHERE usuario_id = user_id;
+END;
+$$;
