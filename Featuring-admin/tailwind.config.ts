@@ -10,6 +10,28 @@ const config: Config = {
   ],
   theme: {
     extend: {
+      screens: {
+        'xs': '375px',     // Teléfonos pequeños
+        'sm': '640px',     // Teléfonos grandes/tablets pequeñas
+        'md': '768px',     // Tablets
+        'lg': '1024px',    // Laptops/Desktops pequeños
+        'xl': '1280px',    // Desktops
+        '2xl': '1536px',   // Pantallas grandes
+      },
+      maxWidth: {
+        'xs': '375px',
+        'sm': '640px',
+        'md': '768px',
+        'lg': '1024px',
+        'xl': '1280px',
+        '2xl': '1536px',
+      },
+      spacing: {
+        'screen-5': '5vw',
+        'screen-10': '10vw',
+        'screen-15': '15vw',
+        'screen-20': '20vw',
+      },
       fontFamily: {
         Jakarta: ["Jakarta", "sans-serif"],
         JakartaBold: ["Jakarta-Bold", "sans-serif"],

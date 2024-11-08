@@ -404,52 +404,47 @@ export default function UserManagement() {
 
     return (
       <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-        <div className="relative top-20 mx-auto p-5 border w-[800px] shadow-lg rounded-md bg-white">
+        <div className="relative mx-auto p-3 xs:p-4 sm:p-5 border w-[95%] xs:w-[90%] sm:w-[85%] md:w-[800px] shadow-lg rounded-md bg-white mt-2 xs:mt-4 sm:mt-6">
           <button
             onClick={() => setShowActivityModal(false)}
-            className="absolute top-4 right-4 text-gray-400 hover:text-gray-500"
+            className="absolute top-2 right-2 xs:top-4 xs:right-4 text-gray-400 hover:text-gray-500"
           >
-            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="h-5 w-5 xs:h-6 xs:w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
 
-          <h3 className="text-lg font-medium leading-6 text-gray-900 mb-4">
-            Actividad del Usuario
-          </h3>
-          <p className="text-sm text-gray-500 mb-4">
-            {selectedUserDetails?.perfil?.full_name || selectedUserDetails?.email}
-          </p>
+          <div className="max-h-[80vh] overflow-y-auto px-2 xs:px-4">
+            <h3 className="text-base xs:text-lg font-medium leading-6 text-gray-900 mb-2 xs:mb-4">
+              Actividad del Usuario
+            </h3>
+            <p className="text-xs xs:text-sm text-gray-500 mb-4">
+              {selectedUserDetails?.perfil?.full_name || selectedUserDetails?.email}
+            </p>
 
-          <div className="space-y-6">
-            {/* Contenido */}
-            <div>
-              <h4 className="font-medium text-gray-900 mb-2">Contenido Subido</h4>
-              <div className="space-y-2">
-                <p>Canciones: {userActivity?.canciones.length}</p>
-                <p>Videos: {userActivity?.videos.length}</p>
+            <div className="space-y-4 xs:space-y-6">
+              {/* Contenido */}
+              <div>
+                <h4 className="font-medium text-gray-900 mb-2">Contenido Subido</h4>
+                <div className="space-y-2">
+                  <p>Canciones: {userActivity?.canciones.length}</p>
+                  <p>Videos: {userActivity?.videos.length}</p>
+                </div>
+              </div>
+
+              {/* Colaboraciones */}
+              <div>
+                <h4 className="font-medium text-gray-900 mb-2">Colaboraciones</h4>
+                <p>Total: {userActivity?.colaboraciones.length}</p>
+              </div>
+
+              {/* Reportes */}
+              <div>
+                <h4 className="font-medium text-gray-900 mb-2">Reportes Recibidos</h4>
+                <p>Total: {userActivity?.reportesRecibidos.length}</p>
               </div>
             </div>
-
-            {/* Colaboraciones */}
-            <div>
-              <h4 className="font-medium text-gray-900 mb-2">Colaboraciones</h4>
-              <p>Total: {userActivity?.colaboraciones.length}</p>
-            </div>
-
-            {/* Reportes */}
-            <div>
-              <h4 className="font-medium text-gray-900 mb-2">Reportes Recibidos</h4>
-              <p>Total: {userActivity?.reportesRecibidos.length}</p>
-            </div>
           </div>
-
-          <button
-            className="mt-6 w-full bg-primary-500 text-white py-2 rounded-md hover:bg-primary-600"
-            onClick={() => setShowActivityModal(false)}
-          >
-            Cerrar
-          </button>
         </div>
       </div>
     )
@@ -559,12 +554,11 @@ export default function UserManagement() {
   }
 
   const renderSancionModal = () => {
-    // Obtener los detalles del usuario seleccionado
     const selectedUserDetails = users.find(user => user.id === selectedUser)
 
     return (
       <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-        <div className="relative top-2 mx-auto p-5 border w-[1000px] shadow-lg rounded-md bg-white">
+        <div className="relative mx-auto p-3 xs:p-4 sm:p-5 border w-[95%] xs:w-[90%] sm:w-[85%] md:w-[800px] lg:w-[1000px] shadow-lg rounded-md bg-white mt-2 xs:mt-4 sm:mt-6">
           {/* Botón de cerrar */}
           <button
             onClick={() => {
@@ -576,14 +570,14 @@ export default function UserManagement() {
                 duracion: undefined
               })
             }}
-            className="absolute top-4 right-4 text-gray-400 hover:text-gray-500 focus:outline-none"
+            className="absolute top-2 right-2 xs:top-4 xs:right-4 text-gray-400 hover:text-gray-500 focus:outline-none"
           >
-            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="h-5 w-5 xs:h-6 xs:w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
 
-          <div className="mt-3">
+          <div className="mt-2 xs:mt-3">
             <div className="flex flex-col items-start mb-6">
               <h3 className="text-lg font-medium leading-6 text-gray-900">
                 Aplicar Sanción
@@ -754,69 +748,120 @@ export default function UserManagement() {
   }
 
   const renderUserItem = (user: UserWithSanciones) => (
-    <li key={user.id} className="p-4 sm:p-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between">
-        <div className="flex items-center mb-2 sm:mb-0">
-          {user.perfil?.foto_perfil && getValidImageUrl(user.perfil.foto_perfil) ? (
-            <Image
-              src={getValidImageUrl(user.perfil.foto_perfil) as string}
-              alt="Foto de perfil"
-              width={48}
-              height={48}
-              className="rounded-full object-cover mr-4"
-            />
-          ) : (
-            <div className="w-12 h-12 bg-gray-300 rounded-full mr-4 flex items-center justify-center">
-              <span className="text-xl text-gray-600">{user.perfil?.full_name?.[0] || user.email?.[0]}</span>
-            </div>
-          )}
-          <div>
-            <div className="flex items-center">
-              <div className="text-base sm:text-lg font-medium text-gray-900">
-                {user.perfil?.full_name || 'N/A'}
+    <li key={user.id} className="p-2 xs:p-3 sm:p-4 md:p-6">
+      <div className="flex flex-col xs:flex-row xs:items-center justify-between w-full">
+        {/* Contenedor de información del usuario */}
+        <div className="flex items-center w-full xs:w-auto">
+          {/* Avatar */}
+          <div className="flex-shrink-0">
+            {user.perfil?.foto_perfil && getValidImageUrl(user.perfil.foto_perfil) ? (
+              <Image
+                src={getValidImageUrl(user.perfil.foto_perfil) as string}
+                alt="Foto de perfil"
+                width={36}
+                height={36}
+                className="rounded-full object-cover xs:w-12 xs:h-12"
+              />
+            ) : (
+              <div className="w-9 h-9 xs:w-12 xs:h-12 bg-gray-300 rounded-full flex items-center justify-center">
+                <span className="text-base xs:text-xl text-gray-600">
+                  {user.perfil?.full_name?.[0] || user.email?.[0]}
+                </span>
               </div>
+            )}
+          </div>
+
+          {/* Información del usuario */}
+          <div className="ml-2 xs:ml-3 flex flex-col justify-center">
+            <div className="flex flex-col xs:flex-row xs:items-center gap-1 xs:gap-2">
+              <div className="text-sm xs:text-base font-medium text-gray-900 truncate max-w-[150px] xs:max-w-none">
+                {/* Solo primer nombre en xs, nombre completo en sm+ */}
+                <span className="xs:hidden">
+                  {user.perfil?.full_name?.split(' ')[0] || 'N/A'}
+                </span>
+                <span className="hidden xs:inline">
+                  {user.perfil?.full_name || 'N/A'}
+                </span>
+              </div>
+              {/* Badges */}
               {user.sancionActiva && (
-                <div className="flex items-center space-x-2 ml-2">
+                <div className="flex items-center">
                   {user.suspensionActiva ? (
-                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">
-                      <FiAlertCircle className="mr-1" />
-                      Suspendido
-                    </span>
+                    <>
+                      {/* Badge para xs */}
+                      <span className="inline-flex xs:hidden items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-red-100 text-red-800">
+                        Sus.
+                      </span>
+                      {/* Badge para sm+ */}
+                      <span className="hidden xs:inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-red-100 text-red-800">
+                        <FiAlertCircle className="mr-1 w-4 h-4" />
+                        Suspendido
+                      </span>
+                    </>
                   ) : user.amonestacionesActivas > 0 && (
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                      user.amonestacionesActivas === 1 ? 'bg-yellow-100 text-yellow-800' :
-                      user.amonestacionesActivas === 2 ? 'bg-orange-100 text-orange-800' :
-                      'bg-red-100 text-red-800'
-                    }`}>
-                      {user.amonestacionesActivas} {user.amonestacionesActivas === 1 ? 'Amonestación' : 'Amonestaciones'}
-                    </span>
+                    <>
+                      {/* Badge para xs */}
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-yellow-100 text-yellow-800">
+                        {user.amonestacionesActivas} Sanciones
+                      </span>
+                      {/* Badge para sm+ */}
+                      <span className="hidden items-center px-2 py-1 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
+                        {user.amonestacionesActivas} {user.amonestacionesActivas === 1 ? 'Amonestación' : 'Amonestaciones'}
+                      </span>
+                    </>
                   )}
                 </div>
               )}
             </div>
-            <div className="text-sm sm:text-base text-gray-500">{user.email || ''}</div>
+            {/* Email */}
+            <div className="text-xs xs:text-sm text-gray-500 truncate max-w-[200px] xs:max-w-none">
+              {user.email || ''}
+            </div>
           </div>
         </div>
-        <div className="flex items-center space-x-3 mt-2 sm:mt-0">
+
+        {/* Botones de acción */}
+        <div className={`
+          flex gap-2 mt-2 xs:mt-0 ml-11 xs:ml-4
+          flex-col xs:flex-col md:flex-row md:items-center
+        `}>
           <button
             onClick={() => handleExpandUser(user.id)}
-            className="text-primary-600 hover:text-primary-900 text-base sm:text-lg font-medium"
+            className="text-[10px] xs:text-xs sm:text-sm md:text-base
+              text-white font-medium
+              px-1.5 py-1 xs:px-2
+              bg-secondary-500 hover:bg-secondary-600
+              md:px-4 md:py-2
+              transition-colors duration-200"
           >
-            Ver detalles
+            <span className="xs:hidden">Det.</span>
+            <span className="hidden xs:inline">Detalles</span>
           </button>
           <button
             onClick={() => handleSancion(user.id)}
-            className="text-warning-600 hover:text-warning-900 text-base sm:text-lg font-medium flex items-center"
+            className="text-[10px] xs:text-xs sm:text-sm md:text-base
+              text-white font-medium
+              flex items-center px-1.5 py-1 xs:px-2
+              bg-warning-500 hover:bg-warning-600
+              md:px-4 md:py-2
+              transition-colors duration-200"
           >
-            <FiAlertCircle className="mr-1" />
-            Sanciones
+            <FiAlertCircle className="mr-1 w-3 h-3 xs:w-4 xs:h-4" />
+            <span className="xs:hidden">San.</span>
+            <span className="hidden xs:inline">Sanciones</span>
           </button>
           <button
             onClick={() => handleViewActivity(user.id)}
-            className="text-primary-600 hover:text-primary-900 text-base sm:text-lg font-medium flex items-center"
+            className="text-[10px] xs:text-xs sm:text-sm md:text-base
+              text-white font-medium
+              flex items-center px-1.5 py-1 xs:px-2
+              bg-primary-500 hover:bg-primary-600
+              md:px-4 md:py-2
+              transition-colors duration-200"
           >
-            <FiActivity className="mr-1" />
-            Actividad
+            <FiActivity className="mr-1 w-3 h-3 xs:w-4 xs:h-4" />
+            <span className="xs:hidden">Act.</span>
+            <span className="hidden xs:inline">Actividad</span>
           </button>
         </div>
       </div>
@@ -824,30 +869,35 @@ export default function UserManagement() {
   );
 
   return (
-    <div className="container mx-auto px-2 py-4 sm:px-4 sm:py-8">
-      <div className="flex flex-col sm:flex-row justify-between items-center mb-4 sm:mb-8">
-        <h1 className="text-xl sm:text-4xl font-bold text-primary-700 mb-2 sm:mb-0">Gestión de Usuarios</h1>
-        <Link href="/" className="bg-primary-500 text-white px-3 py-1 sm:px-4 sm:py-2 rounded text-sm sm:text-base">
+    <div className="container mx-auto px-1 xs:px-2 sm:px-4 md:px-6 lg:px-8 py-2 xs:py-4 sm:py-6">
+      {/* Header más compacto en móvil */}
+      <div className="flex flex-col xs:flex-row justify-between items-start xs:items-center mb-3 xs:mb-4 sm:mb-6">
+        <h1 className="text-lg xs:text-xl sm:text-2xl lg:text-3xl font-bold text-primary-700 mb-2 xs:mb-0">
+          Gestión de Usuarios
+        </h1>
+        <Link 
+          href="/" 
+          className="w-full xs:w-auto bg-primary-500 text-white px-2 py-1 xs:px-3 sm:px-4 xs:py-1.5 rounded text-xs xs:text-sm transition-all duration-300 hover:bg-primary-600 text-center"
+        >
           Volver al Menú Principal
         </Link>
       </div>
 
-      <div className="mb-6 space-y-4">
-        {/* Búsqueda */}
-        <div className="flex flex-col sm:flex-row gap-4">
+      {/* Búsqueda y Filtros más compactos */}
+      <div className="mb-4 xs:mb-6 space-y-2 xs:space-y-0">
+        <div className="flex flex-col xs:flex-row gap-2 xs:gap-3">
           <input
             type="text"
             placeholder="Buscar por nombre o email..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="flex-1 px-4 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+            className="flex-1 px-3 py-1.5 xs:py-2 border border-gray-300 rounded-md text-xs xs:text-sm focus:ring-primary-500 focus:border-primary-500"
           />
           
-          {/* Filtros */}
           <select
             value={filter}
             onChange={(e) => setFilter(e.target.value as 'all' | 'suspended' | 'warned')}
-            className="px-4 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+            className="w-full xs:w-auto px-3 py-1.5 xs:py-2 border border-gray-300 rounded-md text-xs xs:text-sm focus:ring-primary-500 focus:border-primary-500"
           >
             <option value="all">Todos los usuarios</option>
             <option value="suspended">Suspendidos</option>
@@ -856,32 +906,43 @@ export default function UserManagement() {
         </div>
       </div>
 
-      {loading && <div className="text-center text-lg sm:text-xl">Cargando usuarios...</div>}
-      {error && <div className="text-center text-lg sm:text-xl text-danger-600">Error: {error}</div>}
+      {/* Lista de usuarios más compacta */}
+      {loading && (
+        <div className="text-center text-xs xs:text-sm sm:text-base">
+          Cargando usuarios...
+        </div>
+      )}
+      
+      {error && (
+        <div className="text-center text-xs xs:text-sm sm:text-base text-danger-600">
+          Error: {error}
+        </div>
+      )}
       
       {!loading && !error && users.length > 0 && (
         <>
-          <div className="bg-white shadow-md rounded-lg overflow-hidden">
-            <ul className="divide-y divide-gray-200">
+          <div className="bg-white shadow-sm xs:shadow-md rounded-lg overflow-hidden w-[98%] xs:w-[350px] sm:w-[96%] mx-auto">
+            <ul className="divide-y divide-gray-100 xs:divide-gray-200">
               {users.map((user) => renderUserItem(user))}
             </ul>
           </div>
 
-          <div className="mt-6 flex justify-between items-center bg-white p-4 rounded-lg shadow">
+          {/* Paginación más compacta */}
+          <div className="mt-4 xs:mt-6 flex justify-between items-center bg-white p-2 xs:p-3 rounded-lg shadow-sm xs:shadow-md">
             <button
               onClick={() => handlePageChange(currentPage - 1)}
               disabled={currentPage === 1}
-              className="bg-primary-500 text-white px-4 py-2 rounded disabled:bg-gray-300 text-sm font-medium transition-colors duration-200 ease-in-out hover:bg-primary-600 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-opacity-50"
+              className="bg-primary-500 text-white px-2 xs:px-3 py-1 xs:py-1.5 rounded disabled:bg-gray-300 text-xs xs:text-sm font-medium transition-colors duration-200 ease-in-out hover:bg-primary-600 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-opacity-50"
             >
               Anterior
             </button>
-            <span className="text-sm font-medium text-gray-700">
+            <span className="text-xs xs:text-sm font-medium text-gray-700">
               Página {currentPage} de {totalPages}
             </span>
             <button
               onClick={() => handlePageChange(currentPage + 1)}
               disabled={currentPage === totalPages}
-              className="bg-primary-500 text-white px-4 py-2 rounded disabled:bg-gray-300 text-sm font-medium transition-colors duration-200 ease-in-out hover:bg-primary-600 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-opacity-50"
+              className="bg-primary-500 text-white px-2 xs:px-3 py-1 xs:py-1.5 rounded disabled:bg-gray-300 text-xs xs:text-sm font-medium transition-colors duration-200 ease-in-out hover:bg-primary-600 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-opacity-50"
             >
               Siguiente
             </button>
