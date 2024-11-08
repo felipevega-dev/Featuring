@@ -94,11 +94,6 @@ export default function RootLayout() {
     return null;
   }
 
-  // Solo mostrar SuspendedScreen si las fuentes están cargadas y el usuario está suspendido
-  if (fontsLoaded && isSuspended && suspensionDetails) {
-    return <SuspendedScreen />;
-  }
-
   return (
     <CollaborationProvider>
       <Stack>

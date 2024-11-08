@@ -278,13 +278,6 @@ const Layout = () => {
               headerShown: false,
             }}
           />
-          <Tabs.Screen
-            name="suspended"
-            options={{
-              href: null,
-              headerShown: false,
-            }}
-          />
         </Tabs>
 
         {currentUserId && (
