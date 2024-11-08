@@ -30,6 +30,7 @@
     "expo-av": "^14.0.7",
     "expo-clipboard": "^6.0.3",
     "expo-constants": "~16.0.2",
+    "expo-device": "~6.0.2",
     "expo-document-picker": "~12.0.2",
     "expo-font": "~12.0.9",
     "expo-image": "~1.13.0",
@@ -37,6 +38,7 @@
     "expo-linking": "~6.3.1",
     "expo-local-authentication": "^14.0.1",
     "expo-location": "^17.0.1",
+    "expo-notifications": "~0.28.19",
     "expo-router": "~3.5.23",
     "expo-secure-store": "^13.0.2",
     "expo-splash-screen": "^0.27.6",
@@ -52,6 +54,7 @@
     "react-native-dropdown-picker": "^5.4.6",
     "react-native-modal": "^13.0.1",
     "react-native-reanimated": "~3.10.1",
+    "react-native-reanimated-carousel": "^3.5.1",
     "react-native-safe-area-context": "^4.10.5",
     "react-native-screens": "3.31.1",
     "react-native-svg": "^15.2.0",
@@ -60,8 +63,7 @@
     "react-native-url-polyfill": "^2.0.0",
     "react-native-web": "~0.19.10",
     "react-tinder-card": "^1.6.4",
-    "expo-notifications": "~0.28.19",
-    "expo-device": "~6.0.2"
+    "expo-linear-gradient": "~13.0.2"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",

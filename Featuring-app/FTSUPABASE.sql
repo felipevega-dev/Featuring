@@ -49,7 +49,8 @@ CREATE TABLE perfil (
     preferencias_distancia INT,
     push_token TEXT,
     suspended BOOLEAN DEFAULT false,
-    created_at TIMESTAMPTZ DEFAULT NOW()
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    tutorial_completado BOOLEAN DEFAULT FALSE
   );
 
 -- Tabla perfil_habilidad
