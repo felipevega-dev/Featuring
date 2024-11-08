@@ -147,7 +147,7 @@ export const notificationService = {
           usuario_origen_id: adminId,
           tipo_notificacion: 'reporte_validado',
           contenido_id: contentId || null,
-          mensaje: `Tu reporte ha sido validado y se han tomado medidas. Has ganado 30 puntos de reputación.`,
+          mensaje: `Tu reporte ha sido validado y se han tomado medidas. Has ganado 25 puntos de reputación.`,
           leido: false
         });
 
@@ -157,7 +157,7 @@ export const notificationService = {
       const { error: pointsError } = await supabaseAdmin
         .rpc('increment_reputation_points', {
           user_id: reporterId,
-          points: 30
+          points: 25
         });
 
       if (pointsError) throw pointsError;

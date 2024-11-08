@@ -49,19 +49,39 @@ const RECOMPENSAS: RecompensaInfo[] = [
   {
     nivel: 'Bronce',
     puntosNecesarios: 100,
-    beneficios: ['Insignia especial en el perfil', 'Acceso a temas exclusivos']
+    beneficios: ['5 dias de cuenta premium', 'Insignia especial de bronce', 'Título de moderador novato']
   },
   {
     nivel: 'Plata',
     puntosNecesarios: 300,
-    beneficios: ['1 mes de cuenta premium', 'Prioridad en el soporte']
+    beneficios: ['2 semanas de cuenta premium', 'Insignia especial de plata', 'Título de moderador recurrente', 'Prioridad en el soporte']
   },
   {
     nivel: 'Oro',
     puntosNecesarios: 600,
-    beneficios: ['3 meses de cuenta premium', 'Insignia de moderador honorario']
+    beneficios: ['1 mes de cuenta premium', 'Insignia especial de oro', 'Título de moderador honorario', 'Todos los beneficios de plata']
   }
 ];
+
+// Agregar un componente para la barra de progreso
+const ProgressBar = ({ current, total }: { current: number; total: number }) => {
+  const progress = Math.min((current / total) * 100, 100);
+  
+  return (
+    <View className="mt-2">
+      <View className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+        <View 
+          className="h-full bg-primary-500 rounded-full"
+          style={{ width: `${progress}%` }}
+        />
+      </View>
+      <View className="flex-row justify-between mt-1">
+        <Text className="text-xs text-gray-500">{current} pts</Text>
+        <Text className="text-xs text-gray-500">{total} pts</Text>
+      </View>
+    </View>
+  );
+};
 
 export default function Reportes() {
   const [reportesEnviados, setReportesEnviados] = useState<Reporte[]>([]);
@@ -220,18 +240,42 @@ export default function Reportes() {
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
-        className="flex-1"
+        className="flex-1 mb-10"
       >
         {activeTab === 'recompensas' ? (
           <View className="p-4">
             <View className="bg-primary-100 rounded-lg p-4 mb-4">
-              <Text className="text-primary-800 text-lg font-bold text-center">
-                Tus Puntos: {puntosReputacion}
-              </Text>
+              <View className="flex-row justify-between items-center">
+                <View className="flex-row items-center">
+                  <Text className="text-primary-800 text-lg font-bold">
+                    Tus Puntos: {puntosReputacion}
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => Alert.alert(
+                      "¿Cómo ganar puntos?",
+                      "Gana 30 puntos cada vez que uno de tus reportes sea validado por los administradores. Los reportes deben ser precisos y bien documentados."
+                    )}
+                    className="ml-2"
+                  >
+                    <Ionicons name="information-circle-outline" size={20} color="#6D29D2" />
+                  </TouchableOpacity>
+                </View>
+                {puntosReputacion >= 300 && (
+                  <View className="bg-primary-500 px-2 py-1 rounded-full">
+                    <Text className="text-white text-xs font-bold">Usuario Destacado</Text>
+                  </View>
+                )}
+              </View>
               {siguienteRecompensa && (
-                <Text className="text-primary-600 text-center mt-2">
-                  Te faltan {siguienteRecompensa.puntosNecesarios - puntosReputacion} puntos para alcanzar el nivel {siguienteRecompensa.nivel}
-                </Text>
+                <>
+                  <Text className="text-primary-600 text-center mt-2">
+                    Te faltan {siguienteRecompensa.puntosNecesarios - puntosReputacion} puntos para alcanzar el nivel {siguienteRecompensa.nivel}
+                  </Text>
+                  <ProgressBar 
+                    current={puntosReputacion} 
+                    total={siguienteRecompensa.puntosNecesarios} 
+                  />
+                </>
               )}
             </View>
 
@@ -242,6 +286,7 @@ export default function Reportes() {
                 puntosNecesarios={recompensa.puntosNecesarios}
                 puntosActuales={puntosReputacion}
                 beneficios={recompensa.beneficios}
+                isNext={siguienteRecompensa?.nivel === recompensa.nivel}
               />
             ))}
           </View>
