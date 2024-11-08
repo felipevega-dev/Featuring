@@ -4,7 +4,7 @@ const palabrasOfensivas = [
   'puta', 'puto', 'mierda', 'pendejo', 'idiota', 'estupido', 'maricon', 'perra',
   'verga', 'pinga', 'coño', 'culo', 'joder', 'cabron', 'zorra', 'marica',
   'pendeja', 'chinga', 'carajo', 'malparido', 'gonorrea', 'hijueputa', 'maldito',
-  'bastardo', 'imbecil', 'tarado', 'huevon', 'baboso', 'estupida','aweonao','conchetumare','ctm','agilao','embarao','ql'
+  'bastardo', 'imbecil', 'tarado', 'huevon', 'baboso', 'estupida','aweonao','conchetumare','ctm','agilao','embarao','ql','wn','kl'
   
 
   // Inglés - Insultos y groserías comunes
