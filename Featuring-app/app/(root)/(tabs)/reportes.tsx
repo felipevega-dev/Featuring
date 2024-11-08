@@ -167,31 +167,6 @@ export default function Reportes() {
     }
   };
 
-  const renderRecompensasTab = () => (
-    <View className="p-4">
-      <View className="bg-primary-100 rounded-lg p-4 mb-4">
-        <Text className="text-primary-800 text-lg font-bold text-center">
-          Tus Puntos: {puntosReputacion}
-        </Text>
-        {siguienteRecompensa && (
-          <Text className="text-primary-600 text-center mt-2">
-            Te faltan {siguienteRecompensa.puntosNecesarios - puntosReputacion} puntos para alcanzar el nivel {siguienteRecompensa.nivel}
-          </Text>
-        )}
-      </View>
-
-      {RECOMPENSAS.map((recompensa, index) => (
-        <RewardCard
-          key={index}
-          nivel={recompensa.nivel}
-          puntosNecesarios={recompensa.puntosNecesarios}
-          puntosActuales={puntosReputacion}
-          beneficios={recompensa.beneficios}
-        />
-      ))}
-    </View>
-  );
-
   if (loading) {
     return (
       <View className="flex-1 justify-center items-center bg-gray-50">
@@ -202,51 +177,74 @@ export default function Reportes() {
 
   return (
     <View className="flex-1 bg-gray-50">
-      {/* Header */}
-      <View className="bg-white shadow-sm">
-        <View className="flex-row justify-between items-center p-3">
-          <Text className="text-lg font-bold text-gray-900 p-1 text-center w-full">Reportes</Text>
-          <View className="w-8" />
-        </View>
+      {/* Header fijo */}
+      <View className="bg-white border-b border-gray-200">
+        <Text className="text-lg font-bold text-center py-2">
+          Reportes
+        </Text>
       </View>
 
-      {/* Tabs */}
-      <ScrollView 
-        horizontal 
-        showsHorizontalScrollIndicator={false}
-        className="bg-white border-b border-gray-200"
-      >
-        {(['enviados', 'recibidos', 'sanciones', 'recompensas'] as const).map((tab) => (
-          <TouchableOpacity
-            key={tab}
-            onPress={() => setActiveTab(tab)}
-            className={`py-1 px-4 ${
-              activeTab === tab 
-                ? 'border-b-2 border-primary-500' 
-                : ''
-            }`}
-          >
-            <Text 
-              className={`${
+      {/* Tabs fijos */}
+      <View className="bg-white border-b border-gray-200 justify-center items-center">
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ paddingHorizontal: 2 }}
+        >
+          {(['enviados', 'recibidos', 'sanciones', 'recompensas'] as const).map((tab) => (
+            <TouchableOpacity
+              key={tab}
+              onPress={() => setActiveTab(tab)}
+              className={`py-2 px-2 justify-center items-center ${
                 activeTab === tab 
-                  ? 'text-primary-500 font-semibold' 
-                  : 'text-gray-600'
-              } text-sm`}
+                  ? 'border-b-2 border-primary-500' 
+                  : ''
+              }`}
             >
-              {tab.charAt(0).toUpperCase() + tab.slice(1)}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
+              <Text 
+                className={`${
+                  activeTab === tab 
+                    ? 'text-primary-500 font-semibold' 
+                    : 'text-gray-600'
+                } text-sm`}
+              >
+                {tab.charAt(0).toUpperCase() + tab.slice(1)}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
 
-      {/* Content */}
+      {/* Contenido scrolleable */}
       <ScrollView
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
+        className="flex-1"
       >
         {activeTab === 'recompensas' ? (
-          renderRecompensasTab()
+          <View className="p-4">
+            <View className="bg-primary-100 rounded-lg p-4 mb-4">
+              <Text className="text-primary-800 text-lg font-bold text-center">
+                Tus Puntos: {puntosReputacion}
+              </Text>
+              {siguienteRecompensa && (
+                <Text className="text-primary-600 text-center mt-2">
+                  Te faltan {siguienteRecompensa.puntosNecesarios - puntosReputacion} puntos para alcanzar el nivel {siguienteRecompensa.nivel}
+                </Text>
+              )}
+            </View>
+
+            {RECOMPENSAS.map((recompensa, index) => (
+              <RewardCard
+                key={index}
+                nivel={recompensa.nivel}
+                puntosNecesarios={recompensa.puntosNecesarios}
+                puntosActuales={puntosReputacion}
+                beneficios={recompensa.beneficios}
+              />
+            ))}
+          </View>
         ) : (
           <View className="p-4">
             {activeTab === 'enviados' && (
@@ -263,7 +261,7 @@ export default function Reportes() {
                   />
                 ))
               ) : (
-                <Text className="text-center text-gray-500 mt-4">
+                <Text className="text-center text-gray-500">
                   No has enviado ningún reporte
                 </Text>
               )
@@ -283,7 +281,7 @@ export default function Reportes() {
                   />
                 ))
               ) : (
-                <Text className="text-center text-gray-500 mt-4">
+                <Text className="text-center text-gray-500">
                   No has recibido ningún reporte
                 </Text>
               )
@@ -302,11 +300,9 @@ export default function Reportes() {
                   />
                 ))
               ) : (
-                <View className="flex-1 justify-center items-center mt-4">
-                  <Text className="text-center text-gray-500">
-                    No tienes sanciones registradas
-                  </Text>
-                </View>
+                <Text className="text-center text-gray-500">
+                  No tienes sanciones registradas
+                </Text>
               )
             )}
           </View>

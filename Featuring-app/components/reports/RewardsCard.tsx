@@ -13,7 +13,7 @@ export function RewardCard({ nivel, puntosNecesarios, puntosActuales, beneficios
 
   return (
     <View 
-      className={`bg-white rounded-lg p-4 mb-4 ${
+      className={`bg-white p-3 rounded-lg shadow-sm mb-2 ${
         isUnlocked ? 'border-2 border-green-500' : ''
       }`}
     >

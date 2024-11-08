@@ -12,7 +12,7 @@ interface SanctionCardProps {
 export function SanctionCard({ tipo, motivo, duracion, fecha, getSanctionColor }: SanctionCardProps) {
   return (
     <View className="bg-white p-3 rounded-lg shadow mb-3">
-      <View className="flex-row justify-between items-start">
+      <View className="flex-row justify-between items-start"></View>
         <View className="flex-1">
           <View className={`self-start px-2 py-1 rounded-full ${getSanctionColor(tipo)}`}>
             <Text className="text-xs font-medium">
@@ -36,6 +36,6 @@ export function SanctionCard({ tipo, motivo, duracion, fecha, getSanctionColor }
           </Text>
         </View>
       </View>
-    </View>
+
   );
 } 

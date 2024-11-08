@@ -12,7 +12,7 @@ interface ReportCardProps {
 
 export function ReportCard({ username, razon, tipo, estado, fecha, getStatusColor }: ReportCardProps) {
   return (
-    <View className="bg-white p-3 rounded-lg shadow mb-3">
+    <View className="bg-white p-2.5 rounded-lg shadow-sm mb-2">
       <View className="flex-row justify-between items-start">
         <View className="flex-1">
           <Text className="font-semibold text-gray-900 text-base">
