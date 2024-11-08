@@ -8,7 +8,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { Menu, Transition } from '@headlessui/react'
 import { ChevronDownIcon } from '@heroicons/react/20/solid'
-import { FiAlertCircle, FiUserX, FiClock, FiCheck } from 'react-icons/fi'
+import { FiAlertCircle, FiActivity } from 'react-icons/fi'
 
 interface Perfil {
   usuario_id: string;
@@ -54,8 +54,9 @@ interface Sancion {
 
 interface UserWithSanciones extends UserWithProfile {
   sanciones?: Sancion[];
-  sancionActiva?: boolean;
-  amonestacionesActivas?: number;
+  sancionActiva: boolean;
+  suspensionActiva: boolean;
+  amonestacionesActivas: number;
 }
 
 const isValidHttpUrl = (string: string) => {
@@ -105,6 +106,10 @@ export default function UserManagement() {
   const [session, setSession] = useState<Session | null>(null)
   const [userSanciones, setUserSanciones] = useState<Sancion[]>([])
   const supabase = createClientComponentClient()
+  const [searchTerm, setSearchTerm] = useState('')
+  const [filter, setFilter] = useState<'all' | 'suspended' | 'warned'>('all')
+  const [showActivityModal, setShowActivityModal] = useState(false)
+  const [userActivity, setUserActivity] = useState<any>(null)
 
   useEffect(() => {
     const fetchSession = async () => {
@@ -125,13 +130,33 @@ export default function UserManagement() {
     fetchUsers()
   }, [currentPage])
 
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchUsers()
+    }, 500)
+
+    return () => clearTimeout(timer)
+  }, [searchTerm, filter, currentPage])
+
   async function fetchUsers() {
     setLoading(true)
     setError(null)
     try {
-      const { count } = await supabaseAdmin
-        .from('perfil')
-        .select('*', { count: 'exact', head: true })
+      let query = supabaseAdmin.from('perfil').select('*', { count: 'exact' })
+
+      // Aplicar búsqueda si existe
+      if (searchTerm) {
+        query = query.or(`username.ilike.%${searchTerm}%,usuario_id.in.(${
+          supabaseAdmin.auth.admin.listUsers().then(({ data }) => 
+            data?.users.filter(u => 
+              u.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+              u.user_metadata?.full_name?.toLowerCase().includes(searchTerm.toLowerCase())
+            ).map(u => u.id).join(',')
+          )
+        })`)
+      }
+
+      const { count } = await query
 
       setTotalUsers(count || 0)
 
@@ -157,19 +182,21 @@ export default function UserManagement() {
         authUsers.users.map(async (authUser) => {
           const perfil = perfiles.find(p => p.usuario_id === authUser.id)
           
-          // Obtener sanciones activas
           const { data: sanciones } = await supabaseAdmin
             .from('sancion_administrativa')
             .select('*')
             .eq('usuario_id', authUser.id)
             .eq('estado', 'activa')
           
-          // Contar amonestaciones activas
           const amonestacionesActivas = sanciones?.filter(
             s => s.tipo_sancion === 'amonestacion'
           ).length || 0
 
-          return {
+          const suspensionActiva = sanciones?.some(
+            s => ['suspension_temporal', 'suspension_permanente'].includes(s.tipo_sancion)
+          ) || false
+
+          const user = {
             ...authUser,
             perfil: perfil ? {
               ...perfil,
@@ -177,13 +204,20 @@ export default function UserManagement() {
               generos: perfil.perfil_genero.map((g: { genero: string }) => g.genero),
               habilidades: perfil.perfil_habilidad.map((h: { habilidad: string }) => h.habilidad),
             } : null,
-            sancionActiva: sanciones && sanciones.length > 0,
+            sancionActiva: (sanciones && sanciones.length > 0) || false,
+            suspensionActiva,
             amonestacionesActivas
           }
+
+          // Aplicar filtros
+          if (filter === 'suspended' && !suspensionActiva) return null
+          if (filter === 'warned' && !amonestacionesActivas) return null
+
+          return user
         })
       )
 
-      setUsers(usersWithProfiles)
+      setUsers(usersWithProfiles.filter(Boolean) as UserWithSanciones[])
     } catch (error) {
       console.error('Error al obtener los usuarios:', error)
       setError('No se pudieron cargar los usuarios')
@@ -309,41 +343,117 @@ export default function UserManagement() {
     return users.find(user => user.id === expandedUser);
   }
 
-  const renderActionMenu = (user: UserWithSanciones) => (
-    <Menu as="div" className="relative inline-block text-left">
-      <Menu.Button className="inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-3 py-2 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50">
-        Acciones
-        <ChevronDownIcon className="-mr-1 ml-2 h-5 w-5" aria-hidden="true" />
-      </Menu.Button>
-      <Transition
-        as={Fragment}
-        enter="transition ease-out duration-100"
-        enterFrom="transform opacity-0 scale-95"
-        enterTo="transform opacity-100 scale-100"
-        leave="transition ease-in duration-75"
-        leaveFrom="transform opacity-100 scale-100"
-        leaveTo="transform opacity-0 scale-95"
-      >
-        <Menu.Items className="origin-top-right absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none">
-          <div className="py-1">
-            <Menu.Item>
-              {({ active }) => (
-                <button
-                  onClick={() => handleSancion(user.id)}
-                  className={`${
-                    active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
-                  } flex items-center w-full px-4 py-2 text-sm`}
-                >
-                  <FiAlertCircle className="mr-3 h-5 w-5 text-warning-500" />
-                  Aplicar Sanción
-                </button>
-              )}
-            </Menu.Item>
+  // Función para manejar la vista de actividad
+  const handleViewActivity = async (userId: string) => {
+    setSelectedUser(userId)
+    const activity = await fetchUserActivity(userId)
+    setUserActivity(activity)
+    setShowActivityModal(true)
+  }
+
+  // Función para obtener la actividad del usuario
+  const fetchUserActivity = async (userId: string) => {
+    try {
+      const [
+        { data: canciones },
+        { data: videos },
+        { data: colaboraciones },
+        { data: reportesRecibidos }
+      ] = await Promise.all([
+        // Canciones subidas
+        supabaseAdmin
+          .from('cancion')
+          .select('*')
+          .eq('usuario_id', userId)
+          .order('created_at', { ascending: false }),
+        // Videos subidos
+        supabaseAdmin
+          .from('video')
+          .select('*')
+          .eq('usuario_id', userId)
+          .order('created_at', { ascending: false }),
+        // Colaboraciones
+        supabaseAdmin
+          .from('colaboracion')
+          .select('*, cancion:cancion_id(*)')
+          .or(`usuario_id.eq.${userId},usuario_id2.eq.${userId}`)
+          .order('created_at', { ascending: false }),
+        // Reportes recibidos
+        supabaseAdmin
+          .from('reporte')
+          .select('*')
+          .eq('usuario_reportado_id', userId)
+          .order('created_at', { ascending: false })
+      ])
+
+      return {
+        canciones: canciones || [],
+        videos: videos || [],
+        colaboraciones: colaboraciones || [],
+        reportesRecibidos: reportesRecibidos || []
+      }
+    } catch (error) {
+      console.error('Error fetching user activity:', error)
+      return null
+    }
+  }
+
+  // Modal de actividad
+  const renderActivityModal = () => {
+    const selectedUserDetails = users.find(user => user.id === selectedUser)
+
+    return (
+      <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+        <div className="relative top-20 mx-auto p-5 border w-[800px] shadow-lg rounded-md bg-white">
+          <button
+            onClick={() => setShowActivityModal(false)}
+            className="absolute top-4 right-4 text-gray-400 hover:text-gray-500"
+          >
+            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+
+          <h3 className="text-lg font-medium leading-6 text-gray-900 mb-4">
+            Actividad del Usuario
+          </h3>
+          <p className="text-sm text-gray-500 mb-4">
+            {selectedUserDetails?.perfil?.full_name || selectedUserDetails?.email}
+          </p>
+
+          <div className="space-y-6">
+            {/* Contenido */}
+            <div>
+              <h4 className="font-medium text-gray-900 mb-2">Contenido Subido</h4>
+              <div className="space-y-2">
+                <p>Canciones: {userActivity?.canciones.length}</p>
+                <p>Videos: {userActivity?.videos.length}</p>
+              </div>
+            </div>
+
+            {/* Colaboraciones */}
+            <div>
+              <h4 className="font-medium text-gray-900 mb-2">Colaboraciones</h4>
+              <p>Total: {userActivity?.colaboraciones.length}</p>
+            </div>
+
+            {/* Reportes */}
+            <div>
+              <h4 className="font-medium text-gray-900 mb-2">Reportes Recibidos</h4>
+              <p>Total: {userActivity?.reportesRecibidos.length}</p>
+            </div>
           </div>
-        </Menu.Items>
-      </Transition>
-    </Menu>
-  )
+
+          <button
+            className="mt-6 w-full bg-primary-500 text-white py-2 rounded-md hover:bg-primary-600"
+            onClick={() => setShowActivityModal(false)}
+          >
+            Cerrar
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   const fetchUserSanciones = async (userId: string) => {
     try {
@@ -454,7 +564,7 @@ export default function UserManagement() {
 
     return (
       <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-        <div className="relative top-20 mx-auto p-5 border w-[800px] shadow-lg rounded-md bg-white">
+        <div className="relative top-2 mx-auto p-5 border w-[1000px] shadow-lg rounded-md bg-white">
           {/* Botón de cerrar */}
           <button
             onClick={() => {
@@ -484,7 +594,7 @@ export default function UserManagement() {
             </div>
 
             {/* Historial de sanciones */}
-            <div className="mb-6">
+            <div className="mb-4">
               <h4 className="text-md font-medium text-gray-700 mb-2">Historial de Sanciones</h4>
               <div className="max-h-60 overflow-y-auto border rounded-lg">
                 {userSanciones.length > 0 ? (
@@ -666,12 +776,13 @@ export default function UserManagement() {
                 {user.perfil?.full_name || 'N/A'}
               </div>
               {user.sancionActiva && (
-                <div className="flex items-center space-x-2">
-                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">
-                    <FiAlertCircle className="mr-1" />
-                    Sancionado
-                  </span>
-                  {user.amonestacionesActivas > 0 && (
+                <div className="flex items-center space-x-2 ml-2">
+                  {user.suspensionActiva ? (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">
+                      <FiAlertCircle className="mr-1" />
+                      Suspendido
+                    </span>
+                  ) : user.amonestacionesActivas > 0 && (
                     <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
                       user.amonestacionesActivas === 1 ? 'bg-yellow-100 text-yellow-800' :
                       user.amonestacionesActivas === 2 ? 'bg-orange-100 text-orange-800' :
@@ -683,17 +794,30 @@ export default function UserManagement() {
                 </div>
               )}
             </div>
-            <div className="text-sm sm:text-base text-gray-500">{user.email}</div>
+            <div className="text-sm sm:text-base text-gray-500">{user.email || ''}</div>
           </div>
         </div>
-        <div className="flex items-center justify-end space-x-3 mt-2 sm:mt-0">
+        <div className="flex items-center space-x-3 mt-2 sm:mt-0">
           <button
             onClick={() => handleExpandUser(user.id)}
             className="text-primary-600 hover:text-primary-900 text-base sm:text-lg font-medium"
           >
             Ver detalles
           </button>
-          {renderActionMenu(user)}
+          <button
+            onClick={() => handleSancion(user.id)}
+            className="text-warning-600 hover:text-warning-900 text-base sm:text-lg font-medium flex items-center"
+          >
+            <FiAlertCircle className="mr-1" />
+            Sanciones
+          </button>
+          <button
+            onClick={() => handleViewActivity(user.id)}
+            className="text-primary-600 hover:text-primary-900 text-base sm:text-lg font-medium flex items-center"
+          >
+            <FiActivity className="mr-1" />
+            Actividad
+          </button>
         </div>
       </div>
     </li>
@@ -706,6 +830,30 @@ export default function UserManagement() {
         <Link href="/" className="bg-primary-500 text-white px-3 py-1 sm:px-4 sm:py-2 rounded text-sm sm:text-base">
           Volver al Menú Principal
         </Link>
+      </div>
+
+      <div className="mb-6 space-y-4">
+        {/* Búsqueda */}
+        <div className="flex flex-col sm:flex-row gap-4">
+          <input
+            type="text"
+            placeholder="Buscar por nombre o email..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="flex-1 px-4 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+          />
+          
+          {/* Filtros */}
+          <select
+            value={filter}
+            onChange={(e) => setFilter(e.target.value as 'all' | 'suspended' | 'warned')}
+            className="px-4 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+          >
+            <option value="all">Todos los usuarios</option>
+            <option value="suspended">Suspendidos</option>
+            <option value="warned">Amonestados</option>
+          </select>
+        </div>
       </div>
 
       {loading && <div className="text-center text-lg sm:text-xl">Cargando usuarios...</div>}
@@ -743,8 +891,8 @@ export default function UserManagement() {
 
       {expandedUser && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50" id="my-modal">
-          <div className="relative top-10 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-white">
-            <div className="mt-3">
+          <div className="relative top-4 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-white">
+            <div className="mt-2">
               <h3 className="text-2xl leading-6 font-bold text-primary-700 text-center mb-6">Detalles del Usuario</h3>
               <div className="mt-2 px-4 py-5 max-h-[70vh] overflow-y-auto">
                 {(() => {
@@ -828,6 +976,7 @@ export default function UserManagement() {
       )}
 
       {showSancionModal && renderSancionModal()}
+      {showActivityModal && renderActivityModal()}
     </div>
   )
 }
