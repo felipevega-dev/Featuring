@@ -22,6 +22,9 @@ DROP TABLE IF EXISTS perfil_genero CASCADE;
 DROP TABLE IF EXISTS perfil_habilidad CASCADE;
 DROP TABLE IF EXISTS admin_roles CASCADE;
 
+-- Extensiones
+create extension if not exists pg_cron;
+
 ------------------------------------------
 -- 2. CREATE TABLES
 ------------------------------------------
@@ -348,10 +351,6 @@ CREATE TABLE sancion_administrativa (
     CONSTRAINT fk_admin_sancion FOREIGN KEY (admin_id) REFERENCES admin_roles (id)
 );
 
--- Índice para mejorar búsquedas
-CREATE INDEX idx_sancion_administrativa_usuario ON sancion_administrativa(usuario_id);
-CREATE INDEX idx_sancion_administrativa_estado ON sancion_administrativa(estado);
-
 ------------------------------------------
 -- 3. CREATE POLICIES
 ------------------------------------------
@@ -488,6 +487,10 @@ CREATE INDEX idx_admin_roles_role ON admin_roles (role);
 
 CREATE INDEX idx_cancion_estado ON cancion(estado);
 CREATE INDEX idx_video_estado ON video(estado);
+
+-- Índice para mejorar búsquedas
+CREATE INDEX idx_sancion_administrativa_usuario ON sancion_administrativa(usuario_id);
+CREATE INDEX idx_sancion_administrativa_estado ON sancion_administrativa(estado);
 
 ------------------------------------------
 -- 5. CREATE FUNCTIONS
@@ -770,3 +773,190 @@ CREATE TRIGGER trigger_update_perfil_suspended
 AFTER INSERT OR UPDATE ON sancion_administrativa
 FOR EACH ROW
 EXECUTE FUNCTION update_perfil_suspended();
+
+-- Función para obtener usuarios por país
+CREATE OR REPLACE FUNCTION get_users_by_country()
+RETURNS TABLE (country text, count bigint)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  RETURN QUERY
+  SELECT 
+    nacionalidad as country,
+    count(*) as count
+  FROM perfil
+  WHERE nacionalidad IS NOT NULL
+  GROUP BY nacionalidad
+  ORDER BY count DESC;
+END;
+$$;
+
+-- Función para obtener usuarios por rango de edad
+CREATE OR REPLACE FUNCTION get_users_by_age_range()
+RETURNS TABLE (age_range text, count bigint)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  RETURN QUERY
+  SELECT 
+    CASE 
+      WHEN edad < 18 THEN '<18'
+      WHEN edad BETWEEN 18 AND 24 THEN '18-24'
+      WHEN edad BETWEEN 25 AND 34 THEN '25-34'
+      WHEN edad BETWEEN 35 AND 44 THEN '35-44'
+      ELSE '45+'
+    END as age_range,
+    count(*) as count
+  FROM perfil
+  WHERE edad IS NOT NULL
+  GROUP BY age_range
+  ORDER BY age_range;
+END;
+$$;
+
+-- Función para obtener usuarios por país
+CREATE OR REPLACE FUNCTION get_users_by_country()
+RETURNS TABLE (country text, count bigint)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  RETURN QUERY
+  SELECT 
+    nacionalidad as country,
+    count(*) as count
+  FROM perfil
+  WHERE nacionalidad IS NOT NULL
+  GROUP BY nacionalidad
+  ORDER BY count DESC;
+END;
+$$;
+
+-- Función para obtener usuarios por rango de edad
+CREATE OR REPLACE FUNCTION get_users_by_age_range()
+RETURNS TABLE (age_range text, count bigint)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  RETURN QUERY
+  SELECT 
+    CASE 
+      WHEN edad < 18 THEN '<18'
+      WHEN edad BETWEEN 18 AND 24 THEN '18-24'
+      WHEN edad BETWEEN 25 AND 34 THEN '25-34'
+      WHEN edad BETWEEN 35 AND 44 THEN '35-44'
+      ELSE '45+'
+    END as age_range,
+    count(*) as count
+  FROM perfil
+  WHERE edad IS NOT NULL
+  GROUP BY age_range
+  ORDER BY age_range;
+END;
+$$; 
+
+CREATE TRIGGER track_storage_changes
+AFTER INSERT OR UPDATE ON storage.objects
+FOR EACH ROW
+EXECUTE FUNCTION update_storage_size();
+
+-- Función para obtener métricas de almacenamiento
+CREATE OR REPLACE FUNCTION get_storage_metrics()
+RETURNS json
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    total_size BIGINT;
+    videos_size BIGINT;
+    songs_size BIGINT;
+    covers_size BIGINT;
+    profile_pics_size BIGINT;
+    chat_media_size BIGINT;
+    largest_files json;
+BEGIN
+    -- Obtener tamaño total
+    SELECT COALESCE(SUM((metadata->>'size')::BIGINT), 0)
+    INTO total_size
+    FROM storage.objects;
+
+    -- Obtener tamaño por bucket
+    SELECT COALESCE(SUM((metadata->>'size')::BIGINT), 0)
+    INTO videos_size
+    FROM storage.objects
+    WHERE bucket_id = 'videos';
+
+    SELECT COALESCE(SUM((metadata->>'size')::BIGINT), 0)
+    INTO songs_size
+    FROM storage.objects
+    WHERE bucket_id = 'canciones';
+
+    SELECT COALESCE(SUM((metadata->>'size')::BIGINT), 0)
+    INTO covers_size
+    FROM storage.objects
+    WHERE bucket_id = 'caratulas';
+
+    SELECT COALESCE(SUM((metadata->>'size')::BIGINT), 0)
+    INTO profile_pics_size
+    FROM storage.objects
+    WHERE bucket_id = 'fotoperfil';
+
+    SELECT COALESCE(SUM((metadata->>'size')::BIGINT), 0)
+    INTO chat_media_size
+    FROM storage.objects
+    WHERE bucket_id = 'chat_media';
+
+    -- Obtener los 10 archivos más grandes
+    SELECT json_agg(files)
+    INTO largest_files
+    FROM (
+        SELECT 
+            bucket_id,
+            name,
+            (metadata->>'size')::BIGINT as size,
+            created_at
+        FROM storage.objects
+        ORDER BY (metadata->>'size')::BIGINT DESC
+        LIMIT 10
+    ) files;
+
+    RETURN json_build_object(
+        'total_size_bytes', total_size,
+        'total_size_gb', (total_size::float / 1024 / 1024 / 1024),
+        'videos_size_gb', (videos_size::float / 1024 / 1024 / 1024),
+        'songs_size_gb', (songs_size::float / 1024 / 1024 / 1024),
+        'covers_size_gb', (covers_size::float / 1024 / 1024 / 1024),
+        'profile_pics_size_gb', (profile_pics_size::float / 1024 / 1024 / 1024),
+        'chat_media_size_gb', (chat_media_size::float / 1024 / 1024 / 1024),
+        'storage_distribution', json_build_object(
+            'videos', videos_size,
+            'songs', songs_size,
+            'covers', covers_size,
+            'profile_pics', profile_pics_size,
+            'chat_media', chat_media_size
+        ),
+        'largest_files', largest_files
+    );
+END;
+$$;
+
+-- Índice para mejorar el rendimiento de las consultas de almacenamiento
+CREATE INDEX IF NOT EXISTS idx_storage_objects_metadata_size 
+ON storage.objects(((metadata->>'size')::BIGINT) DESC);
+
+-- Vista materializada para cachear las métricas de almacenamiento
+CREATE MATERIALIZED VIEW storage_metrics_cache AS
+SELECT get_storage_metrics()::jsonb as metrics;
+
+-- Función para refrescar la caché de métricas
+CREATE OR REPLACE FUNCTION refresh_storage_metrics()
+RETURNS void
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    REFRESH MATERIALIZED VIEW storage_metrics_cache;
+END;
+$$;
+
+-- Programar actualización diaria de la caché
+SELECT cron.schedule('0 0 * * *', $$
+    SELECT refresh_storage_metrics();
+$$);
