@@ -855,11 +855,6 @@ BEGIN
 END;
 $$; 
 
-CREATE TRIGGER track_storage_changes
-AFTER INSERT OR UPDATE ON storage.objects
-FOR EACH ROW
-EXECUTE FUNCTION update_storage_size();
-
 -- Función para obtener métricas de almacenamiento
 CREATE OR REPLACE FUNCTION get_storage_metrics()
 RETURNS json
