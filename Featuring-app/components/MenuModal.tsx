@@ -137,6 +137,14 @@ export default function MenuModal({
       }
     },
     {
+      icon: 'warning-outline',
+      label: 'Reportes',
+      onPress: () => {
+        onClose();
+        router.push("/reportes");
+      }
+    },
+    {
       icon: 'settings-outline',
       label: 'Preferencias',
       onPress: () => {

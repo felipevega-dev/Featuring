@@ -190,6 +190,20 @@ export default function CommunityReports() {
     }
 
     try {
+      const { error: sancionError } = await supabaseAdmin
+        .from('sancion_administrativa')
+        .insert({
+          usuario_id: selectedReporte.usuario_reportado_id,
+          admin_id: session.user.id,
+          tipo_sancion: resolutionForm.tipo,
+          motivo: resolutionForm.motivo,
+          duracion_dias: resolutionForm.duracion,
+          estado: 'activa',
+          reporte_id: selectedReporte.id  // Vinculamos la sanción con el reporte
+        });
+
+      if (sancionError) throw sancionError;
+
       await notificationService.handleReportValidation({
         reporterId: selectedReporte.usuario_reportante_id,
         reportedUserId: selectedReporte.usuario_reportado_id,
@@ -388,64 +402,66 @@ export default function CommunityReports() {
                       >
                         {'>'}Ver detalles
                       </button>
-                      <Menu as="div" className="relative inline-block text-left mb-32">
-                        <div>
-                          <Menu.Button className="inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-3 py-2 bg-white text-sm sm:text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-100 focus:ring-primary-500">
-                            Acciones
-                            <ChevronDownIcon className="-mr-1 ml-2 h-5 w-5" aria-hidden="true" />
-                          </Menu.Button>
-                        </div>
-                        <Transition
-                          as={Fragment}
-                          enter="transition ease-out duration-100"
-                          enterFrom="transform opacity-0 scale-95"
-                          enterTo="transform opacity-100 scale-100"
-                          leave="transition ease-in duration-75"
-                          leaveFrom="transform opacity-100 scale-100"
-                          leaveTo="transform opacity-0 scale-95"
-                        >
-                          <Menu.Items className="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none">
-                            <div className="py-1">
-                              <Menu.Item>
-                                {({ active }) => (
-                                  <button
-                                    onClick={() => handleReporteAction(reporte.id, 'open')}
-                                    className={`${
-                                      active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
-                                    } block w-full text-left px-4 py-2 text-sm sm:text-base`}
-                                  >
-                                    Marcar como abierto
-                                  </button>
-                                )}
-                              </Menu.Item>
-                              <Menu.Item>
-                                {({ active }) => (
-                                  <button
-                                    onClick={() => handleReporteAction(reporte.id, 'resolve')}
-                                    className={`${
-                                      active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
-                                    } block w-full text-left px-4 py-2 text-sm sm:text-base`}
-                                  >
-                                    Resolver
-                                  </button>
-                                )}
-                              </Menu.Item>
-                              <Menu.Item>
-                                {({ active }) => (
-                                  <button
-                                    onClick={() => handleReporteAction(reporte.id, 'dismiss')}
-                                    className={`${
-                                      active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
-                                    } block w-full text-left px-4 py-2 text-sm sm:text-base`}
-                                  >
-                                    Desestimar
-                                  </button>
-                                )}
-                              </Menu.Item>
-                            </div>
-                          </Menu.Items>
-                        </Transition>
-                      </Menu>
+                      {reporte.estado !== 'resuelto' && (
+                        <Menu as="div" className="relative inline-block text-left mb-32">
+                          <div>
+                            <Menu.Button className="inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-3 py-2 bg-white text-sm sm:text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-100 focus:ring-primary-500">
+                              Acciones
+                              <ChevronDownIcon className="-mr-1 ml-2 h-5 w-5" aria-hidden="true" />
+                            </Menu.Button>
+                          </div>
+                          <Transition
+                            as={Fragment}
+                            enter="transition ease-out duration-100"
+                            enterFrom="transform opacity-0 scale-95"
+                            enterTo="transform opacity-100 scale-100"
+                            leave="transition ease-in duration-75"
+                            leaveFrom="transform opacity-100 scale-100"
+                            leaveTo="transform opacity-0 scale-95"
+                          >
+                            <Menu.Items className="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none">
+                              <div className="py-1">
+                                <Menu.Item>
+                                  {({ active }) => (
+                                    <button
+                                      onClick={() => handleReporteAction(reporte.id, 'open')}
+                                      className={`${
+                                        active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
+                                      } block w-full text-left px-4 py-2 text-sm sm:text-base`}
+                                    >
+                                      Marcar como abierto
+                                    </button>
+                                  )}
+                                </Menu.Item>
+                                <Menu.Item>
+                                  {({ active }) => (
+                                    <button
+                                      onClick={() => handleReporteAction(reporte.id, 'resolve')}
+                                      className={`${
+                                        active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
+                                      } block w-full text-left px-4 py-2 text-sm sm:text-base`}
+                                    >
+                                      Resolver
+                                    </button>
+                                  )}
+                                </Menu.Item>
+                                <Menu.Item>
+                                  {({ active }) => (
+                                    <button
+                                      onClick={() => handleReporteAction(reporte.id, 'dismiss')}
+                                      className={`${
+                                        active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
+                                      } block w-full text-left px-4 py-2 text-sm sm:text-base`}
+                                    >
+                                      Desestimar
+                                    </button>
+                                  )}
+                                </Menu.Item>
+                              </div>
+                            </Menu.Items>
+                          </Transition>
+                        </Menu>
+                      )}
                     </div>
                   </div>
                 </li>
