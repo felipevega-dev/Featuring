@@ -560,6 +560,11 @@ const handleLike = async () => {
           });
 
         // Actualizar el estado local inmediatamente
+        setComentarioLikes(prevLikes => ({
+          ...prevLikes,
+          [comentarioId]: [...(prevLikes[comentarioId] || []), { usuario_id: currentUserId }]
+        }));
+
         setComentarios(prevComentarios => 
           prevComentarios.map(c => 
             c.id === comentarioId 
@@ -608,6 +613,13 @@ const handleLike = async () => {
           .eq("usuario_id", currentUserId);
 
         // Actualizar el estado local inmediatamente
+        setComentarioLikes(prevLikes => ({
+          ...prevLikes,
+          [comentarioId]: (prevLikes[comentarioId] || []).filter(
+            like => like.usuario_id !== currentUserId
+          )
+        }));
+
         setComentarios(prevComentarios => 
           prevComentarios.map(c => 
             c.id === comentarioId 
