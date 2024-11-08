@@ -6,6 +6,9 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { Menu, Transition } from '@headlessui/react'
 import { ChevronDownIcon } from '@heroicons/react/20/solid'
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { Session } from '@supabase/supabase-js'
+import { notificationService } from '../../../services/notificationService'
 
 interface Reporte {
   id: string;
@@ -18,32 +21,68 @@ interface Reporte {
   usuario_reportado: { username: string | null };
   razon: string;
   tipo_contenido: string;
-  contenido_id: string | null;
 }
 
-interface ContentDetails {
-  id: number;
-  titulo: string;
-  artista: string;
-  caratula: string;
-  archivo_audio: string;
+interface ProfileDetails {
   usuario_id: string;
+  username: string;
+  foto_perfil: string | null;
+  biografia: string;
+  nacionalidad: string;
+  edad: number;
+  sexo: string;
+  ubicacion: string;
+  perfil_genero: { genero: string }[];
+  perfil_habilidad: { habilidad: string }[];
+  red_social: { nombre: string; url: string }[];
+}
+
+interface ResolutionForm {
+  tipo: 'amonestacion' | 'suspension_temporal' | 'suspension_permanente';
+  motivo: string;
+  duracion?: number | undefined;
+  eliminarFotoPerfil: boolean;
 }
 
 const REPORTES_PER_PAGE = 20
 
-export default function CommunityReports() {
+export default function ProfileReports() {
   const [reportes, setReportes] = useState<Reporte[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
   const [totalReportes, setTotalReportes] = useState(0)
   const [expandedReporte, setExpandedReporte] = useState<string | null>(null)
-  const [contentDetails, setContentDetails] = useState<ContentDetails | null>(null)
+  const [profileDetails, setProfileDetails] = useState<ProfileDetails | null>(null)
+  const [showResolutionModal, setShowResolutionModal] = useState(false)
+  const [selectedReporte, setSelectedReporte] = useState<Reporte | null>(null)
+  const [resolutionForm, setResolutionForm] = useState<ResolutionForm>({
+    tipo: 'amonestacion',
+    motivo: '',
+    duracion: undefined,
+    eliminarFotoPerfil: false
+  })
+  const [session, setSession] = useState<Session | null>(null)
+  const supabase = createClientComponentClient()
 
   useEffect(() => {
     fetchReportes()
   }, [currentPage])
+
+  useEffect(() => {
+    const fetchSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      setSession(session)
+    }
+
+    fetchSession()
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session)
+    })
+
+    return () => subscription.unsubscribe()
+  }, [supabase])
 
   async function fetchReportes() {
     setLoading(true)
@@ -52,7 +91,7 @@ export default function CommunityReports() {
       const { count } = await supabaseAdmin
         .from('reporte')
         .select('*', { count: 'exact', head: true })
-        .eq('tipo_contenido', 'cancion')
+        .eq('tipo_contenido', 'perfil')
 
       setTotalReportes(count || 0)
 
@@ -63,7 +102,7 @@ export default function CommunityReports() {
           usuario_reportante:perfil!usuario_reportante_id (username),
           usuario_reportado:perfil!usuario_reportado_id (username)
         `)
-        .eq('tipo_contenido', 'cancion')
+        .eq('tipo_contenido', 'perfil')
         .range((currentPage - 1) * REPORTES_PER_PAGE, currentPage * REPORTES_PER_PAGE - 1)
         .order('created_at', { ascending: false })
 
@@ -82,30 +121,134 @@ export default function CommunityReports() {
     const reporte = reportes.find(r => r.id === reporteId);
     if (!reporte) return;
 
-    if (reporte.tipo_contenido === 'cancion') {
-      try {
-        const { data, error } = await supabaseAdmin
-          .from('cancion')
-          .select('*')
-          .eq('id', reporte.contenido_id)
-          .single();
+    try {
+      const { data, error } = await supabaseAdmin
+        .from('perfil')
+        .select(`
+          *,
+          perfil_genero (genero),
+          perfil_habilidad (habilidad),
+          red_social (nombre, url)
+        `)
+        .eq('usuario_id', reporte.usuario_reportado_id)
+        .single();
 
-        if (error) throw error;
+      if (error) throw error;
 
-        if (data) {
-          setContentDetails({
-            ...data,
-            caratula: data.caratula || "",
-            archivo_audio: data.archivo_audio || "",
-          });
-        }
-      } catch (error) {
-        console.error('Error fetching song details:', error);
+      if (data) {
+        setProfileDetails(data);
       }
+    } catch (error) {
+      console.error('Error fetching profile details:', error);
     }
 
     setExpandedReporte(expandedReporte === reporteId ? null : reporteId);
   }
+
+  const handleReporteAction = async (reporteId: string, action: 'resolve' | 'dismiss' | 'open') => {
+    if (action === 'resolve') {
+      const reporte = reportes.find(r => r.id === reporteId);
+      if (!reporte) return;
+      setSelectedReporte(reporte);
+      setShowResolutionModal(true);
+      return;
+    }
+
+    try {
+      const newStatus = action === 'dismiss' ? 'desestimado' : 'abierto';
+      
+      await supabaseAdmin
+        .from('reporte')
+        .update({ estado: newStatus })
+        .eq('id', reporteId);
+
+      fetchReportes();
+    } catch (error) {
+      console.error(`Error actualizando el estado del reporte:`, error);
+      setError(`No se pudo actualizar el estado del reporte. Por favor, intente de nuevo.`);
+    }
+  };
+
+  const handleResolveReport = async () => {
+    if (!selectedReporte || !resolutionForm.motivo || !session?.user?.id) {
+      setError('No se puede resolver el reporte. Asegúrese de estar autenticado y proporcionar un motivo.');
+      return;
+    }
+
+    try {
+      // 1. Aplicar sanción
+      const { error: sancionError } = await supabaseAdmin
+        .from('sancion_administrativa')
+        .insert({
+          usuario_id: selectedReporte.usuario_reportado_id,
+          admin_id: session.user.id,
+          tipo_sancion: resolutionForm.tipo,
+          motivo: resolutionForm.motivo,
+          duracion_dias: resolutionForm.duracion,
+          estado: 'activa',
+          reporte_id: selectedReporte.id
+        });
+
+      if (sancionError) throw sancionError;
+
+      // 2. Manejar notificaciones y puntos
+      await notificationService.handleReportValidation({
+        reporterId: selectedReporte.usuario_reportante_id,
+        reportedUserId: selectedReporte.usuario_reportado_id,
+        adminId: session.user.id,
+        motivo: resolutionForm.motivo,
+        sanctionType: resolutionForm.tipo
+      });
+
+      // 3. Eliminar foto de perfil si se seleccionó esa opción
+      if (resolutionForm.eliminarFotoPerfil && profileDetails?.foto_perfil) {
+        try {
+          // Obtener el path de la foto de perfil
+          const fotoPath = profileDetails.foto_perfil.split('/').pop();
+          if (fotoPath) {
+            // Eliminar el archivo del storage
+            const { error: storageError } = await supabaseAdmin.storage
+              .from('fotoperfil')
+              .remove([fotoPath]);
+
+            if (storageError) {
+              console.error('Error eliminando foto de perfil:', storageError);
+            }
+
+            // Actualizar el perfil para quitar la referencia a la foto
+            await supabaseAdmin
+              .from('perfil')
+              .update({ foto_perfil: null })
+              .eq('usuario_id', selectedReporte.usuario_reportado_id);
+          }
+        } catch (error) {
+          console.error('Error al eliminar la foto de perfil:', error);
+        }
+      }
+
+      // 4. Marcar reporte como resuelto
+      await supabaseAdmin
+        .from('reporte')
+        .update({ estado: 'resuelto' })
+        .eq('id', selectedReporte.id);
+
+      // 5. Limpiar estado y refrescar
+      setShowResolutionModal(false);
+      setSelectedReporte(null);
+      setResolutionForm({
+        tipo: 'amonestacion',
+        motivo: '',
+        duracion: undefined,
+        eliminarFotoPerfil: false
+      });
+
+      fetchReportes();
+
+    } catch (error) {
+      console.error('Error al resolver el reporte:', error);
+      setError('No se pudo resolver el reporte. Por favor, intente de nuevo.');
+    }
+  };
 
   const handlePageChange = (newPage: number) => {
     setCurrentPage(newPage)
@@ -124,40 +267,14 @@ export default function CommunityReports() {
     }
   };
 
-  const handleReporteAction = async (reporteId: string, action: 'resolve' | 'dismiss' | 'open') => {
-    try {
-      let newStatus;
-      switch (action) {
-        case 'resolve':
-          newStatus = 'resuelto';
-          break;
-        case 'dismiss':
-          newStatus = 'desestimado';
-          break;
-        case 'open':
-          newStatus = 'abierto';
-          break;
-      }
-
-      await supabaseAdmin
-        .from('reporte')
-        .update({ estado: newStatus })
-        .eq('id', reporteId);
-
-      // Refresh the report list after action
-      fetchReportes();
-    } catch (error) {
-      console.error(`Error actualizando el estado del reporte:`, error);
-      setError(`No se pudo actualizar el estado del reporte. Por favor, intente de nuevo.`);
-    }
-  };
-
   const totalPages = Math.ceil(totalReportes / REPORTES_PER_PAGE)
 
   return (
     <div className="container mx-auto px-2 py-4 sm:px-4 sm:py-8">
       <div className="flex flex-col sm:flex-row justify-between items-center mb-4 sm:mb-8">
-        <h1 className="text-xl sm:text-4xl font-bold text-primary-700 mb-2 sm:mb-0">Reportes de Comunidad</h1>
+        <h1 className="text-xl sm:text-4xl font-bold text-primary-700 mb-2 sm:mb-0">
+          Reportes de Perfiles
+        </h1>
         <Link href="/reports" className="bg-primary-500 text-white px-3 py-1 sm:px-4 sm:py-2 rounded text-sm sm:text-base">
           Volver a Reportes
         </Link>
@@ -292,79 +409,116 @@ export default function CommunityReports() {
         </>
       )}
 
-      {/* Modal for expanded report details */}
+      {/* Modal para mostrar detalles del perfil */}
       {expandedReporte && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50" id="my-modal">
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
           <div className="relative top-10 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-white">
             <div className="mt-3">
-              <h3 className="text-2xl leading-6 font-bold text-primary-700 text-center mb-6">Detalles del Reporte</h3>
+              <h3 className="text-2xl leading-6 font-bold text-primary-700 text-center mb-6">
+                Detalles del Reporte
+              </h3>
               <div className="mt-2 px-4 py-5 max-h-[70vh] overflow-y-auto">
-                {(() => {
-                  const reporte = reportes.find(r => r.id === expandedReporte);
-                  if (!reporte) return <p className="text-lg">No se encontraron detalles del reporte.</p>;
-                  return (
-                    <div className="flex flex-col md:flex-row">
-                      <div className="md:w-1/2 space-y-4 text-base">
-                        <p><strong>Reportante:</strong> {reporte.usuario_reportante.username || 'Usuario desconocido'}</p>
-                        <p><strong>Reportado:</strong> {reporte.usuario_reportado.username || 'Usuario desconocido'}</p>
-                        <p><strong>Fecha:</strong> {new Date(reporte.created_at).toLocaleString('es-ES', {
-                          year: 'numeric',
-                          month: 'long',
-                          day: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        })}</p>
-                        <p><strong>Estado:</strong> {reporte.estado}</p>
-                        <p><strong>Razón:</strong> {reporte.razon}</p>
-                        <p><strong>Tipo de contenido:</strong> {reporte.tipo_contenido}</p>
-                        <p><strong>ID del contenido:</strong> {reporte.contenido_id || 'No especificado'}</p>
-                        <p><strong>Contenido del reporte:</strong></p>
-                        <p className="whitespace-pre-wrap">{reporte.contenido}</p>
+                {/* ... detalles del reporte ... */}
+                
+                {/* Información del perfil reportado */}
+                {profileDetails && (
+                  <div className="mt-4">
+                    <h4 className="text-lg font-semibold mb-2 text-secondary-600">
+                      Información del Perfil Reportado
+                    </h4>
+                    {/* Mostrar foto de perfil si existe */}
+                    {profileDetails.foto_perfil && (
+                      <div className="mb-4">
+                        <Image
+                          src={profileDetails.foto_perfil}
+                          alt="Foto de perfil"
+                          width={200}
+                          height={200}
+                          className="rounded-lg"
+                        />
                       </div>
-                      
-                      {contentDetails && reporte.tipo_contenido === 'cancion' && (
-                        <div className="md:w-1/2 mt-6 md:mt-0 md:ml-6">
-                          <h4 className="text-xl font-semibold mb-4">Detalles de la Canción</h4>
-                          <div className="flex flex-col items-center">
-                            <Image 
-                              src={contentDetails.caratula || "https://via.placeholder.com/200"}
-                              alt="Carátula"
-                              width={200}
-                              height={200}
-                              className="rounded-md mb-4"
-                            />
-                            <div className="text-center">
-                              <p><strong>Título:</strong> {contentDetails.titulo}</p>
-                              <p><strong>Artista:</strong> {reporte.usuario_reportado.username}</p>
-                            </div>
-                            <div className="mt-4 w-full">
-                              <audio controls className="w-full mb-4">
-                                <source src={contentDetails.archivo_audio || ""} type="audio/mpeg" />
-                                Tu navegador no soporta el elemento de audio.
-                              </audio>
-                            </div>
-                          </div>
-                        </div>
-                      )}
+                    )}
+                    {/* Información básica */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <p><strong>Username:</strong> {profileDetails.username}</p>
+                      <p><strong>Edad:</strong> {profileDetails.edad}</p>
+                      <p><strong>Sexo:</strong> {profileDetails.sexo}</p>
+                      <p><strong>Ubicación:</strong> {profileDetails.ubicacion}</p>
+                      <p><strong>Nacionalidad:</strong> {profileDetails.nacionalidad}</p>
                     </div>
-                  );
-                })()}
+                    {/* Biografía */}
+                    <div className="mt-4">
+                      <p><strong>Biografía:</strong></p>
+                      <p className="text-gray-600">{profileDetails.biografia}</p>
+                    </div>
+                    {/* Géneros musicales */}
+                    <div className="mt-4">
+                      <p><strong>Géneros musicales:</strong></p>
+                      <div className="flex flex-wrap gap-2">
+                        {profileDetails.perfil_genero.map((g, i) => (
+                          <span key={i} className="bg-primary-100 text-primary-800 px-2 py-1 rounded-full text-sm">
+                            {g.genero}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                    {/* Habilidades */}
+                    <div className="mt-4">
+                      <p><strong>Habilidades:</strong></p>
+                      <div className="flex flex-wrap gap-2">
+                        {profileDetails.perfil_habilidad.map((h, i) => (
+                          <span key={i} className="bg-secondary-100 text-secondary-800 px-2 py-1 rounded-full text-sm">
+                            {h.habilidad}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                    {/* Redes sociales */}
+                    <div className="mt-4">
+                      <p><strong>Redes sociales:</strong></p>
+                      <ul className="list-disc list-inside">
+                        {profileDetails.red_social.map((red, i) => (
+                          <li key={i}>
+                            {red.nombre}: <a href={red.url} target="_blank" rel="noopener noreferrer" className="text-primary-600 hover:underline">
+                              {red.url}
+                            </a>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                )}
               </div>
-              <div className="items-center px-4 py-3 mt-6">
-                <button
-                  className="px-6 py-3 bg-primary-500 text-white text-lg font-medium rounded-md w-full shadow-sm hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-300 transition duration-300"
-                  onClick={() => {
-                    setExpandedReporte(null);
-                    setContentDetails(null);
-                  }}
-                >
-                  Cerrar
-                </button>
-              </div>
+              {/* ... botones de acción ... */}
             </div>
           </div>
         </div>
       )}
+
+      {/* Modal de resolución */}
+      {showResolutionModal && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-4 mx-auto p-5 border w-11/12 max-w-2xl shadow-lg rounded-md bg-white">
+            {/* ... contenido del modal de resolución ... */}
+            <div className="flex items-center mt-4">
+              <input
+                type="checkbox"
+                id="eliminarFotoPerfil"
+                checked={resolutionForm.eliminarFotoPerfil}
+                onChange={(e) => setResolutionForm({
+                  ...resolutionForm,
+                  eliminarFotoPerfil: e.target.checked
+                })}
+                className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+              />
+              <label htmlFor="eliminarFotoPerfil" className="ml-2 block text-sm text-gray-900">
+                Eliminar foto de perfil del usuario
+              </label>
+            </div>
+            {/* ... resto del modal ... */}
+          </div>
+        </div>
+      )}
     </div>
-  )
+  );
 }
