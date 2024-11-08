@@ -6,8 +6,6 @@ import { supabaseAdmin } from '../../lib/supabase'
 import { User, Session } from '@supabase/supabase-js'
 import Image from 'next/image'
 import Link from 'next/link'
-import { Menu, Transition } from '@headlessui/react'
-import { ChevronDownIcon } from '@heroicons/react/20/solid'
 import { FiAlertCircle, FiActivity } from 'react-icons/fi'
 
 interface Perfil {
