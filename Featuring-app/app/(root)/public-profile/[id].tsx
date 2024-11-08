@@ -9,6 +9,7 @@ import {
   FlatList,
   Linking,
   Modal,
+  RefreshControl,
 } from "react-native";
 import { supabase } from "@/lib/supabase";
 import { useLocalSearchParams, router } from "expo-router";
@@ -19,6 +20,8 @@ import ProfileSongCard from "@/components/ProfileSongCard";
 import ProfileVideoCard from "@/components/ProfileVideoCard";
 import Constants from "expo-constants";
 import { RealtimeChannel } from "@supabase/supabase-js";
+import { TooltipBadge } from '@/components/TooltipBadge';
+import { TooltipTitle } from '@/components/TooltipTitle';
 
 interface Perfil {
   usuario_id: string;
@@ -94,6 +97,7 @@ export default function PublicProfile() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [seguidoresCount, setSeguidoresCount] = useState(0);
   const [subscription, setSubscription] = useState<RealtimeChannel | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     fetchPerfil();
@@ -164,14 +168,7 @@ export default function PublicProfile() {
           promedio_valoraciones,
           perfil_genero (genero),
           perfil_habilidad (habilidad),
-          red_social (nombre, url),
-          titulo_activo,
-          titulo:titulo_activo (
-            id,
-            nombre,
-            descripcion,
-            nivel
-          )
+          red_social (nombre, url)
         `)
         .eq("usuario_id", id)
         .single();
@@ -190,7 +187,8 @@ export default function PublicProfile() {
       const sumaValoraciones = valoracionesData?.reduce((sum, val) => sum + val.valoracion, 0) || 0;
       const promedioValoraciones = totalValoraciones > 0 ? sumaValoraciones / totalValoraciones : 0;
 
-      const { data: insigniasData } = await supabase
+      // Obtener insignia activa
+      const { data: insigniaActiva } = await supabase
         .from('perfil_insignia')
         .select(`
           insignia:insignia_id (
@@ -200,12 +198,23 @@ export default function PublicProfile() {
             nivel
           )
         `)
-        .eq('perfil_id', id);
+        .eq('perfil_id', id)
+        .eq('activo', true)
+        .single();
 
-      const { data: tituloData } = await supabase
-        .from('titulo')
-        .select('*')
-        .eq('id', data.titulo_activo)
+      // Obtener título activo
+      const { data: tituloActivo } = await supabase
+        .from('perfil_titulo')
+        .select(`
+          titulo:titulo_id (
+            id,
+            nombre,
+            descripcion,
+            nivel
+          )
+        `)
+        .eq('perfil_id', id)
+        .eq('activo', true)
         .single();
 
       if (data) {
@@ -218,8 +227,8 @@ export default function PublicProfile() {
           nacionalidad: data.nacionalidad,
           promedio_valoraciones: promedioValoraciones,
           total_valoraciones: totalValoraciones,
-          insignias: insigniasData?.map(i => i.insignia) || [],
-          tituloActivo: tituloData || null
+          insignias: insigniaActiva ? [insigniaActiva.insignia] : [],
+          tituloActivo: tituloActivo?.titulo || null
         };
         setPerfil(perfilData);
       }
@@ -431,6 +440,16 @@ export default function PublicProfile() {
     }
   };
 
+  const onRefresh = React.useCallback(() => {
+    setRefreshing(true);
+    Promise.all([
+      fetchPerfil(),
+      fetchCanciones(),
+      fetchVideos(),
+      fetchSeguidores()
+    ]).finally(() => setRefreshing(false));
+  }, []);
+
   if (isLoading) {
     return (
       <View className="flex-1 justify-center items-center bg-primary-600">
@@ -503,7 +522,17 @@ export default function PublicProfile() {
         <Ionicons name="arrow-back" size={24} color="#6D29D2" />
       </TouchableOpacity>
 
-      <ScrollView className="flex-1 mt-4">
+      <ScrollView 
+        className="flex-1 mt-4"
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={["#6D29D2"]} // Color primario
+            tintColor="#6D29D2"  // Para iOS
+          />
+        }
+      >
         <View className="px-4 pb-8">
           <View className="bg-white rounded-xl shadow-lg shadow-black/30 p-6 mb-4">
             <View className="items-center pb-4">
@@ -526,25 +555,18 @@ export default function PublicProfile() {
                   {perfil.username}
                 </Text>
                 {perfil.insignias?.length > 0 && (
-                  <View className="ml-2">
-                    <Ionicons 
-                      name="shield-checkmark" 
-                      size={24} 
-                      color={
-                        perfil.insignias[perfil.insignias.length - 1].nivel === 'oro' 
-                          ? '#FFD700' 
-                          : perfil.insignias[perfil.insignias.length - 1].nivel === 'plata'
-                            ? '#C0C0C0'
-                            : '#CD7F32'
-                      }
-                    />
-                  </View>
+                  <TooltipBadge 
+                    nivel={perfil.insignias[perfil.insignias.length - 1].nivel}
+                    descripcion={perfil.insignias[perfil.insignias.length - 1].descripcion}
+                  />
                 )}
               </View>
               {perfil.tituloActivo && (
-                <Text className="text-sm text-secondary-600">
-                  {perfil.tituloActivo.nombre}
-                </Text>
+                <TooltipTitle 
+                  nombre={perfil.tituloActivo.nombre}
+                  descripcion={perfil.tituloActivo.descripcion}
+                  nivel={perfil.tituloActivo.nivel}
+                />
               )}
 
               {currentUserId && currentUserId !== id && (

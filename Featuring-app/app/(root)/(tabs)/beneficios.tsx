@@ -10,6 +10,7 @@ interface Insignia {
   descripcion: string;
   nivel: 'bronce' | 'plata' | 'oro';
   fecha_obtencion: string;
+  activo: boolean;
 }
 
 interface Titulo {
@@ -48,6 +49,7 @@ export default function Beneficios() {
         .select(`
           insignia_id,
           fecha_obtencion,
+          activo,
           insignia:insignia_id (
             id,
             nombre,
@@ -83,7 +85,8 @@ export default function Beneficios() {
       if (insigniasData) {
         setInsignias(insigniasData.map(i => ({
           ...i.insignia,
-          fecha_obtencion: i.fecha_obtencion
+          fecha_obtencion: i.fecha_obtencion,
+          activo: i.activo
         })));
       }
 
@@ -140,6 +143,35 @@ export default function Beneficios() {
     }
   };
 
+  const handleActivarInsignia = async (insigniaId: number) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Desactivar todas las insignias
+      await supabase
+        .from('perfil_insignia')
+        .update({ activo: false })
+        .eq('perfil_id', user.id);
+
+      // Activar la insignia seleccionada
+      const { error } = await supabase
+        .from('perfil_insignia')
+        .update({ activo: true })
+        .eq('perfil_id', user.id)
+        .eq('insignia_id', insigniaId);
+
+      if (error) throw error;
+
+      // Refrescar datos
+      fetchUserBenefits();
+      Alert.alert('Éxito', 'Insignia activada correctamente');
+    } catch (error) {
+      console.error('Error activating badge:', error);
+      Alert.alert('Error', 'No se pudo activar la insignia');
+    }
+  };
+
   if (loading) {
     return (
       <View className="flex-1 justify-center items-center bg-gray-50">
@@ -153,10 +185,7 @@ export default function Beneficios() {
       {/* Header */}
       <View className="bg-white border-b border-gray-200">
         <View className="flex-row justify-between items-center p-4">
-          <TouchableOpacity onPress={() => router.back()}>
-            <Ionicons name="arrow-back" size={24} color="#6D29D2" />
-          </TouchableOpacity>
-          <Text className="text-lg font-bold text-gray-900">Mis Beneficios</Text>
+          <Text className="text-lg font-bold text-warning-600 text-center w-full">Mis Beneficios</Text>
           <View className="w-8" />
         </View>
       </View>
@@ -237,28 +266,45 @@ export default function Beneficios() {
                         : 'bg-[#CD7F32]/10'
                   }`}
                 >
-                  <View className="flex-row items-center">
-                    <Ionicons 
-                      name="shield-checkmark" 
-                      size={24} 
-                      color={
-                        insignia.nivel === 'oro' 
-                          ? '#FFD700' 
-                          : insignia.nivel === 'plata'
-                            ? '#C0C0C0'
-                            : '#CD7F32'
-                      }
-                    />
-                    <Text className="font-bold ml-2 text-gray-800">
-                      {insignia.nombre}
-                    </Text>
+                  <View className="flex-row justify-between items-center">
+                    <View className="flex-row items-center flex-1">
+                      <Ionicons 
+                        name="shield-checkmark" 
+                        size={24} 
+                        color={
+                          insignia.nivel === 'oro' 
+                            ? '#FFD700' 
+                            : insignia.nivel === 'plata'
+                              ? '#C0C0C0'
+                              : '#CD7F32'
+                        }
+                      />
+                      <View className="ml-2 flex-1">
+                        <Text className="font-bold text-gray-800">
+                          {insignia.nombre}
+                        </Text>
+                        <Text className="text-gray-600 text-sm mt-1">
+                          {insignia.descripcion}
+                        </Text>
+                      </View>
+                    </View>
+                    <TouchableOpacity
+                      onPress={() => handleActivarInsignia(insignia.id)}
+                      className={`px-3 py-1 rounded-full ${
+                        insignia.activo 
+                          ? 'bg-green-100' 
+                          : 'bg-primary-100'
+                      }`}
+                    >
+                      <Text className={`text-sm font-medium ${
+                        insignia.activo 
+                          ? 'text-green-700' 
+                          : 'text-primary-700'
+                      }`}>
+                        {insignia.activo ? 'Activa' : 'Activar'}
+                      </Text>
+                    </TouchableOpacity>
                   </View>
-                  <Text className="text-gray-600 text-sm mt-1">
-                    {insignia.descripcion}
-                  </Text>
-                  <Text className="text-gray-400 text-xs mt-1">
-                    Obtenida el {new Date(insignia.fecha_obtencion).toLocaleDateString()}
-                  </Text>
                 </View>
               ))}
             </View>

@@ -261,7 +261,7 @@ export default function Reportes() {
                   <TouchableOpacity
                     onPress={() => Alert.alert(
                       "¿Cómo ganar puntos?",
-                      "Gana 30 puntos cada vez que uno de tus reportes sea validado por los administradores. Los reportes deben ser precisos y bien documentados."
+                      "Gana 25 puntos cada vez que uno de tus reportes sea validado por los administradores. Los reportes deben ser precisos y bien documentados."
                     )}
                     className="ml-2"
                   >

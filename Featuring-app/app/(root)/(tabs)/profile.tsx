@@ -10,6 +10,7 @@ import {
   Alert,
   Linking,
   Modal,
+  RefreshControl,
 } from "react-native";
 import { supabase } from "@/lib/supabase";
 import { router, useLocalSearchParams } from "expo-router";
@@ -17,6 +18,8 @@ import { icons } from "@/constants";
 import { Ionicons, FontAwesome } from "@expo/vector-icons";
 import RatingsList from '@/components/RatingsList';
 import { BadgesSection } from '@/components/profile/BadgesSection';
+import { TooltipBadge } from '@/components/TooltipBadge';
+import { TooltipTitle } from '@/components/TooltipTitle';
 
 interface Perfil {
   username: string;
@@ -69,6 +72,7 @@ export default function Profile() {
   const [userProfile, setUserProfile] = useState(null);
   const [showRatings, setShowRatings] = useState(false);
   const [ratings, setRatings] = useState<Rating[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     fetchPerfil();
@@ -98,14 +102,7 @@ export default function Profile() {
           perfil_genero (genero),
           perfil_habilidad (habilidad),
           red_social (nombre, url),
-          promedio_valoraciones,
-          titulo_activo,
-          titulo:titulo_activo (
-            id,
-            nombre,
-            descripcion,
-            nivel
-          )
+          promedio_valoraciones
         `
         )
         .eq("usuario_id", user.id)
@@ -124,7 +121,7 @@ export default function Profile() {
       const sumaValoraciones = valoracionesData?.reduce((sum, val) => sum + val.valoracion, 0) || 0;
       const promedioValoraciones = totalValoraciones > 0 ? sumaValoraciones / totalValoraciones : 0;
 
-      const { data: insigniasData } = await supabase
+      const { data: insigniaActiva } = await supabase
         .from('perfil_insignia')
         .select(`
           insignia:insignia_id (
@@ -134,12 +131,22 @@ export default function Profile() {
             nivel
           )
         `)
-        .eq('perfil_id', user.id);
+        .eq('perfil_id', user.id)
+        .eq('activo', true)
+        .single();
 
-      const { data: tituloData } = await supabase
-        .from('titulo')
-        .select('*')
-        .eq('id', data.titulo_activo)
+      const { data: tituloActivo } = await supabase
+        .from('perfil_titulo')
+        .select(`
+          titulo:titulo_id (
+            id,
+            nombre,
+            descripcion,
+            nivel
+          )
+        `)
+        .eq('perfil_id', user.id)
+        .eq('activo', true)
         .single();
 
       if (data) {
@@ -151,8 +158,8 @@ export default function Profile() {
           redes_sociales: data.red_social,
           promedio_valoraciones: promedioValoraciones,
           total_valoraciones: totalValoraciones,
-          insignias: insigniasData?.map(i => i.insignia) || [],
-          tituloActivo: tituloData || null
+          insignias: insigniaActiva ? [insigniaActiva.insignia] : [],
+          tituloActivo: tituloActivo?.titulo || null
         };
 
         setPerfil(perfilData);
@@ -245,6 +252,11 @@ export default function Profile() {
     }
   };
 
+  const onRefresh = React.useCallback(() => {
+    setRefreshing(true);
+    fetchPerfil().finally(() => setRefreshing(false));
+  }, []);
+
   if (isLoading) {
     return (
       <View className="flex-1 justify-center items-center bg-primary-600">
@@ -289,7 +301,17 @@ export default function Profile() {
           Perfil de usuario
         </Text>
       </View>
-      <ScrollView className="flex-1">
+      <ScrollView 
+        className="flex-1"
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={["#6D29D2"]} // Color primario
+            tintColor="#6D29D2"  // Para iOS
+          />
+        }
+      >
         <View className="px-4 pb-8">
           <View className="bg-white rounded-xl shadow-lg shadow-black/30 p-6 mb-8">
             <TouchableOpacity
@@ -323,26 +345,19 @@ export default function Profile() {
                   {perfil.username}
                 </Text>
                 {perfil.insignias?.length > 0 && (
-                  <View className="ml-2">
-                    <Ionicons 
-                      name="shield-checkmark" 
-                      size={24} 
-                      color={
-                        perfil.insignias[perfil.insignias.length - 1].nivel === 'oro' 
-                          ? '#FFD700' 
-                          : perfil.insignias[perfil.insignias.length - 1].nivel === 'plata'
-                            ? '#C0C0C0'
-                            : '#CD7F32'
-                      }
-                    />
-                  </View>
+                  <TooltipBadge 
+                    nivel={perfil.insignias[perfil.insignias.length - 1].nivel}
+                    descripcion={perfil.insignias[perfil.insignias.length - 1].descripcion}
+                  />
                 )}
               </View>
               
               {perfil.tituloActivo && (
-                <Text className="text-sm text-secondary-600 mt-1">
-                  {perfil.tituloActivo.nombre}
-                </Text>
+                <TooltipTitle 
+                  nombre={perfil.tituloActivo.nombre}
+                  descripcion={perfil.tituloActivo.descripcion}
+                  nivel={perfil.tituloActivo.nivel}
+                />
               )}
               <TouchableOpacity 
                 onPress={() => {
