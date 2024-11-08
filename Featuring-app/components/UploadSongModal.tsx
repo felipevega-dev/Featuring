@@ -129,7 +129,7 @@ export default function UploadSongModal({
         !contenido ||
         !genre
       ) {
-        Alert.alert("Error", "Por favor, completa todos los campos");
+        Alert.alert("Error", "Por favor, completa todos los campos obligatorios");
         return;
       }
 
