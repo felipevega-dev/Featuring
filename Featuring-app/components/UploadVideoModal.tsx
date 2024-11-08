@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { supabase } from "@/lib/supabase";
+import { validateContent } from '@/utils/contentFilter';
 
 interface UploadVideoModalProps {
   isVisible: boolean;
@@ -46,12 +47,18 @@ export default function UploadVideoModal({
   };
 
   const uploadVideo = async () => {
-    if (!videoFile || !videoFileName || !descripcion) {
-      Alert.alert("Error", "Por favor, completa todos los campos");
-      return;
-    }
-
     try {
+      const descriptionValidation = validateContent(descripcion, 'descripcion');
+      if (!descriptionValidation.isValid) {
+        Alert.alert("Error", descriptionValidation.message);
+        return;
+      }
+
+      if (!videoFile || !videoFileName || !descripcion) {
+        Alert.alert("Error", "Por favor, completa todos los campos");
+        return;
+      }
+
       const {
         data: { user },
       } = await supabase.auth.getUser();

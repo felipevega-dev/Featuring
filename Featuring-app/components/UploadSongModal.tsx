@@ -15,6 +15,7 @@ import { supabase } from "@/lib/supabase";
 import { Ionicons } from '@expo/vector-icons';
 import GenreSelectionModal from './GenreSelectionModal';
 import CollaboratorSelectionModal from './CollaboratorSelectionModal';
+import { validateContent } from '@/utils/contentFilter';
 
 interface UploadSongModalProps {
   isVisible: boolean;
@@ -115,6 +116,20 @@ export default function UploadSongModal({
 
   const uploadSong = async () => {
     try {
+      // Validar título
+      const titleValidation = validateContent(title, 'titulo');
+      if (!titleValidation.isValid) {
+        Alert.alert("Error", titleValidation.message);
+        return;
+      }
+
+      // Validar descripción
+      const contentValidation = validateContent(contenido, 'descripcion');
+      if (!contentValidation.isValid) {
+        Alert.alert("Error", contentValidation.message);
+        return;
+      }
+
       const {
         data: { user },
       } = await supabase.auth.getUser();

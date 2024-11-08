@@ -17,6 +17,7 @@ import { useVideo } from "@/contexts/VideoContext";
 import Constants from "expo-constants";
 import { useLocalSearchParams } from 'expo-router';
 import { sendPushNotification } from '@/utils/pushNotifications';
+import { validateContent } from '@/utils/contentFilter';
 
 const { width, height } = Dimensions.get("window");
 
@@ -296,9 +297,16 @@ const VideoCard: React.FC<VideoCardProps> = ({
     return `${day} de ${month} ${formattedHours}:${minutes} ${ampm}`;
   };
 
-  const handleComment = async (comentario: string) => {
-    try {
-      if (nuevoComentario.trim()) {
+  const handleComment = async () => {
+    if (nuevoComentario.trim()) {
+      // Validar comentario
+      const commentValidation = validateContent(nuevoComentario, 'comentario');
+      if (!commentValidation.isValid) {
+        Alert.alert("Error", commentValidation.message);
+        return;
+      }
+
+      try {
         const { data, error } = await supabase
           .from("comentario_video")
           .insert({
@@ -341,9 +349,9 @@ const VideoCard: React.FC<VideoCardProps> = ({
             }
           }
         }
+      } catch (error) {
+        console.error('Error al comentar:', error);
       }
-    } catch (error) {
-      console.error('Error al comentar:', error);
     }
   };
 

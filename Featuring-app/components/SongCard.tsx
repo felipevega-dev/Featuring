@@ -20,6 +20,7 @@ import EditSongModal from "./EditSongModal";
 import { RealtimeChannel } from '@supabase/supabase-js';
 import Constants from "expo-constants";
 import { sendPushNotification } from '@/utils/pushNotifications';
+import { validateContent } from '@/utils/contentFilter';
 
 interface Perfil {
   usuario_id: string;
@@ -433,6 +434,13 @@ const handleLike = async () => {
 //funcion que maneja los comentarios de las canciones
   const handleComment = async () => {
     if (nuevoComentario.trim()) {
+      // Validar comentario
+      const commentValidation = validateContent(nuevoComentario, 'comentario');
+      if (!commentValidation.isValid) {
+        Alert.alert("Error", commentValidation.message);
+        return;
+      }
+
       try {
         // Obtener el username del usuario que comenta
         const { data: userData, error: userError } = await supabase
