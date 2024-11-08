@@ -214,10 +214,66 @@ export default function CommunityReports() {
       });
 
       if (resolutionForm.eliminarContenido && selectedReporte.contenido_id) {
-        await supabaseAdmin
-          .from('cancion')
-          .delete()
-          .eq('id', selectedReporte.contenido_id);
+        try {
+          // 1. Primero eliminar todos los likes de la canción
+          await supabaseAdmin
+            .from('likes_cancion')
+            .delete()
+            .eq('cancion_id', selectedReporte.contenido_id);
+
+          // 2. Eliminar todos los comentarios de la canción
+          await supabaseAdmin
+            .from('comentario_cancion')
+            .delete()
+            .eq('cancion_id', selectedReporte.contenido_id);
+
+          // 3. Obtener la URL de la canción y la carátula para construir los paths correctos
+          const { data: cancionData } = await supabaseAdmin
+            .from('cancion')
+            .select('archivo_audio, caratula, usuario_id')
+            .eq('id', selectedReporte.contenido_id)
+            .single();
+
+          if (cancionData?.archivo_audio && cancionData?.usuario_id) {
+            // Eliminar el archivo de audio
+            const audioPath = `${cancionData.usuario_id}/${cancionData.archivo_audio.split('/').pop()}`;
+            if (audioPath) {
+              const { error: audioError } = await supabaseAdmin.storage
+                .from('canciones')
+                .remove([audioPath]);
+
+              if (audioError) {
+                console.error('Error eliminando archivo de audio:', audioError);
+              }
+            }
+
+            // Eliminar la carátula si existe
+            if (cancionData.caratula) {
+              const caratulaPath = `${cancionData.usuario_id}/${cancionData.caratula.split('/').pop()}`;
+              if (caratulaPath) {
+                const { error: caratulaError } = await supabaseAdmin.storage
+                  .from('caratulas')
+                  .remove([caratulaPath]);
+
+                if (caratulaError) {
+                  console.error('Error eliminando carátula:', caratulaError);
+                }
+              }
+            }
+          }
+
+          // 4. Finalmente eliminar el registro de la canción
+          const { error: deleteError } = await supabaseAdmin
+            .from('cancion')
+            .delete()
+            .eq('id', selectedReporte.contenido_id);
+
+          if (deleteError) throw deleteError;
+
+        } catch (error) {
+          console.error('Error al eliminar la canción:', error);
+          throw new Error('No se pudo eliminar la canción y sus registros relacionados');
+        }
       }
 
       await supabaseAdmin

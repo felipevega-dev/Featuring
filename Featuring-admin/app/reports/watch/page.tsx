@@ -6,6 +6,9 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { Menu, Transition } from '@headlessui/react'
 import { ChevronDownIcon } from '@heroicons/react/20/solid'
+import { notificationService } from '../../../services/notificationService';
+import { Session } from '@supabase/supabase-js';
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 
 interface Reporte {
   id: string;
@@ -30,6 +33,13 @@ interface ContentDetails {
   usuario_id: string;
 }
 
+interface ResolutionForm {
+  tipo: 'amonestacion' | 'suspension_temporal' | 'suspension_permanente';
+  motivo: string;
+  duracion?: number | undefined;
+  eliminarContenido: boolean;
+}
+
 const REPORTES_PER_PAGE = 20
 
 export default function WatchReports() {
@@ -40,10 +50,35 @@ export default function WatchReports() {
   const [totalReportes, setTotalReportes] = useState(0)
   const [expandedReporte, setExpandedReporte] = useState<string | null>(null)
   const [contentDetails, setContentDetails] = useState<ContentDetails | null>(null)
+  const [showResolutionModal, setShowResolutionModal] = useState(false);
+  const [selectedReporte, setSelectedReporte] = useState<Reporte | null>(null);
+  const [resolutionForm, setResolutionForm] = useState<ResolutionForm>({
+    tipo: 'amonestacion',
+    motivo: '',
+    duracion: undefined,
+    eliminarContenido: false
+  });
+  const [session, setSession] = useState<Session | null>(null);
+  const supabase = createClientComponentClient();
 
   useEffect(() => {
     fetchReportes()
   }, [currentPage])
+
+  useEffect(() => {
+    const fetchSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      setSession(session);
+    };
+
+    fetchSession();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+
+    return () => subscription.unsubscribe();
+  }, [supabase]);
 
   async function fetchReportes() {
     setLoading(true)
@@ -131,32 +166,242 @@ export default function WatchReports() {
   };
 
   const handleReporteAction = async (reporteId: string, action: 'resolve' | 'dismiss' | 'open') => {
-    try {
-      let newStatus;
-      switch (action) {
-        case 'resolve':
-          newStatus = 'resuelto';
-          break;
-        case 'dismiss':
-          newStatus = 'desestimado';
-          break;
-        case 'open':
-          newStatus = 'abierto';
-          break;
-      }
+    if (action === 'resolve') {
+      const reporte = reportes.find(r => r.id === reporteId);
+      if (!reporte) return;
+      setSelectedReporte(reporte);
+      setShowResolutionModal(true);
+      return;
+    }
 
+    try {
+      const newStatus = action === 'dismiss' ? 'desestimado' : 'abierto';
+      
       await supabaseAdmin
         .from('reporte')
         .update({ estado: newStatus })
         .eq('id', reporteId);
 
-      // Refresh the report list after action
       fetchReportes();
     } catch (error) {
       console.error(`Error actualizando el estado del reporte:`, error);
       setError(`No se pudo actualizar el estado del reporte. Por favor, intente de nuevo.`);
     }
   };
+
+  const handleResolveReport = async () => {
+    if (!selectedReporte || !resolutionForm.motivo || !session?.user?.id) {
+      setError('No se puede resolver el reporte. Asegúrese de estar autenticado y proporcionar un motivo.');
+      return;
+    }
+
+    try {
+      // 1. Aplicar sanción
+      const { error: sancionError } = await supabaseAdmin
+        .from('sancion_administrativa')
+        .insert({
+          usuario_id: selectedReporte.usuario_reportado_id,
+          admin_id: session.user.id,
+          tipo_sancion: resolutionForm.tipo,
+          motivo: resolutionForm.motivo,
+          duracion_dias: resolutionForm.duracion,
+          estado: 'activa',
+          reporte_id: selectedReporte.id
+        });
+
+      if (sancionError) throw sancionError;
+
+      // 2. Manejar notificaciones y puntos
+      await notificationService.handleReportValidation({
+        reporterId: selectedReporte.usuario_reportante_id,
+        reportedUserId: selectedReporte.usuario_reportado_id,
+        contentId: selectedReporte.contenido_id || undefined,
+        adminId: session.user.id,
+        motivo: resolutionForm.motivo,
+        sanctionType: resolutionForm.tipo
+      });
+
+      // 3. Eliminar video si se seleccionó esa opción
+      if (resolutionForm.eliminarContenido && selectedReporte.contenido_id) {
+        try {
+          // 1. Primero eliminar todos los likes del video
+          await supabaseAdmin
+            .from('likes_video')
+            .delete()
+            .eq('video_id', selectedReporte.contenido_id);
+
+          // 2. Eliminar todos los comentarios del video
+          await supabaseAdmin
+            .from('comentario_video')
+            .delete()
+            .eq('video_id', selectedReporte.contenido_id);
+
+          // 3. Obtener la URL del video y el usuario_id para construir el path correcto
+          const { data: videoData } = await supabaseAdmin
+            .from('video')
+            .select('url, usuario_id')
+            .eq('id', selectedReporte.contenido_id)
+            .single();
+
+          if (videoData?.url && videoData?.usuario_id) {
+            // El path del video incluye el ID del usuario
+            const videoPath = `${videoData.usuario_id}/${videoData.url.split('/').pop()}`;
+            if (videoPath) {
+              const { error: storageError } = await supabaseAdmin.storage
+                .from('videos')
+                .remove([videoPath]);
+
+              if (storageError) {
+                console.error('Error eliminando archivo del storage:', storageError);
+              }
+            }
+          }
+
+          // 4. Finalmente eliminar el registro del video
+          const { error: deleteError } = await supabaseAdmin
+            .from('video')
+            .delete()
+            .eq('id', selectedReporte.contenido_id);
+
+          if (deleteError) throw deleteError;
+
+        } catch (error) {
+          console.error('Error al eliminar el video:', error);
+          throw new Error('No se pudo eliminar el video y sus registros relacionados');
+        }
+      }
+
+      // 4. Marcar reporte como resuelto
+      await supabaseAdmin
+        .from('reporte')
+        .update({ estado: 'resuelto' })
+        .eq('id', selectedReporte.id);
+
+      // 5. Limpiar estado y refrescar
+      setShowResolutionModal(false);
+      setSelectedReporte(null);
+      setResolutionForm({
+        tipo: 'amonestacion',
+        motivo: '',
+        duracion: undefined,
+        eliminarContenido: false
+      });
+
+      fetchReportes();
+
+    } catch (error) {
+      console.error('Error al resolver el reporte:', error);
+      setError('No se pudo resolver el reporte. Por favor, intente de nuevo.');
+    }
+  };
+
+  const renderResolutionModal = () => (
+    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+      <div className="relative top-4 mx-auto p-5 border w-11/12 max-w-2xl shadow-lg rounded-md bg-white">
+        <div className="mt-3">
+          <h3 className="text-lg font-medium leading-6 text-gray-900 mb-4">
+            Resolver Reporte
+          </h3>
+          
+          <div className="mt-2 space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Tipo de Sanción
+              </label>
+              <select
+                value={resolutionForm.tipo}
+                onChange={(e) => setResolutionForm({
+                  ...resolutionForm,
+                  tipo: e.target.value as 'amonestacion' | 'suspension_temporal' | 'suspension_permanente'
+                })}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+              >
+                <option value="amonestacion">Amonestación</option>
+                <option value="suspension_temporal">Suspensión Temporal</option>
+                <option value="suspension_permanente">Suspensión Permanente</option>
+              </select>
+            </div>
+
+            {resolutionForm.tipo === 'suspension_temporal' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Duración (días)
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  value={resolutionForm.duracion || ''}
+                  onChange={(e) => setResolutionForm({
+                    ...resolutionForm,
+                    duracion: e.target.value ? parseInt(e.target.value) : undefined
+                  })}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                />
+              </div>
+            )}
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Motivo de la Sanción
+              </label>
+              <textarea
+                value={resolutionForm.motivo}
+                onChange={(e) => setResolutionForm({
+                  ...resolutionForm,
+                  motivo: e.target.value
+                })}
+                rows={3}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                placeholder="Describa el motivo de la sanción..."
+              />
+            </div>
+
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                id="eliminarContenido"
+                checked={resolutionForm.eliminarContenido}
+                onChange={(e) => setResolutionForm({
+                  ...resolutionForm,
+                  eliminarContenido: e.target.checked
+                })}
+                className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+              />
+              <label htmlFor="eliminarContenido" className="ml-2 block text-sm text-gray-900">
+                Eliminar el video reportado
+              </label>
+            </div>
+          </div>
+
+          <div className="mt-5 sm:mt-6 space-y-2">
+            <button
+              type="button"
+              onClick={handleResolveReport}
+              className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-primary-600 text-base font-medium text-white hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 sm:text-sm"
+            >
+              Resolver Reporte
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setShowResolutionModal(false);
+                setSelectedReporte(null);
+                setResolutionForm({
+                  tipo: 'amonestacion',
+                  motivo: '',
+                  duracion: undefined,
+                  eliminarContenido: false
+                });
+              }}
+              className="w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 sm:text-sm"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 
   const totalPages = Math.ceil(totalReportes / REPORTES_PER_PAGE)
 
@@ -210,64 +455,66 @@ export default function WatchReports() {
                       >
                         {'->'} Ver detalles
                       </button>
-                      <Menu as="div" className="relative inline-block text-left mb-32">
-                        <div>
-                          <Menu.Button className="inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-3 py-2 bg-white text-sm sm:text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-100 focus:ring-primary-500">
-                            Acciones
-                            <ChevronDownIcon className="-mr-1 ml-2 h-5 w-5" aria-hidden="true" />
-                          </Menu.Button>
-                        </div>
-                        <Transition
-                          as={Fragment}
-                          enter="transition ease-out duration-100"
-                          enterFrom="transform opacity-0 scale-95"
-                          enterTo="transform opacity-100 scale-100"
-                          leave="transition ease-in duration-75"
-                          leaveFrom="transform opacity-100 scale-100"
-                          leaveTo="transform opacity-0 scale-95"
-                        >
-                          <Menu.Items className="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none">
-                            <div className="py-1">
-                              <Menu.Item>
-                                {({ active }) => (
-                                  <button
-                                    onClick={() => handleReporteAction(reporte.id, 'open')}
-                                    className={`${
-                                      active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
-                                    } block w-full text-left px-4 py-2 text-sm sm:text-base`}
-                                  >
-                                    Marcar como abierto
-                                  </button>
-                                )}
-                              </Menu.Item>
-                              <Menu.Item>
-                                {({ active }) => (
-                                  <button
-                                    onClick={() => handleReporteAction(reporte.id, 'resolve')}
-                                    className={`${
-                                      active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
-                                    } block w-full text-left px-4 py-2 text-sm sm:text-base`}
-                                  >
-                                    Resolver
-                                  </button>
-                                )}
-                              </Menu.Item>
-                              <Menu.Item>
-                                {({ active }) => (
-                                  <button
-                                    onClick={() => handleReporteAction(reporte.id, 'dismiss')}
-                                    className={`${
-                                      active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
-                                    } block w-full text-left px-4 py-2 text-sm sm:text-base`}
-                                  >
-                                    Desestimar
-                                  </button>
-                                )}
-                              </Menu.Item>
-                            </div>
-                          </Menu.Items>
-                        </Transition>
-                      </Menu>
+                      {reporte.estado !== 'resuelto' && (
+                        <Menu as="div" className="relative inline-block text-left mb-32">
+                          <div>
+                            <Menu.Button className="inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-3 py-2 bg-white text-sm sm:text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-100 focus:ring-primary-500">
+                              Acciones
+                              <ChevronDownIcon className="-mr-1 ml-2 h-5 w-5" aria-hidden="true" />
+                            </Menu.Button>
+                          </div>
+                          <Transition
+                            as={Fragment}
+                            enter="transition ease-out duration-100"
+                            enterFrom="transform opacity-0 scale-95"
+                            enterTo="transform opacity-100 scale-100"
+                            leave="transition ease-in duration-75"
+                            leaveFrom="transform opacity-100 scale-100"
+                            leaveTo="transform opacity-0 scale-95"
+                          >
+                            <Menu.Items className="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none">
+                              <div className="py-1">
+                                <Menu.Item>
+                                  {({ active }) => (
+                                    <button
+                                      onClick={() => handleReporteAction(reporte.id, 'open')}
+                                      className={`${
+                                        active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
+                                      } block w-full text-left px-4 py-2 text-sm sm:text-base`}
+                                    >
+                                      Marcar como abierto
+                                    </button>
+                                  )}
+                                </Menu.Item>
+                                <Menu.Item>
+                                  {({ active }) => (
+                                    <button
+                                      onClick={() => handleReporteAction(reporte.id, 'resolve')}
+                                      className={`${
+                                        active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
+                                      } block w-full text-left px-4 py-2 text-sm sm:text-base`}
+                                    >
+                                      Resolver
+                                    </button>
+                                  )}
+                                </Menu.Item>
+                                <Menu.Item>
+                                  {({ active }) => (
+                                    <button
+                                      onClick={() => handleReporteAction(reporte.id, 'dismiss')}
+                                      className={`${
+                                        active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
+                                      } block w-full text-left px-4 py-2 text-sm sm:text-base`}
+                                    >
+                                      Desestimar
+                                    </button>
+                                  )}
+                                </Menu.Item>
+                              </div>
+                            </Menu.Items>
+                          </Transition>
+                        </Menu>
+                      )}
                     </div>
                   </div>
                 </li>
@@ -311,49 +558,75 @@ export default function WatchReports() {
                   console.log('Renderizando detalles del reporte:', reporte);
                   return (
                     <div className="flex flex-col md:flex-row">
-                      {contentDetails && reporte.tipo_contenido === 'video' && (
+                      {contentDetails ? (
                         <div className="md:w-1/2 pr-4">
                           <div className="aspect-w-16 aspect-h-9 border-4 border-primary-500 rounded-lg overflow-hidden max-w-md mx-auto">
-                            <video 
-                              controls 
-                              className="w-full h-full object-contain"
-                              onError={(e) => {
-                                console.error('Error loading video:', e);
-                                console.log('Video source:', contentDetails.url);
-                              }}
-                            >
-                              <source src={contentDetails.url} type="video/mp4" />
-                              Tu navegador no soporta el elemento de video.
-                            </video>
+                            {contentDetails.url ? (
+                              <video 
+                                controls 
+                                className="w-full h-full object-contain"
+                                onError={(e) => {
+                                  console.error('Error loading video:', e);
+                                  console.log('Video source:', contentDetails.url);
+                                }}
+                              >
+                                <source src={contentDetails.url} type="video/mp4" />
+                                Tu navegador no soporta el elemento de video.
+                              </video>
+                            ) : (
+                              <div className="flex flex-col items-center justify-center p-8 bg-gray-50 rounded-lg">
+                                <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4">
+                                  <svg 
+                                    className="w-8 h-8 text-red-500" 
+                                    fill="none" 
+                                    stroke="currentColor" 
+                                    viewBox="0 0 24 24"
+                                  >
+                                    <path 
+                                      strokeLinecap="round" 
+                                      strokeLinejoin="round" 
+                                      strokeWidth={2} 
+                                      d="M6 18L18 6M6 6l12 12"
+                                    />
+                                  </svg>
+                                </div>
+                                <h5 className="text-lg font-medium text-gray-900 mb-2">
+                                  Video Eliminado
+                                </h5>
+                                <p className="text-gray-500 text-center">
+                                  Este video ha sido eliminado del sistema
+                                </p>
+                              </div>
+                            )}
                           </div>
                         </div>
+                      ) : (
+                        <div className="md:w-1/2 space-y-4 text-base mt-4 md:mt-0">
+                          <h4 className="text-xl font-semibold mb-4">Información del Reporte</h4>
+                          <p><strong>Reportante:</strong> {reporte.usuario_reportante.username || 'Usuario desconocido'}</p>
+                          <p><strong>Reportado:</strong> {reporte.usuario_reportado.username || 'Usuario desconocido'}</p>
+                          <p><strong>Fecha:</strong> {new Date(reporte.created_at).toLocaleString('es-ES', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}</p>
+                          <p><strong>Estado:</strong> {reporte.estado}</p>
+                          <p><strong>Razón:</strong> {reporte.razon}</p>
+                          <p><strong>Tipo de contenido:</strong> {reporte.tipo_contenido}</p>
+                          <p><strong>ID del contenido:</strong> {reporte.contenido_id || 'No especificado'}</p>
+                          <p><strong>Contenido del reporte:</strong></p>
+                          <p className="whitespace-pre-wrap">{reporte.contenido}</p>
+                          
+                          {contentDetails && (
+                            <div className="mt-4">
+                              <h4 className="text-lg font-semibold mb-2 text-secondary-600">Detalles del Video</h4>
+                              <p><strong>Descripción:</strong> {contentDetails.descripcion}</p>
+                            </div>
+                          )}
+                        </div>
                       )}
-                      
-                      <div className="md:w-1/2 space-y-4 text-base mt-4 md:mt-0">
-                        <h4 className="text-xl font-semibold mb-4">Información del Reporte</h4>
-                        <p><strong>Reportante:</strong> {reporte.usuario_reportante.username || 'Usuario desconocido'}</p>
-                        <p><strong>Reportado:</strong> {reporte.usuario_reportado.username || 'Usuario desconocido'}</p>
-                        <p><strong>Fecha:</strong> {new Date(reporte.created_at).toLocaleString('es-ES', {
-                          year: 'numeric',
-                          month: 'long',
-                          day: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        })}</p>
-                        <p><strong>Estado:</strong> {reporte.estado}</p>
-                        <p><strong>Razón:</strong> {reporte.razon}</p>
-                        <p><strong>Tipo de contenido:</strong> {reporte.tipo_contenido}</p>
-                        <p><strong>ID del contenido:</strong> {reporte.contenido_id || 'No especificado'}</p>
-                        <p><strong>Contenido del reporte:</strong></p>
-                        <p className="whitespace-pre-wrap">{reporte.contenido}</p>
-                        
-                        {contentDetails && (
-                          <div className="mt-4">
-                            <h4 className="text-lg font-semibold mb-2 text-secondary-600">Detalles del Video</h4>
-                            <p><strong>Descripción:</strong> {contentDetails.descripcion}</p>
-                          </div>
-                        )}
-                      </div>
                     </div>
                   );
                 })()}
@@ -373,6 +646,7 @@ export default function WatchReports() {
           </div>
         </div>
       )}
+      {showResolutionModal && renderResolutionModal()}
     </div>
   )
 }

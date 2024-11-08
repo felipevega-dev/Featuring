@@ -219,7 +219,7 @@ CREATE TABLE likes_video (
     video_id BIGINT NOT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     CONSTRAINT fk_usuario_likes_video FOREIGN KEY (usuario_id) REFERENCES perfil (usuario_id) ON DELETE CASCADE,
-    CONSTRAINT fk_video_likes FOREIGN KEY (video_id) REFERENCES video (id) ON DELETE SET NULL
+    CONSTRAINT fk_video_likes FOREIGN KEY (video_id) REFERENCES video (id) ON DELETE CASCADE
   );
 
 -- Tabla colaboracion
