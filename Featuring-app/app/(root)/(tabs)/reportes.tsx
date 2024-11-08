@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { ReportCard } from '@/components/reports/ReportCard';
 import { SanctionCard } from '@/components/reports/SanctionCard';
 import { RewardCard } from '@/components/reports/RewardsCard';
+import { useLocalSearchParams } from 'expo-router';
 
 interface Reporte {
   id: number;
@@ -92,6 +93,13 @@ export default function Reportes() {
   const [puntosReputacion, setPuntosReputacion] = useState(0);
   const [activeTab, setActiveTab] = useState<'enviados' | 'recibidos' | 'sanciones' | 'recompensas'>('enviados');
   const [siguienteRecompensa, setSiguienteRecompensa] = useState<RecompensaInfo | null>(null);
+  const { tab } = useLocalSearchParams<{ tab: string }>();
+
+  useEffect(() => {
+    if (tab === 'recompensas') {
+      setActiveTab('recompensas');
+    }
+  }, [tab]);
 
   useEffect(() => {
     fetchData();

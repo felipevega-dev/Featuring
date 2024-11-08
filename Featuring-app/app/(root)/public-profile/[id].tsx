@@ -14,13 +14,11 @@ import { supabase } from "@/lib/supabase";
 import { useLocalSearchParams, router } from "expo-router";
 import { icons } from "@/constants";
 import { Ionicons, FontAwesome } from "@expo/vector-icons";
-import SongCard from "@/components/SongCard";
-import VideoCard from "@/components/VideoCard";
 import RatingsList from '@/components/RatingsList';
 import ProfileSongCard from "@/components/ProfileSongCard";
 import ProfileVideoCard from "@/components/ProfileVideoCard";
 import Constants from "expo-constants";
-import { RealtimeChannel } from "supabase-js";
+import { RealtimeChannel } from "@supabase/supabase-js";
 
 interface Perfil {
   usuario_id: string;
@@ -166,7 +164,14 @@ export default function PublicProfile() {
           promedio_valoraciones,
           perfil_genero (genero),
           perfil_habilidad (habilidad),
-          red_social (nombre, url)
+          red_social (nombre, url),
+          titulo_activo,
+          titulo:titulo_activo (
+            id,
+            nombre,
+            descripcion,
+            nivel
+          )
         `)
         .eq("usuario_id", id)
         .single();
@@ -185,6 +190,24 @@ export default function PublicProfile() {
       const sumaValoraciones = valoracionesData?.reduce((sum, val) => sum + val.valoracion, 0) || 0;
       const promedioValoraciones = totalValoraciones > 0 ? sumaValoraciones / totalValoraciones : 0;
 
+      const { data: insigniasData } = await supabase
+        .from('perfil_insignia')
+        .select(`
+          insignia:insignia_id (
+            id,
+            nombre,
+            descripcion,
+            nivel
+          )
+        `)
+        .eq('perfil_id', id);
+
+      const { data: tituloData } = await supabase
+        .from('titulo')
+        .select('*')
+        .eq('id', data.titulo_activo)
+        .single();
+
       if (data) {
         const perfilData = {
           ...data,
@@ -194,7 +217,9 @@ export default function PublicProfile() {
           redes_sociales: data.red_social,
           nacionalidad: data.nacionalidad,
           promedio_valoraciones: promedioValoraciones,
-          total_valoraciones: totalValoraciones
+          total_valoraciones: totalValoraciones,
+          insignias: insigniasData?.map(i => i.insignia) || [],
+          tituloActivo: tituloData || null
         };
         setPerfil(perfilData);
       }
@@ -496,10 +521,32 @@ export default function PublicProfile() {
                   </View>
                 )}
               </View>
-              <Text className="text-xl font-semibold text-primary-500 text-center">
-                {perfil.username}
-              </Text>
-              
+              <View className="flex-row items-center justify-center">
+                <Text className="text-xl font-semibold text-primary-500">
+                  {perfil.username}
+                </Text>
+                {perfil.insignias?.length > 0 && (
+                  <View className="ml-2">
+                    <Ionicons 
+                      name="shield-checkmark" 
+                      size={24} 
+                      color={
+                        perfil.insignias[perfil.insignias.length - 1].nivel === 'oro' 
+                          ? '#FFD700' 
+                          : perfil.insignias[perfil.insignias.length - 1].nivel === 'plata'
+                            ? '#C0C0C0'
+                            : '#CD7F32'
+                      }
+                    />
+                  </View>
+                )}
+              </View>
+              {perfil.tituloActivo && (
+                <Text className="text-sm text-secondary-600">
+                  {perfil.tituloActivo.nombre}
+                </Text>
+              )}
+
               {currentUserId && currentUserId !== id && (
                 <TouchableOpacity
                   onPress={handleFollowToggle}

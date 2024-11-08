@@ -16,6 +16,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import { icons } from "@/constants";
 import { Ionicons, FontAwesome } from "@expo/vector-icons";
 import RatingsList from '@/components/RatingsList';
+import { BadgesSection } from '@/components/profile/BadgesSection';
 
 interface Perfil {
   username: string;
@@ -31,6 +32,8 @@ interface Perfil {
   nacionalidad: string;
   promedio_valoraciones: number;
   total_valoraciones: number;
+  insignias: any[];
+  tituloActivo: any | null;
 }
 
 const supabaseUrl = Constants.expoConfig?.extra?.supabaseUrl;
@@ -95,7 +98,14 @@ export default function Profile() {
           perfil_genero (genero),
           perfil_habilidad (habilidad),
           red_social (nombre, url),
-          promedio_valoraciones
+          promedio_valoraciones,
+          titulo_activo,
+          titulo:titulo_activo (
+            id,
+            nombre,
+            descripcion,
+            nivel
+          )
         `
         )
         .eq("usuario_id", user.id)
@@ -114,6 +124,24 @@ export default function Profile() {
       const sumaValoraciones = valoracionesData?.reduce((sum, val) => sum + val.valoracion, 0) || 0;
       const promedioValoraciones = totalValoraciones > 0 ? sumaValoraciones / totalValoraciones : 0;
 
+      const { data: insigniasData } = await supabase
+        .from('perfil_insignia')
+        .select(`
+          insignia:insignia_id (
+            id,
+            nombre,
+            descripcion,
+            nivel
+          )
+        `)
+        .eq('perfil_id', user.id);
+
+      const { data: tituloData } = await supabase
+        .from('titulo')
+        .select('*')
+        .eq('id', data.titulo_activo)
+        .single();
+
       if (data) {
         const perfilData = {
           ...data,
@@ -122,7 +150,9 @@ export default function Profile() {
           habilidades: data.perfil_habilidad.map((h) => h.habilidad),
           redes_sociales: data.red_social,
           promedio_valoraciones: promedioValoraciones,
-          total_valoraciones: totalValoraciones
+          total_valoraciones: totalValoraciones,
+          insignias: insigniasData?.map(i => i.insignia) || [],
+          tituloActivo: tituloData || null
         };
 
         setPerfil(perfilData);
@@ -288,9 +318,32 @@ export default function Profile() {
                   </View>
                 )}
               </View>
-              <Text className="text-xl font-semibold text-primary-500 text-center">
-                {perfil.username}
-              </Text>
+              <View className="flex-row items-center justify-center">
+                <Text className="text-xl font-semibold text-primary-500">
+                  {perfil.username}
+                </Text>
+                {perfil.insignias?.length > 0 && (
+                  <View className="ml-2">
+                    <Ionicons 
+                      name="shield-checkmark" 
+                      size={24} 
+                      color={
+                        perfil.insignias[perfil.insignias.length - 1].nivel === 'oro' 
+                          ? '#FFD700' 
+                          : perfil.insignias[perfil.insignias.length - 1].nivel === 'plata'
+                            ? '#C0C0C0'
+                            : '#CD7F32'
+                      }
+                    />
+                  </View>
+                )}
+              </View>
+              
+              {perfil.tituloActivo && (
+                <Text className="text-sm text-secondary-600 mt-1">
+                  {perfil.tituloActivo.nombre}
+                </Text>
+              )}
               <TouchableOpacity 
                 onPress={() => {
                   setShowRatings(true);
