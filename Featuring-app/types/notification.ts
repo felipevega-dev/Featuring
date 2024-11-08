@@ -14,7 +14,9 @@ export type NotificationType =
   | 'like_comentario_video'
   | 'respuesta_comentario'
   | 'respuesta_comentario_video'
-  | 'nuevo_seguidor';
+  | 'nuevo_seguidor'
+  | 'sancion_administrativa'
+  | 'reporte_validado';
 
 export interface NotificationRedirect {
   route: string;
@@ -133,5 +135,13 @@ export const NOTIFICATION_REDIRECTS: Record<NotificationType, NotificationRedire
     getParams: (notification) => ({ 
       id: notification.usuario_origen_id 
     })
+  },
+  sancion_administrativa: {
+    route: '/(root)/(tabs)/perfil',
+    getParams: () => ({})
+  },
+  reporte_validado: {
+    route: '/(root)/(tabs)/reportes',
+    getParams: () => ({})
   }
 }; 
