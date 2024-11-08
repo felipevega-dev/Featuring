@@ -353,6 +353,60 @@ CREATE TABLE sancion_administrativa (
     CONSTRAINT fk_admin_sancion FOREIGN KEY (admin_id) REFERENCES admin_roles (id)
 );
 
+-- Tabla para las insignias
+CREATE TABLE insignia (
+    id BIGSERIAL PRIMARY KEY,
+    nombre TEXT NOT NULL,
+    descripcion TEXT,
+    imagen TEXT,
+    nivel TEXT CHECK (nivel IN ('bronce', 'plata', 'oro')),
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Tabla para asignar insignias a usuarios
+CREATE TABLE perfil_insignia (
+    id BIGSERIAL PRIMARY KEY,
+    perfil_id UUID REFERENCES perfil(usuario_id) ON DELETE CASCADE,
+    insignia_id BIGINT REFERENCES insignia(id) ON DELETE CASCADE,
+    fecha_obtencion TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(perfil_id, insignia_id)
+);
+
+-- Tabla para los títulos
+CREATE TABLE titulo (
+    id BIGSERIAL PRIMARY KEY,
+    nombre TEXT NOT NULL,
+    descripcion TEXT,
+    nivel TEXT CHECK (nivel IN ('novato', 'recurrente', 'honorario')),
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Tabla para asignar títulos a usuarios
+CREATE TABLE perfil_titulo (
+    id BIGSERIAL PRIMARY KEY,
+    perfil_id UUID REFERENCES perfil(usuario_id) ON DELETE CASCADE,
+    titulo_id BIGINT REFERENCES titulo(id) ON DELETE CASCADE,
+    activo BOOLEAN DEFAULT true,
+    fecha_obtencion TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(perfil_id, titulo_id)
+);
+
+-- Tabla para el historial de premium
+CREATE TABLE historial_premium (
+    id BIGSERIAL PRIMARY KEY,
+    perfil_id UUID REFERENCES perfil(usuario_id) ON DELETE CASCADE,
+    fecha_inicio TIMESTAMPTZ DEFAULT NOW(),
+    fecha_fin TIMESTAMPTZ,
+    motivo TEXT NOT NULL,
+    nivel TEXT CHECK (nivel IN ('bronce', 'plata', 'oro')),
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Añadir columna is_premium a perfil
+ALTER TABLE perfil ADD COLUMN is_premium BOOLEAN DEFAULT false;
+ALTER TABLE perfil ADD COLUMN premium_until TIMESTAMPTZ;
+ALTER TABLE perfil ADD COLUMN titulo_activo BIGINT REFERENCES titulo(id);
+
 ------------------------------------------
 -- 3. CREATE POLICIES
 ------------------------------------------
@@ -817,7 +871,7 @@ BEGIN
 END;
 $$;
 
--- Función para obtener usuarios por país
+-- Funci��n para obtener usuarios por país
 CREATE OR REPLACE FUNCTION get_users_by_country()
 RETURNS TABLE (country text, count bigint)
 LANGUAGE plpgsql
@@ -981,3 +1035,101 @@ BEGIN
     WHERE usuario_id = user_id;
 END;
 $$;
+
+-- Función para manejar las recompensas automáticamente
+CREATE OR REPLACE FUNCTION handle_reputation_rewards()
+RETURNS TRIGGER AS $$
+DECLARE
+    dias_premium INT;
+    nivel_insignia TEXT;
+    nivel_titulo TEXT;
+    nueva_insignia_id BIGINT;
+    nuevo_titulo_id BIGINT;
+BEGIN
+    -- Determinar nivel basado en los puntos
+    IF NEW.puntos_reputacion >= 75 AND NEW.puntos_reputacion < 250 THEN
+        dias_premium := 5;
+        nivel_insignia := 'bronce';
+        nivel_titulo := 'novato';
+    ELSIF NEW.puntos_reputacion >= 250 AND NEW.puntos_reputacion < 500 THEN
+        dias_premium := 14;
+        nivel_insignia := 'plata';
+        nivel_titulo := 'recurrente';
+    ELSIF NEW.puntos_reputacion >= 500 THEN
+        dias_premium := 30;
+        nivel_insignia := 'oro';
+        nivel_titulo := 'honorario';
+    END IF;
+
+    -- Si alcanzó un nuevo nivel
+    IF nivel_insignia IS NOT NULL THEN
+        -- Asignar insignia si no la tiene
+        SELECT id INTO nueva_insignia_id FROM insignia 
+        WHERE nivel = nivel_insignia 
+        LIMIT 1;
+
+        IF NOT EXISTS (
+            SELECT 1 FROM perfil_insignia 
+            WHERE perfil_id = NEW.usuario_id 
+            AND insignia_id = nueva_insignia_id
+        ) THEN
+            INSERT INTO perfil_insignia (perfil_id, insignia_id)
+            VALUES (NEW.usuario_id, nueva_insignia_id);
+        END IF;
+
+        -- Asignar título si no lo tiene
+        SELECT id INTO nuevo_titulo_id FROM titulo 
+        WHERE nivel = nivel_titulo 
+        LIMIT 1;
+
+        IF NOT EXISTS (
+            SELECT 1 FROM perfil_titulo 
+            WHERE perfil_id = NEW.usuario_id 
+            AND titulo_id = nuevo_titulo_id
+        ) THEN
+            INSERT INTO perfil_titulo (perfil_id, titulo_id)
+            VALUES (NEW.usuario_id, nuevo_titulo_id);
+        END IF;
+
+        -- Actualizar título activo
+        UPDATE perfil 
+        SET titulo_activo = nuevo_titulo_id
+        WHERE usuario_id = NEW.usuario_id;
+
+        -- Asignar premium
+        IF dias_premium IS NOT NULL THEN
+            UPDATE perfil 
+            SET is_premium = true,
+                premium_until = COALESCE(
+                    GREATEST(premium_until, NOW()),
+                    NOW()
+                ) + (dias_premium || ' days')::INTERVAL
+            WHERE usuario_id = NEW.usuario_id;
+
+            -- Registrar en historial
+            INSERT INTO historial_premium (
+                perfil_id,
+                fecha_inicio,
+                fecha_fin,
+                motivo,
+                nivel
+            ) VALUES (
+                NEW.usuario_id,
+                NOW(),
+                NOW() + (dias_premium || ' days')::INTERVAL,
+                'Recompensa por puntos de reputación',
+                nivel_insignia
+            );
+        END IF;
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Trigger para manejar recompensas
+CREATE TRIGGER trigger_handle_reputation_rewards
+AFTER UPDATE OF puntos_reputacion ON perfil
+FOR EACH ROW
+WHEN (NEW.puntos_reputacion > OLD.puntos_reputacion)
+EXECUTE FUNCTION handle_reputation_rewards();
