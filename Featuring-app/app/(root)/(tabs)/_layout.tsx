@@ -15,6 +15,8 @@ import { UnreadMessagesProvider, useUnreadMessages } from '@/contexts/UnreadMess
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@/lib/supabase';
 import MenuModal from '@/components/MenuModal';
+import { useSuspensionCheck } from '@/hooks/useSuspensionCheck'
+import { SuspendedScreen } from '@/components/SuspendedScreen';
 
 // Componente para los íconos en la barra inferior
 const TabIcon = ({
@@ -117,6 +119,7 @@ const Layout = () => {
   const isMatchScreen = segments[1] === 'match';
   const [isMenuVisible, setIsMenuVisible] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const { isSuspended, suspensionDetails } = useSuspensionCheck();
 
   useEffect(() => {
     getCurrentUser();
@@ -128,6 +131,11 @@ const Layout = () => {
       setCurrentUserId(user.id);
     }
   };
+
+  // Si el usuario está suspendido, mostrar solo la pantalla de suspensión
+  if (isSuspended && suspensionDetails) {
+    return <SuspendedScreen isVisible={isSuspended} />;
+  }
 
   return (
     <NotificationProvider>

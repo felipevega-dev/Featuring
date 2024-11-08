@@ -8,6 +8,8 @@ import Constants from 'expo-constants';
 import { CollaborationProvider } from '@/contexts/CollaborationContext';
 import { registerForPushNotificationsAsync } from '@/utils/pushNotifications';
 import { supabase } from '@/lib/supabase';
+import { useSuspensionCheck } from '@/hooks/useSuspensionCheck';
+import { SuspendedScreen } from '@/components/SuspendedScreen';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -24,6 +26,7 @@ export default function RootLayout() {
   });
 
   const router = useRouter();
+  const { isSuspended, suspensionDetails } = useSuspensionCheck();
 
   useEffect(() => {
     if (fontsLoaded) {
@@ -45,7 +48,10 @@ export default function RootLayout() {
 
       // Auth state change listener
       const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-        if (event === 'SIGNED_IN' && session?.user) {
+        if (event === 'SIGNED_OUT') {
+          // Cuando se cierra sesión, redirigir al índice
+          router.replace('/')
+        } else if (event === 'SIGNED_IN' && session?.user) {
           const token = await registerForPushNotificationsAsync();
           console.log('Token registrado después de inicio de sesión:', token);
         }

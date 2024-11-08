@@ -45,6 +45,7 @@ CREATE TABLE perfil (
     preferencias_habilidad TEXT array,
     preferencias_distancia INT,
     push_token TEXT,
+    suspended BOOLEAN DEFAULT false,
     created_at TIMESTAMPTZ DEFAULT NOW()
   );
 
@@ -85,6 +86,7 @@ CREATE TABLE cancion (
     archivo_audio TEXT NOT NULL,
     caratula TEXT NOT NULL,
     contenido TEXT NOT NULL,
+    estado TEXT DEFAULT 'pendiente' CHECK (estado IN ('pendiente', 'aprobado', 'rechazado')),
     created_at TIMESTAMPTZ DEFAULT NOW(),
     CONSTRAINT fk_usuario_cancion FOREIGN KEY (usuario_id) REFERENCES perfil (usuario_id) ON DELETE CASCADE
   );
@@ -189,6 +191,7 @@ CREATE TABLE video (
     usuario_id UUID NOT NULL,
     descripcion TEXT,
     url TEXT,
+    estado TEXT DEFAULT 'pendiente' CHECK (estado IN ('pendiente', 'aprobado', 'rechazado')),
     created_at TIMESTAMPTZ DEFAULT NOW(),
     CONSTRAINT fk_usuario_video FOREIGN KEY (usuario_id) REFERENCES perfil (usuario_id) ON DELETE CASCADE
   );
@@ -328,6 +331,27 @@ CREATE TABLE admin_roles (
   created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
+-- Tabla sancion_administrativa
+CREATE TABLE sancion_administrativa (
+    id BIGSERIAL PRIMARY KEY,
+    usuario_id UUID NOT NULL,
+    admin_id UUID NOT NULL,
+    tipo_sancion TEXT NOT NULL CHECK (tipo_sancion IN ('amonestacion', 'suspension_temporal', 'suspension_permanente')),
+    motivo TEXT NOT NULL,
+    duracion_dias INT,
+    fecha_inicio TIMESTAMPTZ DEFAULT NOW(),
+    fecha_fin TIMESTAMPTZ,
+    estado TEXT NOT NULL DEFAULT 'activa' CHECK (estado IN ('activa', 'cumplida', 'revocada')),
+    reporte_id BIGINT REFERENCES reporte(id),
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    CONSTRAINT fk_usuario_sancion FOREIGN KEY (usuario_id) REFERENCES perfil (usuario_id) ON DELETE CASCADE,
+    CONSTRAINT fk_admin_sancion FOREIGN KEY (admin_id) REFERENCES admin_roles (id)
+);
+
+-- Índice para mejorar búsquedas
+CREATE INDEX idx_sancion_administrativa_usuario ON sancion_administrativa(usuario_id);
+CREATE INDEX idx_sancion_administrativa_estado ON sancion_administrativa(estado);
+
 ------------------------------------------
 -- 3. CREATE POLICIES
 ------------------------------------------
@@ -461,6 +485,9 @@ CREATE INDEX idx_mensaje_leido ON mensaje (receptor_id, emisor_id, leido);
 
 CREATE INDEX idx_admin_roles_id ON admin_roles (id);
 CREATE INDEX idx_admin_roles_role ON admin_roles (role);
+
+CREATE INDEX idx_cancion_estado ON cancion(estado);
+CREATE INDEX idx_video_estado ON video(estado);
 
 ------------------------------------------
 -- 5. CREATE FUNCTIONS
@@ -715,3 +742,31 @@ CREATE TRIGGER create_preferences_on_profile
 AFTER INSERT ON perfil
 FOR EACH ROW
 EXECUTE FUNCTION create_default_preferences();
+
+-- Función para actualizar el estado suspended
+CREATE OR REPLACE FUNCTION update_perfil_suspended()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.estado = 'activa' AND 
+    (NEW.tipo_sancion = 'suspension_temporal' OR NEW.tipo_sancion = 'suspension_permanente') THEN
+    UPDATE perfil SET suspended = true WHERE usuario_id = NEW.usuario_id;
+  ELSIF NEW.estado = 'cumplida' OR NEW.estado = 'revocada' THEN
+    -- Verificar si no hay otras suspensiones activas
+    IF NOT EXISTS (
+      SELECT 1 FROM sancion_administrativa 
+      WHERE usuario_id = NEW.usuario_id 
+      AND estado = 'activa'
+      AND (tipo_sancion = 'suspension_temporal' OR tipo_sancion = 'suspension_permanente')
+    ) THEN
+      UPDATE perfil SET suspended = false WHERE usuario_id = NEW.usuario_id;
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Crear trigger para mantener suspended actualizado
+CREATE TRIGGER trigger_update_perfil_suspended
+AFTER INSERT OR UPDATE ON sancion_administrativa
+FOR EACH ROW
+EXECUTE FUNCTION update_perfil_suspended();
