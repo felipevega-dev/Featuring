@@ -25,10 +25,17 @@ import {
   Pie,
   Cell,
   BarChart,
-  Bar
+  Bar,
+  Legend
 } from 'recharts'
 import { useSystemMetrics } from '@/hooks/useSystemMetrics'
 import { useAdminStats } from '@/hooks/useAdminStats'
+
+// Función de utilidad para formatear bytes a MB
+const formatSizeToMB = (bytes: number) => {
+  const mb = bytes / (1024 * 1024);
+  return mb.toFixed(2);
+};
 
 export default function Dashboard() {
   const metrics = useSystemMetrics()
@@ -43,12 +50,12 @@ export default function Dashboard() {
 
   // Preparar datos para el gráfico de distribución de almacenamiento
   const storageDistributionData = metrics.storageMetrics ? [
-    { name: 'Videos', value: metrics.storageMetrics.videos_size_gb },
-    { name: 'Canciones', value: metrics.storageMetrics.songs_size_gb },
-    { name: 'Carátulas', value: metrics.storageMetrics.covers_size_gb },
-    { name: 'Fotos de Perfil', value: metrics.storageMetrics.profile_pics_size_gb },
-    { name: 'Chat Media', value: metrics.storageMetrics.chat_media_size_gb }
-  ] : []
+    { name: 'Videos', value: metrics.storageMetrics.videos_size_gb * 1024 },
+    { name: 'Canciones', value: metrics.storageMetrics.songs_size_gb * 1024 },
+    { name: 'Carátulas', value: metrics.storageMetrics.covers_size_gb * 1024 },
+    { name: 'Fotos de Perfil', value: metrics.storageMetrics.profile_pics_size_gb * 1024 },
+    { name: 'Chat Media', value: metrics.storageMetrics.chat_media_size_gb * 1024 }
+  ].filter(item => item.value > 0) : [];
 
   if (metrics.isLoading || statsLoading) {
     return (
@@ -120,7 +127,7 @@ export default function Dashboard() {
             <div>
               <p className="text-sm text-gray-500">Almacenamiento Total</p>
               <h3 className="text-2xl font-bold">
-                {metrics.storageMetrics?.total_size_gb.toFixed(2)} GB
+                {(metrics.storageMetrics?.total_size_gb * 1024).toFixed(2)} MB
               </h3>
             </div>
             <FiHardDrive className="text-primary-500 w-8 h-8" />
@@ -132,7 +139,7 @@ export default function Dashboard() {
             <div>
               <p className="text-sm text-gray-500">Espacio en Videos</p>
               <h3 className="text-2xl font-bold">
-                {metrics.storageMetrics?.videos_size_gb.toFixed(2)} GB
+                {(metrics.storageMetrics?.videos_size_gb * 1024).toFixed(2)} MB
               </h3>
             </div>
             <FiVideo className="text-secondary-500 w-8 h-8" />
@@ -144,7 +151,7 @@ export default function Dashboard() {
             <div>
               <p className="text-sm text-gray-500">Espacio en Canciones</p>
               <h3 className="text-2xl font-bold">
-                {metrics.storageMetrics?.songs_size_gb.toFixed(2)} GB
+                {(metrics.storageMetrics?.songs_size_gb * 1024).toFixed(2)} MB
               </h3>
             </div>
             <FiMusic className="text-warning-500 w-8 h-8" />
@@ -152,8 +159,8 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Gráficos de Almacenamiento y Usuarios */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* Gráficos en grid de 2x2 */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Distribución de Almacenamiento */}
         <div className="bg-white p-6 rounded-lg shadow-lg">
           <h3 className="text-lg font-semibold mb-4">Distribución de Almacenamiento</h3>
@@ -167,13 +174,28 @@ export default function Dashboard() {
                   cx="50%"
                   cy="50%"
                   outerRadius={80}
-                  label={({ name, value }) => `${name}: ${value.toFixed(2)} GB`}
+                  label={({ name, value }) => `${name}: ${value.toFixed(2)} MB`}
+                  labelLine={true}
                 >
-                  {storageDistributionData.map((_, index) => (
-                    <Cell key={`cell-${index}`} fill={`hsl(${index * 45}, 70%, 50%)`} />
+                  {storageDistributionData.map((entry, index) => (
+                    <Cell 
+                      key={`cell-${index}`} 
+                      fill={
+                        entry.name === 'Videos' ? '#FF4B4B' :
+                        entry.name === 'Canciones' ? '#4B7BFF' :
+                        entry.name === 'Carátulas' ? '#FFB74B' :
+                        entry.name === 'Fotos de Perfil' ? '#4BFF4B' :
+                        '#FF4B9F'
+                      } 
+                    />
                   ))}
                 </Pie>
-                <Tooltip />
+                <Tooltip formatter={(value: number) => `${value.toFixed(2)} MB`} />
+                <Legend 
+                  verticalAlign="bottom" 
+                  height={36}
+                  formatter={(value, entry) => `${value}: ${entry?.payload?.value.toFixed(2)} MB`}
+                />
               </PieChart>
             </ResponsiveContainer>
           </div>
@@ -202,6 +224,7 @@ export default function Dashboard() {
                   ))}
                 </Pie>
                 <Tooltip />
+                <Legend verticalAlign="bottom" height={36} />
               </PieChart>
             </ResponsiveContainer>
           </div>
@@ -232,7 +255,7 @@ export default function Dashboard() {
                       {file.bucket_id}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {(file.size / (1024 * 1024)).toFixed(2)} MB
+                      {formatSizeToMB(file.size)} MB
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {file.name}
