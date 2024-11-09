@@ -5,7 +5,7 @@ const palabrasOfensivas = [
   'verga', 'pinga', 'coño', 'culo', 'joder', 'cabron', 'zorra', 'marica',
   'pendeja', 'chinga', 'carajo', 'malparido', 'gonorrea', 'hijueputa', 'maldito',
   'bastardo', 'imbecil', 'tarado', 'huevon', 'baboso', 'estupida','aweonao','conchetumare','ctm','agilao','embarao','ql','wn','kl'
-  ,'mrd','perkin','culero','zorra','pichula','raja','raja pelua',
+  ,'mrd','perkin','culero','zorra','pichula','raja','raja pelua','maraco','maraca','puta','pico'
   
 
   // Inglés - Insultos y groserías comunes
