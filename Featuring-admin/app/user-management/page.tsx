@@ -7,6 +7,7 @@ import { User, Session } from '@supabase/supabase-js'
 import Image from 'next/image'
 import Link from 'next/link'
 import { FiAlertCircle, FiActivity } from 'react-icons/fi'
+import { notificationService } from '../../services/notificationService'
 
 interface Perfil {
   usuario_id: string;
@@ -176,7 +177,7 @@ export default function UserManagement() {
 
       if (perfilError) throw perfilError
 
-      const usersWithProfiles: UserWithSanciones[] = await Promise.all(
+      const usersWithProfiles: UserWithSanciones[] = (await Promise.all(
         authUsers.users.map(async (authUser) => {
           const perfil = perfiles.find(p => p.usuario_id === authUser.id)
           
@@ -213,9 +214,9 @@ export default function UserManagement() {
 
           return user
         })
-      )
+      )).filter((user): user is UserWithSanciones => user !== null);
 
-      setUsers(usersWithProfiles.filter(Boolean) as UserWithSanciones[])
+      setUsers(usersWithProfiles)
     } catch (error) {
       console.error('Error al obtener los usuarios:', error)
       setError('No se pudieron cargar los usuarios')
@@ -240,99 +241,55 @@ export default function UserManagement() {
   }
 
   const handleSubmitSancion = async () => {
-    if (!selectedUser || !sancionForm.motivo || !session?.user?.id) return
+    if (!selectedUser || !sancionForm.motivo || !session?.user?.id) {
+      setError('No se puede aplicar la sanción. Asegúrese de estar autenticado y proporcionar un motivo.');
+      return;
+    }
 
     // Confirmar antes de aplicar suspensión permanente
     if (sancionForm.tipo === 'suspension_permanente') {
-      const confirmed = await confirmAction('¿Está seguro que desea aplicar una suspensión permanente? Esta es una acción grave.')
-      if (!confirmed) return
+      const confirmed = await confirmAction('¿Está seguro que desea aplicar una suspensión permanente? Esta es una acción grave.');
+      if (!confirmed) return;
     }
 
     try {
-      // Primero verificamos si es una amonestación
-      if (sancionForm.tipo === 'amonestacion') {
-        // Obtener el número de amonestaciones activas del usuario
-        const { data: sanciones } = await supabaseAdmin
-          .from('sancion_administrativa')
-          .select('*')
-          .eq('usuario_id', selectedUser)
-          .eq('tipo_sancion', 'amonestacion')
-          .eq('estado', 'activa')
+      // 1. Aplicar la sanción
+      await supabaseAdmin
+        .from('sancion_administrativa')
+        .insert({
+          usuario_id: selectedUser,
+          admin_id: session.user.id,
+          tipo_sancion: sancionForm.tipo,
+          motivo: sancionForm.motivo,
+          duracion_dias: sancionForm.duracion,
+          estado: 'activa'
+        });
 
-        const amonestacionesActivas = sanciones?.length || 0
+      // 2. Crear notificación
+      await notificationService.createSanctionNotification({
+        userId: selectedUser,
+        sanctionType: sancionForm.tipo,
+        adminId: session.user.id,
+        motivo: sancionForm.motivo
+      });
 
-        // Si tiene 2 o más amonestaciones activas, aplicamos suspensión permanente
-        if (amonestacionesActivas >= 2) {
-          const { error } = await supabaseAdmin
-            .from('sancion_administrativa')
-            .insert({
-              usuario_id: selectedUser,
-              admin_id: session.user.id,
-              tipo_sancion: 'suspension_permanente',
-              motivo: `Suspensión permanente por acumular 3 amonestaciones. Motivo de última amonestación: ${sancionForm.motivo}`,
-              estado: 'activa'
-            })
-
-          if (error) throw error
-
-          // Marcar las amonestaciones previas como cumplidas
-          await supabaseAdmin
-            .from('sancion_administrativa')
-            .update({ estado: 'cumplida' })
-            .eq('usuario_id', selectedUser)
-            .eq('tipo_sancion', 'amonestacion')
-            .eq('estado', 'activa')
-
-        } else {
-          // Si no ha acumulado suficientes amonestaciones, registramos la nueva
-          const { error } = await supabaseAdmin
-            .from('sancion_administrativa')
-            .insert({
-              usuario_id: selectedUser,
-              admin_id: session.user.id,
-              tipo_sancion: sancionForm.tipo,
-              motivo: sancionForm.motivo,
-              estado: 'activa'
-            })
-
-          if (error) throw error
-        }
-      } else {
-        // Si es una suspensión directa
-        const { error } = await supabaseAdmin
-          .from('sancion_administrativa')
-          .insert({
-            usuario_id: selectedUser,
-            admin_id: session.user.id,
-            tipo_sancion: sancionForm.tipo,
-            motivo: sancionForm.motivo,
-            duracion_dias: sancionForm.duracion,
-            fecha_fin: sancionForm.duracion 
-              ? new Date(Date.now() + sancionForm.duracion * 24 * 60 * 60 * 1000).toISOString()
-              : null,
-            estado: 'activa'
-          })
-
-        if (error) throw error
-      }
-
-      // Cerrar modal y resetear form
-      setShowSancionModal(false)
-      setSelectedUser(null)
+      // 3. Cerrar modal y resetear form
+      setShowSancionModal(false);
+      setSelectedUser(null);
       setSancionForm({
         tipo: 'amonestacion',
         motivo: '',
         duracion: undefined
-      })
+      });
 
-      // Refrescar lista de usuarios
-      fetchUsers()
+      // 4. Refrescar lista de usuarios
+      fetchUsers();
 
     } catch (error) {
-      console.error('Error al aplicar sanción:', error)
-      setError('No se pudo aplicar la sanción. Por favor, intente de nuevo.')
+      console.error('Error al aplicar sanción:', error);
+      setError('No se pudo aplicar la sanción. Por favor, intente de nuevo.');
     }
-  }
+  };
 
   const totalPages = Math.ceil(totalUsers / USERS_PER_PAGE)
 
@@ -471,7 +428,7 @@ export default function UserManagement() {
       // Si tenemos sanciones, obtenemos los datos de los admins
       if (sanciones && sanciones.length > 0) {
         // Obtener los datos de los admins usando auth.admin.listUsers
-        const adminIds = [...new Set(sanciones.map(s => s.admin_id))]
+        const adminIds = Array.from(new Set(sanciones.map(s => s.admin_id)));
         const adminUsers = await Promise.all(
           adminIds.map(async (adminId) => {
             const { data: { user }, error } = await supabaseAdmin.auth.admin.getUserById(adminId)
@@ -481,11 +438,11 @@ export default function UserManagement() {
 
         // Crear un mapa de adminId -> email para fácil acceso
         const adminMap = adminUsers.reduce((map, admin) => {
-          if (admin) {
-            map[admin.id] = admin.email
+          if (admin?.email) {
+            map[admin.id] = admin.email;
           }
-          return map
-        }, {} as Record<string, string>)
+          return map;
+        }, {} as Record<string, string>);
 
         // Combinar los datos
         const sancionesConAdmin = sanciones.map(sancion => ({

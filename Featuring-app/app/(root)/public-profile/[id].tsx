@@ -9,18 +9,19 @@ import {
   FlatList,
   Linking,
   Modal,
+  RefreshControl,
 } from "react-native";
 import { supabase } from "@/lib/supabase";
 import { useLocalSearchParams, router } from "expo-router";
 import { icons } from "@/constants";
 import { Ionicons, FontAwesome } from "@expo/vector-icons";
-import SongCard from "@/components/SongCard";
-import VideoCard from "@/components/VideoCard";
 import RatingsList from '@/components/RatingsList';
 import ProfileSongCard from "@/components/ProfileSongCard";
 import ProfileVideoCard from "@/components/ProfileVideoCard";
 import Constants from "expo-constants";
-import { RealtimeChannel } from "supabase-js";
+import { RealtimeChannel } from "@supabase/supabase-js";
+import { TooltipBadge } from '@/components/TooltipBadge';
+import { TooltipTitle } from '@/components/TooltipTitle';
 
 interface Perfil {
   usuario_id: string;
@@ -96,6 +97,7 @@ export default function PublicProfile() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [seguidoresCount, setSeguidoresCount] = useState(0);
   const [subscription, setSubscription] = useState<RealtimeChannel | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     fetchPerfil();
@@ -185,6 +187,36 @@ export default function PublicProfile() {
       const sumaValoraciones = valoracionesData?.reduce((sum, val) => sum + val.valoracion, 0) || 0;
       const promedioValoraciones = totalValoraciones > 0 ? sumaValoraciones / totalValoraciones : 0;
 
+      // Obtener insignia activa
+      const { data: insigniaActiva } = await supabase
+        .from('perfil_insignia')
+        .select(`
+          insignia:insignia_id (
+            id,
+            nombre,
+            descripcion,
+            nivel
+          )
+        `)
+        .eq('perfil_id', id)
+        .eq('activo', true)
+        .single();
+
+      // Obtener título activo
+      const { data: tituloActivo } = await supabase
+        .from('perfil_titulo')
+        .select(`
+          titulo:titulo_id (
+            id,
+            nombre,
+            descripcion,
+            nivel
+          )
+        `)
+        .eq('perfil_id', id)
+        .eq('activo', true)
+        .single();
+
       if (data) {
         const perfilData = {
           ...data,
@@ -194,7 +226,9 @@ export default function PublicProfile() {
           redes_sociales: data.red_social,
           nacionalidad: data.nacionalidad,
           promedio_valoraciones: promedioValoraciones,
-          total_valoraciones: totalValoraciones
+          total_valoraciones: totalValoraciones,
+          insignias: insigniaActiva ? [insigniaActiva.insignia] : [],
+          tituloActivo: tituloActivo?.titulo || null
         };
         setPerfil(perfilData);
       }
@@ -406,6 +440,16 @@ export default function PublicProfile() {
     }
   };
 
+  const onRefresh = React.useCallback(() => {
+    setRefreshing(true);
+    Promise.all([
+      fetchPerfil(),
+      fetchCanciones(),
+      fetchVideos(),
+      fetchSeguidores()
+    ]).finally(() => setRefreshing(false));
+  }, []);
+
   if (isLoading) {
     return (
       <View className="flex-1 justify-center items-center bg-primary-600">
@@ -478,7 +522,17 @@ export default function PublicProfile() {
         <Ionicons name="arrow-back" size={24} color="#6D29D2" />
       </TouchableOpacity>
 
-      <ScrollView className="flex-1 mt-4">
+      <ScrollView 
+        className="flex-1 mt-4"
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={["#6D29D2"]} // Color primario
+            tintColor="#6D29D2"  // Para iOS
+          />
+        }
+      >
         <View className="px-4 pb-8">
           <View className="bg-white rounded-xl shadow-lg shadow-black/30 p-6 mb-4">
             <View className="items-center pb-4">
@@ -496,10 +550,25 @@ export default function PublicProfile() {
                   </View>
                 )}
               </View>
-              <Text className="text-xl font-semibold text-primary-500 text-center">
-                {perfil.username}
-              </Text>
-              
+              <View className="flex-row items-center justify-center">
+                <Text className="text-xl font-semibold text-primary-500">
+                  {perfil.username}
+                </Text>
+                {perfil.insignias?.length > 0 && (
+                  <TooltipBadge 
+                    nivel={perfil.insignias[perfil.insignias.length - 1].nivel}
+                    descripcion={perfil.insignias[perfil.insignias.length - 1].descripcion}
+                  />
+                )}
+              </View>
+              {perfil.tituloActivo && (
+                <TooltipTitle 
+                  nombre={perfil.tituloActivo.nombre}
+                  descripcion={perfil.tituloActivo.descripcion}
+                  nivel={perfil.tituloActivo.nivel}
+                />
+              )}
+
               {currentUserId && currentUserId !== id && (
                 <TouchableOpacity
                   onPress={handleFollowToggle}

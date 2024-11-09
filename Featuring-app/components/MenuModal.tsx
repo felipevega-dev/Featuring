@@ -128,12 +128,28 @@ export default function MenuModal({
       }
     },
     {
+      icon: 'gift-outline',
+      label: 'Beneficios',
+      onPress: () => {
+        onClose();
+        router.push("/beneficios");
+      }
+    },
+    {
       icon: 'people-outline',
       label: 'Colaboraciones',
       badge: pendingCollaborations > 0 ? pendingCollaborations : undefined,
       onPress: () => {
         onClose();
         router.push("/colaboraciones");
+      }
+    },
+    {
+      icon: 'warning-outline',
+      label: 'Reportes',
+      onPress: () => {
+        onClose();
+        router.push("/reportes");
       }
     },
     {

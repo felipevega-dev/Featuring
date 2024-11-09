@@ -10,12 +10,16 @@ import {
   Alert,
   Linking,
   Modal,
+  RefreshControl,
 } from "react-native";
 import { supabase } from "@/lib/supabase";
 import { router, useLocalSearchParams } from "expo-router";
 import { icons } from "@/constants";
 import { Ionicons, FontAwesome } from "@expo/vector-icons";
 import RatingsList from '@/components/RatingsList';
+import { BadgesSection } from '@/components/profile/BadgesSection';
+import { TooltipBadge } from '@/components/TooltipBadge';
+import { TooltipTitle } from '@/components/TooltipTitle';
 
 interface Perfil {
   username: string;
@@ -31,6 +35,8 @@ interface Perfil {
   nacionalidad: string;
   promedio_valoraciones: number;
   total_valoraciones: number;
+  insignias: any[];
+  tituloActivo: any | null;
 }
 
 const supabaseUrl = Constants.expoConfig?.extra?.supabaseUrl;
@@ -66,6 +72,7 @@ export default function Profile() {
   const [userProfile, setUserProfile] = useState(null);
   const [showRatings, setShowRatings] = useState(false);
   const [ratings, setRatings] = useState<Rating[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     fetchPerfil();
@@ -114,6 +121,34 @@ export default function Profile() {
       const sumaValoraciones = valoracionesData?.reduce((sum, val) => sum + val.valoracion, 0) || 0;
       const promedioValoraciones = totalValoraciones > 0 ? sumaValoraciones / totalValoraciones : 0;
 
+      const { data: insigniaActiva } = await supabase
+        .from('perfil_insignia')
+        .select(`
+          insignia:insignia_id (
+            id,
+            nombre,
+            descripcion,
+            nivel
+          )
+        `)
+        .eq('perfil_id', user.id)
+        .eq('activo', true)
+        .single();
+
+      const { data: tituloActivo } = await supabase
+        .from('perfil_titulo')
+        .select(`
+          titulo:titulo_id (
+            id,
+            nombre,
+            descripcion,
+            nivel
+          )
+        `)
+        .eq('perfil_id', user.id)
+        .eq('activo', true)
+        .single();
+
       if (data) {
         const perfilData = {
           ...data,
@@ -122,7 +157,9 @@ export default function Profile() {
           habilidades: data.perfil_habilidad.map((h) => h.habilidad),
           redes_sociales: data.red_social,
           promedio_valoraciones: promedioValoraciones,
-          total_valoraciones: totalValoraciones
+          total_valoraciones: totalValoraciones,
+          insignias: insigniaActiva ? [insigniaActiva.insignia] : [],
+          tituloActivo: tituloActivo?.titulo || null
         };
 
         setPerfil(perfilData);
@@ -215,6 +252,11 @@ export default function Profile() {
     }
   };
 
+  const onRefresh = React.useCallback(() => {
+    setRefreshing(true);
+    fetchPerfil().finally(() => setRefreshing(false));
+  }, []);
+
   if (isLoading) {
     return (
       <View className="flex-1 justify-center items-center bg-primary-600">
@@ -259,7 +301,17 @@ export default function Profile() {
           Perfil de usuario
         </Text>
       </View>
-      <ScrollView className="flex-1">
+      <ScrollView 
+        className="flex-1"
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={["#6D29D2"]} // Color primario
+            tintColor="#6D29D2"  // Para iOS
+          />
+        }
+      >
         <View className="px-4 pb-8">
           <View className="bg-white rounded-xl shadow-lg shadow-black/30 p-6 mb-8">
             <TouchableOpacity
@@ -288,9 +340,25 @@ export default function Profile() {
                   </View>
                 )}
               </View>
-              <Text className="text-xl font-semibold text-primary-500 text-center">
-                {perfil.username}
-              </Text>
+              <View className="flex-row items-center justify-center">
+                <Text className="text-xl font-semibold text-primary-500">
+                  {perfil.username}
+                </Text>
+                {perfil.insignias?.length > 0 && (
+                  <TooltipBadge 
+                    nivel={perfil.insignias[perfil.insignias.length - 1].nivel}
+                    descripcion={perfil.insignias[perfil.insignias.length - 1].descripcion}
+                  />
+                )}
+              </View>
+              
+              {perfil.tituloActivo && (
+                <TooltipTitle 
+                  nombre={perfil.tituloActivo.nombre}
+                  descripcion={perfil.tituloActivo.descripcion}
+                  nivel={perfil.tituloActivo.nivel}
+                />
+              )}
               <TouchableOpacity 
                 onPress={() => {
                   setShowRatings(true);

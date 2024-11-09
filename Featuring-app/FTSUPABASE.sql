@@ -49,6 +49,7 @@ CREATE TABLE perfil (
     preferencias_distancia INT,
     push_token TEXT,
     suspended BOOLEAN DEFAULT false,
+    puntos_reputacion INT DEFAULT 0,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     tutorial_completado BOOLEAN DEFAULT FALSE
   );
@@ -218,7 +219,7 @@ CREATE TABLE likes_video (
     video_id BIGINT NOT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     CONSTRAINT fk_usuario_likes_video FOREIGN KEY (usuario_id) REFERENCES perfil (usuario_id) ON DELETE CASCADE,
-    CONSTRAINT fk_video_likes FOREIGN KEY (video_id) REFERENCES video (id) ON DELETE SET NULL
+    CONSTRAINT fk_video_likes FOREIGN KEY (video_id) REFERENCES video (id) ON DELETE CASCADE
   );
 
 -- Tabla colaboracion
@@ -350,6 +351,56 @@ CREATE TABLE sancion_administrativa (
     created_at TIMESTAMPTZ DEFAULT NOW(),
     CONSTRAINT fk_usuario_sancion FOREIGN KEY (usuario_id) REFERENCES perfil (usuario_id) ON DELETE CASCADE,
     CONSTRAINT fk_admin_sancion FOREIGN KEY (admin_id) REFERENCES admin_roles (id)
+);
+
+-- Tabla para las insignias
+CREATE TABLE insignia (
+    id BIGSERIAL PRIMARY KEY,
+    nombre TEXT NOT NULL,
+    descripcion TEXT,
+    imagen TEXT,
+    nivel TEXT CHECK (nivel IN ('bronce', 'plata', 'oro')),
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Tabla para asignar insignias a usuarios
+CREATE TABLE perfil_insignia (
+    id BIGSERIAL PRIMARY KEY,
+    perfil_id UUID REFERENCES perfil(usuario_id) ON DELETE CASCADE,
+    insignia_id BIGINT REFERENCES insignia(id) ON DELETE CASCADE,
+    fecha_obtencion TIMESTAMPTZ DEFAULT NOW(),
+    activo BOOLEAN DEFAULT false,
+    UNIQUE(perfil_id, insignia_id)
+);
+
+-- Tabla para los títulos
+CREATE TABLE titulo (
+    id BIGSERIAL PRIMARY KEY,
+    nombre TEXT NOT NULL,
+    descripcion TEXT,
+    nivel TEXT CHECK (nivel IN ('novato', 'recurrente', 'honorario')),
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Tabla para asignar títulos a usuarios
+CREATE TABLE perfil_titulo (
+    id BIGSERIAL PRIMARY KEY,
+    perfil_id UUID REFERENCES perfil(usuario_id) ON DELETE CASCADE,
+    titulo_id BIGINT REFERENCES titulo(id) ON DELETE CASCADE,
+    activo BOOLEAN DEFAULT true,
+    fecha_obtencion TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(perfil_id, titulo_id)
+);
+
+-- Tabla para el historial de premium
+CREATE TABLE historial_premium (
+    id BIGSERIAL PRIMARY KEY,
+    perfil_id UUID REFERENCES perfil(usuario_id) ON DELETE CASCADE,
+    fecha_inicio TIMESTAMPTZ DEFAULT NOW(),
+    fecha_fin TIMESTAMPTZ,
+    motivo TEXT NOT NULL,
+    nivel TEXT CHECK (nivel IN ('bronce', 'plata', 'oro')),
+    created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 ------------------------------------------
@@ -493,6 +544,7 @@ CREATE INDEX idx_video_estado ON video(estado);
 CREATE INDEX idx_sancion_administrativa_usuario ON sancion_administrativa(usuario_id);
 CREATE INDEX idx_sancion_administrativa_estado ON sancion_administrativa(estado);
 
+CREATE INDEX idx_perfil_puntos_reputacion ON perfil(puntos_reputacion);
 ------------------------------------------
 -- 5. CREATE FUNCTIONS
 ------------------------------------------
@@ -956,3 +1008,212 @@ $$;
 SELECT cron.schedule('0 0 * * *', $$
     SELECT refresh_storage_metrics();
 $$);
+
+-- Función para incrementar puntos
+CREATE OR REPLACE FUNCTION increment(x integer)
+RETURNS integer
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RETURN x + 1;
+END;
+$$;
+
+-- Función para incrementar puntos de reputación
+CREATE OR REPLACE FUNCTION increment_reputation_points(user_id uuid, points integer)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+    UPDATE perfil
+    SET puntos_reputacion = COALESCE(puntos_reputacion, 0) + points
+    WHERE usuario_id = user_id;
+END;
+$$;
+
+-- Función para manejar las recompensas automáticamente
+CREATE OR REPLACE FUNCTION handle_reputation_rewards()
+RETURNS TRIGGER AS $$
+DECLARE
+    dias_premium INT;
+    nivel_actual TEXT;
+    nueva_insignia_id BIGINT;
+    nuevo_titulo_id BIGINT;
+BEGIN
+    -- Asignar todas las insignias y títulos que correspondan según los puntos
+    IF NEW.puntos_reputacion >= 100 THEN
+        -- Asignar insignia de bronce si no la tiene
+        IF NOT EXISTS (
+            SELECT 1 FROM perfil_insignia pi
+            INNER JOIN insignia i ON i.id = pi.insignia_id
+            WHERE pi.perfil_id = NEW.usuario_id 
+            AND i.nivel = 'bronce'
+        ) THEN
+            INSERT INTO perfil_insignia (perfil_id, insignia_id, activo)
+            SELECT NEW.usuario_id, id, true FROM insignia WHERE nivel = 'bronce';
+
+            -- Desactivar otras insignias
+            UPDATE perfil_insignia 
+            SET activo = false 
+            WHERE perfil_id = NEW.usuario_id 
+            AND insignia_id != (SELECT id FROM insignia WHERE nivel = 'bronce' LIMIT 1);
+        END IF;
+
+        -- Asignar título de novato si no lo tiene
+        IF NOT EXISTS (
+            SELECT 1 FROM perfil_titulo pt
+            INNER JOIN titulo t ON t.id = pt.titulo_id
+            WHERE pt.perfil_id = NEW.usuario_id 
+            AND t.nivel = 'novato'
+        ) THEN
+            INSERT INTO perfil_titulo (perfil_id, titulo_id, activo)
+            SELECT NEW.usuario_id, id, true FROM titulo WHERE nivel = 'novato';
+
+            -- Desactivar otros títulos
+            UPDATE perfil_titulo 
+            SET activo = false 
+            WHERE perfil_id = NEW.usuario_id 
+            AND titulo_id != (SELECT id FROM titulo WHERE nivel = 'novato' LIMIT 1);
+        END IF;
+
+        dias_premium := 5;
+        nivel_actual := 'bronce';
+    END IF;
+
+    IF NEW.puntos_reputacion >= 300 THEN
+        -- Asignar insignia de plata si no la tiene
+        IF NOT EXISTS (
+            SELECT 1 FROM perfil_insignia pi
+            INNER JOIN insignia i ON i.id = pi.insignia_id
+            WHERE pi.perfil_id = NEW.usuario_id 
+            AND i.nivel = 'plata'
+        ) THEN
+            INSERT INTO perfil_insignia (perfil_id, insignia_id, activo)
+            SELECT NEW.usuario_id, id, true FROM insignia WHERE nivel = 'plata';
+
+            -- Desactivar otras insignias
+            UPDATE perfil_insignia 
+            SET activo = false 
+            WHERE perfil_id = NEW.usuario_id 
+            AND insignia_id != (SELECT id FROM insignia WHERE nivel = 'plata' LIMIT 1);
+        END IF;
+
+        -- Asignar título de recurrente si no lo tiene
+        IF NOT EXISTS (
+            SELECT 1 FROM perfil_titulo pt
+            INNER JOIN titulo t ON t.id = pt.titulo_id
+            WHERE pt.perfil_id = NEW.usuario_id 
+            AND t.nivel = 'recurrente'
+        ) THEN
+            INSERT INTO perfil_titulo (perfil_id, titulo_id, activo)
+            SELECT NEW.usuario_id, id, true FROM titulo WHERE nivel = 'recurrente';
+
+            -- Desactivar otros títulos
+            UPDATE perfil_titulo 
+            SET activo = false 
+            WHERE perfil_id = NEW.usuario_id 
+            AND titulo_id != (SELECT id FROM titulo WHERE nivel = 'recurrente' LIMIT 1);
+        END IF;
+
+        dias_premium := 14;
+        nivel_actual := 'plata';
+    END IF;
+
+    IF NEW.puntos_reputacion >= 600 THEN
+        -- Asignar insignia de oro si no la tiene
+        IF NOT EXISTS (
+            SELECT 1 FROM perfil_insignia pi
+            INNER JOIN insignia i ON i.id = pi.insignia_id
+            WHERE pi.perfil_id = NEW.usuario_id 
+            AND i.nivel = 'oro'
+        ) THEN
+            INSERT INTO perfil_insignia (perfil_id, insignia_id, activo)
+            SELECT NEW.usuario_id, id, true FROM insignia WHERE nivel = 'oro';
+
+            -- Desactivar otras insignias
+            UPDATE perfil_insignia 
+            SET activo = false 
+            WHERE perfil_id = NEW.usuario_id 
+            AND insignia_id != (SELECT id FROM insignia WHERE nivel = 'oro' LIMIT 1);
+        END IF;
+
+        -- Asignar título de honorario si no lo tiene
+        IF NOT EXISTS (
+            SELECT 1 FROM perfil_titulo pt
+            INNER JOIN titulo t ON t.id = pt.titulo_id
+            WHERE pt.perfil_id = NEW.usuario_id 
+            AND t.nivel = 'honorario'
+        ) THEN
+            INSERT INTO perfil_titulo (perfil_id, titulo_id, activo)
+            SELECT NEW.usuario_id, id, true FROM titulo WHERE nivel = 'honorario';
+
+            -- Desactivar otros títulos
+            UPDATE perfil_titulo 
+            SET activo = false 
+            WHERE perfil_id = NEW.usuario_id 
+            AND titulo_id != (SELECT id FROM titulo WHERE nivel = 'honorario' LIMIT 1);
+        END IF;
+
+        dias_premium := 30;
+        nivel_actual := 'oro';
+    END IF;
+
+    -- Actualizar beneficios premium si corresponde
+    IF dias_premium IS NOT NULL THEN
+        UPDATE perfil 
+        SET is_premium = true,
+            premium_until = COALESCE(
+                GREATEST(premium_until, NOW()),
+                NOW()
+            ) + (dias_premium || ' days')::INTERVAL
+        WHERE usuario_id = NEW.usuario_id;
+
+        -- Registrar en historial
+        INSERT INTO historial_premium (
+            perfil_id,
+            fecha_inicio,
+            fecha_fin,
+            motivo,
+            nivel
+        ) VALUES (
+            NEW.usuario_id,
+            NOW(),
+            NOW() + (dias_premium || ' days')::INTERVAL,
+            'Recompensa por puntos de reputación',
+            nivel_actual
+        );
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Trigger para manejar recompensas
+CREATE TRIGGER trigger_handle_reputation_rewards
+AFTER UPDATE OF puntos_reputacion ON perfil
+FOR EACH ROW
+WHEN (NEW.puntos_reputacion > OLD.puntos_reputacion)
+EXECUTE FUNCTION handle_reputation_rewards();
+
+-- Función para activar una insignia y desactivar las demás
+CREATE OR REPLACE FUNCTION toggle_insignia_activa()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.activo THEN
+        -- Desactivar todas las otras insignias del usuario
+        UPDATE perfil_insignia
+        SET activo = false
+        WHERE perfil_id = NEW.perfil_id
+        AND id != NEW.id;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Trigger para manejar la activación de insignias
+CREATE TRIGGER trigger_toggle_insignia_activa
+BEFORE UPDATE OF activo ON perfil_insignia
+FOR EACH ROW
+WHEN (NEW.activo IS DISTINCT FROM OLD.activo)
+EXECUTE FUNCTION toggle_insignia_activa();
