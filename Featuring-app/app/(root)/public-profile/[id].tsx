@@ -22,6 +22,7 @@ import Constants from "expo-constants";
 import { RealtimeChannel } from "@supabase/supabase-js";
 import { TooltipBadge } from '@/components/TooltipBadge';
 import { TooltipTitle } from '@/components/TooltipTitle';
+import { ReportButton } from '@/components/reports/ReportButton';
 
 interface Perfil {
   usuario_id: string;
@@ -734,6 +735,18 @@ export default function PublicProfile() {
           </View>
         </View>
       </Modal>
+      {currentUserId && currentUserId !== id && (
+        <View className="flex-row justify-center mt-2">
+          <ReportButton
+            contentId={id}
+            contentType="perfil"
+            reportedUserId={id}
+            currentUserId={currentUserId}
+            buttonStyle="bg-red-500/70"
+            buttonText="Reportar perfil"
+          />
+        </View>
+      )}
     </View>
   )
 }
