@@ -33,7 +33,7 @@ export const ReportButton: React.FC<ReportButtonProps> = ({
         {iconOnly ? (
           <Ionicons name="warning" size={20} color="#DC2626" />
         ) : (
-          <Text className="text-white font-medium">{buttonText}</Text>
+          <Text className="text-white font-semibold text-center">{buttonText}</Text>
         )}
       </TouchableOpacity>
 

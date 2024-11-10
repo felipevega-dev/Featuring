@@ -6,7 +6,7 @@ interface ReportModalProps {
   isVisible: boolean;
   onClose: () => void;
   contentId: string | number;
-  contentType: 'perfil' | 'cancion' | 'video' | 'chat';
+  contentType: 'perfil' | 'cancion' | 'video' | 'texto' | 'audio' | 'imagen' | 'video_chat';
   reportedUserId: string;
   currentUserId: string;
 }
@@ -19,26 +19,47 @@ const REPORT_REASONS = {
     'Acoso o bullying',
     'Foto de perfil inapropiada'
   ],
-  cancion: [
+  texto: [
+    'Acoso',
+    'Amenazas',
     'Contenido inapropiado',
-    'Audio con índole sexual',
-    'Carátula obscena/perturbadora',
-    'Violación de derechos de autor',
-    'Spam o contenido engañoso'
+    'Spam',
+    'Información personal'
+  ],
+  audio: [
+    'Contenido sexual',
+    'Contenido violento',
+    'Lenguaje inapropiado',
+    'Spam',
+    'Otro contenido inapropiado'
+  ],
+  imagen: [
+    'Contenido sexual',
+    'Contenido violento',
+    'Contenido perturbador',
+    'Spam',
+    'Otro contenido inapropiado'
   ],
   video: [
-    'Contenido inapropiado',
-    'Contenido sexual explícito',
-    'Violencia o contenido perturbador',
-    'Violación de derechos de autor',
-    'Spam o contenido engañoso'
+    'Contenido sexual',
+    'Contenido violento',
+    'Contenido perturbador',
+    'Spam',
+    'Otro contenido inapropiado'
   ],
   chat: [
     'Acoso',
     'Spam',
-    'Contenido inapropiado',
-    'Comportamiento sospechoso',
+    'Comportamiento inapropiado',
+    'Amenazas',
     'Suplantación de identidad'
+  ],
+  video_chat: [
+    'Contenido sexual',
+    'Contenido violento',
+    'Contenido perturbador',
+    'Spam',
+    'Otro contenido inapropiado'
   ]
 };
 
@@ -56,7 +77,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
 
   const checkReportEligibility = async () => {
     try {
-      if (contentType === 'perfil') {
+      if (contentType === 'perfil' || contentType === 'chat') {
         const { data: existingReport, error: existingReportError } = await supabase
           .from('reporte')
           .select('id')
@@ -70,7 +91,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
         }
 
         if (existingReport) {
-          Alert.alert('Error', 'Ya has reportado este perfil anteriormente.');
+          Alert.alert('Error', `Ya has reportado este ${contentType === 'chat' ? 'chat' : 'perfil'} anteriormente.`);
           return false;
         }
       } else {
@@ -128,7 +149,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
 
   const sendReport = async () => {
     try {
-      const reportData = contentType === 'perfil' ? {
+      const reportData = (contentType === 'perfil' || contentType === 'chat') ? {
         usuario_reportante_id: currentUserId,
         usuario_reportado_id: reportedUserId,
         tipo_contenido: contentType,
@@ -178,7 +199,10 @@ export const ReportModal: React.FC<ReportModalProps> = ({
               Selecciona una razón para reportar. Un reporte injustificado podría resultar en una suspensión de tu cuenta.
             </Text>
             
-            {REPORT_REASONS[contentType].map((reason, index) => (
+            {REPORT_REASONS[contentType === 'perfil' ? 'perfil' : 
+                         contentType === 'chat' ? 'chat' : 
+                         contentType === 'video_chat' ? 'video_chat' : 
+                         contentType].map((reason, index) => (
               <TouchableOpacity
                 key={index}
                 className={`py-3 border-b border-gray-200 ${

@@ -117,30 +117,47 @@ export default function CommunityReports() {
     const reporte = reportes.find(r => r.id === reporteId);
     if (!reporte) return;
 
-    if (reporte.tipo_contenido === 'cancion') {
+    if (reporte.tipo_contenido === 'cancion' && reporte.contenido_id) {
       try {
         const { data, error } = await supabaseAdmin
           .from('cancion')
-          .select('*')
+          .select(`
+            *,
+            perfil:usuario_id (username)
+          `)
           .eq('id', reporte.contenido_id)
           .single();
 
-        if (error) throw error;
+        if (error && error.code !== 'PGRST116') throw error;
 
-        if (data) {
-          setContentDetails({
-            ...data,
-            caratula: data.caratula || "",
-            archivo_audio: data.archivo_audio || "",
-          });
-        }
+        // Establecer contentDetails incluso si la canción no existe
+        setContentDetails(data || {
+          id: parseInt(reporte.contenido_id),
+          titulo: '[Canción eliminada]',
+          descripcion: 'Esta canción ha sido eliminada por un administrador.',
+          caratula: '',
+          archivo_audio: '',
+          usuario_id: reporte.usuario_reportado_id,
+          artista: reporte.usuario_reportado.username || 'Usuario desconocido'
+        });
       } catch (error) {
         console.error('Error fetching song details:', error);
+        // En caso de error, también mostrar un estado por defecto
+        setContentDetails({
+          id: parseInt(reporte.contenido_id || '0'),
+          titulo: '[Error al cargar la canción]',
+          descripcion: 'No se pudo cargar la información de la canción.',
+          caratula: '',
+          archivo_audio: '',
+          usuario_id: reporte.usuario_reportado_id,
+          artista: reporte.usuario_reportado.username || 'Usuario desconocido'
+        });
       }
     }
 
-    setExpandedReporte(expandedReporte === reporteId ? null : reporteId);
-  }
+    setSelectedReporte(reporte);
+    setExpandedReporte(reporteId);
+  };
 
   const handlePageChange = (newPage: number) => {
     setCurrentPage(newPage)
@@ -411,7 +428,9 @@ export default function CommunityReports() {
   return (
     <div className="container mx-auto px-2 py-4 sm:px-4 sm:py-8">
       <div className="flex flex-col sm:flex-row justify-between items-center mb-4 sm:mb-8">
-        <h1 className="text-xl sm:text-4xl font-bold text-primary-700 mb-2 sm:mb-0">Reportes de Comunidad</h1>
+        <h1 className="text-xl sm:text-4xl font-bold text-primary-700 mb-2 sm:mb-0">
+          Reportes de Comunidad
+        </h1>
         <Link href="/reports" className="bg-primary-500 text-white px-3 py-1 sm:px-4 sm:py-2 rounded text-sm sm:text-base">
           Volver a Reportes
         </Link>
@@ -445,79 +464,30 @@ export default function CommunityReports() {
                       </div>
                       <div className="text-sm text-red-500">Razón: {reporte.razon}</div>
                       <div className="text-sm text-gray-500">Tipo de contenido: {reporte.tipo_contenido}</div>
-                      <div className="mt-6">
+                      <div className="mt-2">
                         <span className={`px-2 inline-flex text-lg leading-5 font-semibold rounded-full ${getReportStatusColor(reporte.estado)}`}>
                           {reporte.estado.charAt(0).toUpperCase() + reporte.estado.slice(1)}
                         </span>
                       </div>
                     </div>
-                    <div className="flex items-center justify-end space-x-3 mt-2 sm:mt-0">
+                    <div className="flex space-x-2">
                       <button
                         onClick={() => handleExpandReporte(reporte.id)}
-                        className="text-primary-600 hover:text-secondary-500 text-base sm:text-lg font-medium mb-32"
+                        className="mt-4 sm:mt-0 px-4 py-2 bg-primary-500 text-white rounded-md hover:bg-primary-600 transition-colors"
                       >
-                        {'>'}Ver detalles
+                        Ver detalles
                       </button>
-                      {reporte.estado !== 'resuelto' && (
-                        <Menu as="div" className="relative inline-block text-left mb-32">
-                          <div>
-                            <Menu.Button className="inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-3 py-2 bg-white text-sm sm:text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-100 focus:ring-primary-500">
-                              Acciones
-                              <ChevronDownIcon className="-mr-1 ml-2 h-5 w-5" aria-hidden="true" />
-                            </Menu.Button>
-                          </div>
-                          <Transition
-                            as={Fragment}
-                            enter="transition ease-out duration-100"
-                            enterFrom="transform opacity-0 scale-95"
-                            enterTo="transform opacity-100 scale-100"
-                            leave="transition ease-in duration-75"
-                            leaveFrom="transform opacity-100 scale-100"
-                            leaveTo="transform opacity-0 scale-95"
-                          >
-                            <Menu.Items className="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none">
-                              <div className="py-1">
-                                <Menu.Item>
-                                  {({ active }) => (
-                                    <button
-                                      onClick={() => handleReporteAction(reporte.id, 'open')}
-                                      className={`${
-                                        active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
-                                      } block w-full text-left px-4 py-2 text-sm sm:text-base`}
-                                    >
-                                      Marcar como abierto
-                                    </button>
-                                  )}
-                                </Menu.Item>
-                                <Menu.Item>
-                                  {({ active }) => (
-                                    <button
-                                      onClick={() => handleReporteAction(reporte.id, 'resolve')}
-                                      className={`${
-                                        active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
-                                      } block w-full text-left px-4 py-2 text-sm sm:text-base`}
-                                    >
-                                      Resolver
-                                    </button>
-                                  )}
-                                </Menu.Item>
-                                <Menu.Item>
-                                  {({ active }) => (
-                                    <button
-                                      onClick={() => handleReporteAction(reporte.id, 'dismiss')}
-                                      className={`${
-                                        active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
-                                      } block w-full text-left px-4 py-2 text-sm sm:text-base`}
-                                    >
-                                      Desestimar
-                                    </button>
-                                  )}
-                                </Menu.Item>
-                              </div>
-                            </Menu.Items>
-                          </Transition>
-                        </Menu>
-                      )}
+                      <Link
+                        href={`/user-management?search=${reporte.usuario_reportado.username}#search`}
+                        className="mt-4 sm:mt-0 px-3 py-2 bg-secondary-500 text-white rounded-md hover:bg-secondary-600 transition-colors flex items-center space-x-1"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
+                        </svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" />
+                        </svg>
+                      </Link>
                     </div>
                   </div>
                 </li>
@@ -525,12 +495,124 @@ export default function CommunityReports() {
             </ul>
           </div>
 
-          {/* Controles de paginación */}
+          {/* Modal de detalles */}
+          {expandedReporte && selectedReporte && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center overflow-y-auto">
+              <div className="bg-white rounded-lg p-6 m-4 max-w-4xl w-full max-h-[80vh] flex flex-col">
+                {/* Header del modal con título y estado */}
+                <div className="flex justify-between items-center mb-4 pb-4 border-b">
+                  <div>
+                    <h3 className="text-2xl font-bold text-primary-700">Detalles del Reporte</h3>
+                    <div className="mt-2">
+                      <span className={`px-3 py-1 text-sm font-semibold rounded-full ${getReportStatusColor(selectedReporte.estado)}`}>
+                        {selectedReporte.estado.charAt(0).toUpperCase() + selectedReporte.estado.slice(1)}
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setExpandedReporte(null);
+                      setContentDetails(null);
+                      setSelectedReporte(null);
+                    }}
+                    className="text-gray-500 hover:text-gray-700"
+                  >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+
+                {/* Contenido del modal */}
+                <div className="flex-1 overflow-y-auto">
+                  <div className="grid grid-cols-2 gap-6">
+                    {/* Información del reporte */}
+                    <div className="space-y-4">
+                      <div className="bg-gray-50 p-4 rounded-lg">
+                        <h4 className="font-semibold text-lg mb-2">Información del Reporte</h4>
+                        <div className="space-y-2">
+                          <p><strong>Reportante:</strong> {selectedReporte.usuario_reportante.username}</p>
+                          <p><strong>Reportado:</strong> {selectedReporte.usuario_reportado.username}</p>
+                          <p><strong>Fecha:</strong> {new Date(selectedReporte.created_at).toLocaleString()}</p>
+                          <p><strong>Razón:</strong> {selectedReporte.razon}</p>
+                          <p><strong>Tipo de contenido:</strong> {selectedReporte.tipo_contenido}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Contenido reportado */}
+                    {contentDetails && (
+                      <div className="space-y-4">
+                        <div className="bg-gray-50 p-4 rounded-lg">
+                          <h4 className="font-semibold text-lg mb-2">Canción Reportada</h4>
+                          {contentDetails.archivo_audio ? (
+                          <div className="flex flex-col items-center">
+                            <Image 
+                              src={contentDetails.caratula || "https://via.placeholder.com/200"}
+                              alt="Carátula"
+                              width={200}
+                              height={200}
+                              className="rounded-md mb-4"
+                            />
+                            <div className="text-center">
+                              <p><strong>Título:</strong> {contentDetails.titulo}</p>
+                                <p><strong>Artista:</strong> {selectedReporte?.usuario_reportado.username}</p>
+                            </div>
+                            <div className="mt-4 w-full">
+                              <audio controls className="w-full mb-4">
+                                  <source src={contentDetails.archivo_audio} type="audio/mpeg" />
+                                Tu navegador no soporta el elemento de audio.
+                              </audio>
+                            </div>
+                          </div>
+                          ) : (
+                            <div className="flex flex-col items-center justify-center p-8 bg-gray-100 rounded-lg">
+                              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4">
+                                <svg className="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                              </div>
+                              <h5 className="text-lg font-medium text-gray-900 mb-2">Canción Eliminada</h5>
+                              <p className="text-gray-500 text-center">Esta canción ha sido eliminada del sistema</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Footer con acciones */}
+                <div className="mt-6 pt-4 border-t flex justify-end space-x-4">
+                  <button
+                    onClick={() => handleReporteAction(selectedReporte.id, 'open')}
+                    className="px-4 py-2 bg-yellow-500 text-white rounded-md hover:bg-yellow-600 transition-colors"
+                  >
+                    Marcar como abierto
+                  </button>
+                  <button
+                    onClick={() => handleReporteAction(selectedReporte.id, 'resolve')}
+                    className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors"
+                  >
+                    Resolver
+                  </button>
+                  <button
+                    onClick={() => handleReporteAction(selectedReporte.id, 'dismiss')}
+                    className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors"
+                  >
+                    Desestimar
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Paginación */}
           <div className="mt-6 flex justify-between items-center bg-white p-4 rounded-lg shadow">
             <button
               onClick={() => handlePageChange(currentPage - 1)}
               disabled={currentPage === 1}
-              className="bg-primary-500 text-white px-4 py-2 rounded disabled:bg-gray-300 text-sm font-medium transition-colors duration-200 ease-in-out hover:bg-primary-600 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-opacity-50"
+              className="bg-primary-500 text-white px-4 py-2 rounded disabled:bg-gray-300"
             >
               Anterior
             </button>
@@ -540,7 +622,7 @@ export default function CommunityReports() {
             <button
               onClick={() => handlePageChange(currentPage + 1)}
               disabled={currentPage === totalPages}
-              className="bg-primary-500 text-white px-4 py-2 rounded disabled:bg-gray-300 text-sm font-medium transition-colors duration-200 ease-in-out hover:bg-primary-600 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-opacity-50"
+              className="bg-primary-500 text-white px-4 py-2 rounded disabled:bg-gray-300"
             >
               Siguiente
             </button>
@@ -548,134 +630,7 @@ export default function CommunityReports() {
         </>
       )}
 
-      {/* Modal for expanded report details */}
-      {expandedReporte && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50" id="my-modal">
-          <div className="relative top-10 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-white">
-            <div className="mt-3">
-              <h3 className="text-2xl leading-6 font-bold text-primary-700 text-center mb-6">Detalles del Reporte</h3>
-              <div className="mt-2 px-4 py-5 max-h-[70vh] overflow-y-auto">
-                {(() => {
-                  const reporte = reportes.find(r => r.id === expandedReporte);
-                  if (!reporte) return <p className="text-lg">No se encontraron detalles del reporte.</p>;
-                  return (
-                    <div className="flex flex-col md:flex-row">
-                      <div className="md:w-1/2 space-y-4 text-base">
-                        <p><strong>Reportante:</strong> {reporte.usuario_reportante.username || 'Usuario desconocido'}</p>
-                        <p><strong>Reportado:</strong> {reporte.usuario_reportado.username || 'Usuario desconocido'}</p>
-                        <p><strong>Fecha:</strong> {new Date(reporte.created_at).toLocaleString('es-ES', {
-                          year: 'numeric',
-                          month: 'long',
-                          day: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        })}</p>
-                        <p><strong>Estado:</strong> {reporte.estado}</p>
-                        <p><strong>Razón:</strong> {reporte.razon}</p>
-                        <p><strong>Tipo de contenido:</strong> {reporte.tipo_contenido}</p>
-                        <p><strong>ID del contenido:</strong> {reporte.contenido_id || 'No especificado'}</p>
-                        <p><strong>Contenido del reporte:</strong></p>
-                        <p className="whitespace-pre-wrap">{reporte.contenido}</p>
-                      </div>
-                      
-                      {contentDetails ? (
-                        <div className="md:w-1/2 mt-6 md:mt-0 md:ml-6">
-                          <h4 className="text-xl font-semibold mb-4">Detalles de la Canción</h4>
-                          <div className="flex flex-col items-center">
-                            {contentDetails.titulo ? (
-                              <>
-                                <Image 
-                                  src={contentDetails.caratula || "https://via.placeholder.com/200"}
-                                  alt="Carátula"
-                                  width={200}
-                                  height={200}
-                                  className="rounded-md mb-4"
-                                />
-                                <div className="text-center">
-                                  <p><strong>Título:</strong> {contentDetails.titulo}</p>
-                                  <p><strong>Artista:</strong> {reporte.usuario_reportado.username}</p>
-                                </div>
-                                <div className="mt-4 w-full">
-                                  <audio controls className="w-full mb-4">
-                                    <source src={contentDetails.archivo_audio || ""} type="audio/mpeg" />
-                                    Tu navegador no soporta el elemento de audio.
-                                  </audio>
-                                </div>
-                              </>
-                            ) : (
-                              <div className="flex flex-col items-center justify-center p-8 bg-gray-50 rounded-lg">
-                                <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4">
-                                  <svg 
-                                    className="w-8 h-8 text-red-500" 
-                                    fill="none" 
-                                    stroke="currentColor" 
-                                    viewBox="0 0 24 24"
-                                  >
-                                    <path 
-                                      strokeLinecap="round" 
-                                      strokeLinejoin="round" 
-                                      strokeWidth={2} 
-                                      d="M6 18L18 6M6 6l12 12"
-                                    />
-                                  </svg>
-                                </div>
-                                <h5 className="text-lg font-medium text-gray-900 mb-2">
-                                  Contenido Eliminado
-                                </h5>
-                                <p className="text-gray-500 text-center">
-                                  Esta canción ha sido eliminada del sistema
-                                </p>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      ) : reporte.tipo_contenido === 'cancion' && (
-                        <div className="md:w-1/2 mt-6 md:mt-0 md:ml-6">
-                          <div className="flex flex-col items-center justify-center p-8 bg-gray-50 rounded-lg">
-                            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4">
-                              <svg 
-                                className="w-8 h-8 text-red-500" 
-                                fill="none" 
-                                stroke="currentColor" 
-                                viewBox="0 0 24 24"
-                              >
-                                <path 
-                                  strokeLinecap="round" 
-                                  strokeLinejoin="round" 
-                                  strokeWidth={2} 
-                                  d="M6 18L18 6M6 6l12 12"
-                                />
-                              </svg>
-                            </div>
-                            <h5 className="text-lg font-medium text-gray-900 mb-2">
-                              Contenido Eliminado
-                            </h5>
-                            <p className="text-gray-500 text-center">
-                              Esta canción ha sido eliminada del sistema
-                            </p>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })()}
-              </div>
-              <div className="items-center px-4 py-3 mt-6">
-                <button
-                  className="px-6 py-3 bg-primary-500 text-white text-lg font-medium rounded-md w-full shadow-sm hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-300 transition duration-300"
-                  onClick={() => {
-                    setExpandedReporte(null);
-                    setContentDetails(null);
-                  }}
-                >
-                  Cerrar
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
+      {/* Modal de resolución */}
       {showResolutionModal && renderResolutionModal()}
     </div>
   )

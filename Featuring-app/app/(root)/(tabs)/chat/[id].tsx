@@ -29,6 +29,7 @@ import { useUnreadMessages } from '@/contexts/UnreadMessagesContext';
 import Constants from 'expo-constants';
 import { ResizeMode } from 'expo-av';
 import { sendPushNotification } from '@/utils/pushNotifications';
+import { ReportButton } from '../../../../components/reports/ReportButton';
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -37,10 +38,19 @@ interface Message {
   emisor_id: string;
   receptor_id: string;
   contenido: string;
-  tipo_contenido: "texto" | "audio" | "imagen" | "video" | "archivo";
+  tipo_contenido: "texto" | "audio" | "imagen" | "video_chat";
   url_contenido: string | null;
   fecha_envio: string;
 }
+
+const formatTime = (dateString: string) => {
+  const date = new Date(dateString);
+  return date.toLocaleTimeString([], { 
+    hour: '2-digit', 
+    minute: '2-digit', 
+    hour12: false 
+  });
+};
 
 export default function ChatDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -57,6 +67,7 @@ export default function ChatDetail() {
   const [recording, setRecording] = useState<Audio.Recording | null>(null);
 
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
+  const [showReportOptions, setShowReportOptions] = useState(false);
 
   const [isBlocked, setIsBlocked] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
@@ -409,28 +420,42 @@ export default function ChatDetail() {
 
   const sendMediaMessage = async (uri: string, tipo: 'imagen' | 'video') => {
     try {
-      const fileContent = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
-      const blob = new Blob([Buffer.from(fileContent, 'base64')], { 
-        type: tipo === 'imagen' ? "image/jpeg" : "video/mp4" 
+      // Leer el archivo como base64
+      const base64Content = await FileSystem.readAsStringAsync(uri, { 
+        encoding: FileSystem.EncodingType.Base64 
       });
 
+      // Crear un objeto FormData
+      const formData = new FormData();
       const fileName = `${tipo}_${Date.now()}.${uri.split('.').pop()}`;
       const filePath = `${currentUserId}/${fileName}`;
 
-      const { data, error } = await supabase.storage
-        .from("chat_media")
-        .upload(filePath, blob, {
-          contentType: tipo === 'imagen' ? "image/jpeg" : "video/mp4",
-        });
+      // Añadir el archivo al FormData
+      formData.append('file', {
+        uri: uri,
+        name: fileName,
+        type: tipo === 'imagen' ? 'image/jpeg' : 'video/mp4'
+      } as any);
 
-      if (error) throw error;
+      // Subir usando fetch directamente
+      const response = await fetch(`${supabaseUrl}/storage/v1/object/chat_media/${filePath}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+        },
+        body: formData
+      });
+
+      if (!response.ok) {
+        throw new Error('Error al subir el archivo');
+      }
 
       const { data: { publicUrl } } = supabase.storage
         .from("chat_media")
         .getPublicUrl(filePath);
 
       console.log(`${tipo.charAt(0).toUpperCase() + tipo.slice(1)} uploaded, public URL:`, publicUrl);
-      await sendMessage(`${tipo.charAt(0).toUpperCase() + tipo.slice(1)} message`, tipo, publicUrl);
+      await sendMessage(`${tipo.charAt(0).toUpperCase() + tipo.slice(1)} message`, tipo === 'imagen' ? 'imagen' : 'video_chat', publicUrl);
     } catch (error) {
       console.error(`Error sending ${tipo} message:`, error);
       Alert.alert("Error", `No se pudo enviar el ${tipo}`);
@@ -489,15 +514,17 @@ export default function ChatDetail() {
   const renderMessage = ({ item }: { item: Message }) => {
     const isCurrentUser = item.emisor_id === currentUserId;
 
-    // Función para formatear la hora
-    const formatTime = (dateString: string) => {
-      const date = new Date(dateString);
-      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+    // Solo permitir reportar mensajes que no son del usuario actual
+    const handleLongPress = () => {
+      if (!isCurrentUser) {
+        setSelectedMessage(item);
+        setShowReportOptions(true);
+      }
     };
 
     return (
       <TouchableOpacity
-        onLongPress={() => setSelectedMessage(item)}
+        onLongPress={handleLongPress}
         className={`flex-row ${isCurrentUser ? 'justify-end' : 'justify-start'} mb-2`}
       >
         <View
@@ -524,7 +551,7 @@ export default function ChatDetail() {
               resizeMode="cover"
             />
           )}
-          {item.tipo_contenido === 'video' && item.url_contenido && (
+          {item.tipo_contenido === 'video_chat' && item.url_contenido && (
             <Video
               source={{ uri: item.url_contenido }}
               style={{ width: '100%', height: 200, borderRadius: 10 }}
@@ -866,10 +893,18 @@ export default function ChatDetail() {
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={cancelarConexion}
-                style={[styles.optionButton, { marginTop: 10, backgroundColor: '#FF3B30' }]}
+                style={[styles.optionButton, { marginTop: 10, backgroundColor: '#f43f5e' }]}
               >
                 <Text style={[styles.optionText, { color: 'white' }]}>Cancelar conexión</Text>
               </TouchableOpacity>
+              <ReportButton
+                contentId={id}
+                contentType="chat"
+                reportedUserId={id}
+                currentUserId={currentUserId || ''}
+                buttonStyle="mt-2 bg-yellow-500 w-full font-JakartaMedium"
+                buttonText="Reportar chat"
+              />
               <TouchableOpacity
                 onPress={() => setModalVisible(false)}
                 style={[styles.optionButton, { marginTop: 10, backgroundColor: '#6D29D2' }]}
@@ -878,6 +913,56 @@ export default function ChatDetail() {
               </TouchableOpacity>
             </View>
           </View>
+        </Modal>
+
+        {/* Modal de opciones de reporte */}
+        <Modal
+          visible={showReportOptions}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => {
+            setShowReportOptions(false);
+            setSelectedMessage(null);
+          }}
+        >
+          <TouchableOpacity
+            className="flex-1 bg-black/50 justify-center items-center"
+            activeOpacity={1}
+            onPress={() => {
+              setShowReportOptions(false);
+              setSelectedMessage(null);
+            }}
+          >
+            <View className="bg-white rounded-lg w-[80%] p-4">
+              <Text className="text-lg font-bold mb-4">Opciones de mensaje</Text>
+              
+              {selectedMessage && (
+                <ReportButton
+                  contentId={selectedMessage.id}
+                  contentType={selectedMessage.tipo_contenido === 'video' ? 'video_chat' : selectedMessage.tipo_contenido}
+                  reportedUserId={selectedMessage.emisor_id}
+                  currentUserId={currentUserId || ''}
+                  buttonStyle="bg-red-500 w-full mb-2"
+                  buttonText={`Reportar ${
+                    selectedMessage.tipo_contenido === 'texto' ? 'mensaje' :
+                    selectedMessage.tipo_contenido === 'audio' ? 'audio' :
+                    selectedMessage.tipo_contenido === 'imagen' ? 'imagen' :
+                    selectedMessage.tipo_contenido === 'video_chat' ? 'video' : 'archivo'
+                  }`}
+                />
+              )}
+              
+              <TouchableOpacity
+                onPress={() => {
+                  setShowReportOptions(false);
+                  setSelectedMessage(null);
+                }}
+                className="bg-gray-200 p-3 rounded-lg"
+              >
+                <Text className="text-center font-medium">Cancelar</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
         </Modal>
       </View>
     </SafeAreaView>
