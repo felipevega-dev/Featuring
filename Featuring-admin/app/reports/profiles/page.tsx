@@ -44,6 +44,15 @@ interface ResolutionForm {
   eliminarFotoPerfil: boolean;
 }
 
+interface Sancion {
+  id: number;
+  tipo_sancion: 'amonestacion' | 'suspension_temporal' | 'suspension_permanente';
+  motivo: string;
+  duracion_dias?: number;
+  created_at: string;
+  admin: { username: string };
+}
+
 const REPORTES_PER_PAGE = 20
 
 export default function ProfileReports() {
@@ -64,6 +73,10 @@ export default function ProfileReports() {
   })
   const [session, setSession] = useState<Session | null>(null)
   const supabase = createClientComponentClient()
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const [showSancionesModal, setShowSancionesModal] = useState(false);
+  const [sanciones, setSanciones] = useState<Sancion[]>([]);
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchReportes()
@@ -270,91 +283,178 @@ export default function ProfileReports() {
   const totalPages = Math.ceil(totalReportes / REPORTES_PER_PAGE)
 
   const ResolutionModal = () => (
-    <div className="space-y-4">
-      <div className="mb-4">
-        <label className="block text-sm font-medium text-gray-700">
-          Tipo de sanción
-        </label>
-        <select
-          value={resolutionForm.tipo}
-          onChange={(e) => setResolutionForm({
-            ...resolutionForm,
-            tipo: e.target.value as ResolutionForm['tipo']
-          })}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
-        >
-          <option value="amonestacion">Amonestación</option>
-          <option value="suspension_temporal">Suspensión temporal</option>
-          <option value="suspension_permanente">Suspensión permanente</option>
-        </select>
-      </div>
-
-      {resolutionForm.tipo === 'suspension_temporal' && (
-        <div className="mb-4">
+    <div className="mt-3">
+      <h3 className="text-lg font-medium leading-6 text-gray-900 mb-4">
+        Resolver Reporte
+      </h3>
+      
+      <div className="mt-2 space-y-4">
+        <div>
           <label className="block text-sm font-medium text-gray-700">
-            Duración (días)
+            Tipo de Sanción
           </label>
-          <input
-            type="number"
-            min="1"
-            value={resolutionForm.duracion || ''}
+          <select
+            value={resolutionForm.tipo}
             onChange={(e) => setResolutionForm({
               ...resolutionForm,
-              duracion: parseInt(e.target.value)
+              tipo: e.target.value as ResolutionForm['tipo']
             })}
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+          >
+            <option value="amonestacion">Amonestación</option>
+            <option value="suspension_temporal">Suspensión Temporal</option>
+            <option value="suspension_permanente">Suspensión Permanente</option>
+          </select>
+        </div>
+
+        {resolutionForm.tipo === 'suspension_temporal' && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
+              Duración (días)
+            </label>
+            <input
+              type="number"
+              min="1"
+              value={resolutionForm.duracion || ''}
+              onChange={(e) => setResolutionForm({
+                ...resolutionForm,
+                duracion: parseInt(e.target.value)
+              })}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+            />
+          </div>
+        )}
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700">
+            Motivo de la Sanción
+          </label>
+          <textarea
+            value={resolutionForm.motivo}
+            onChange={(e) => setResolutionForm({
+              ...resolutionForm,
+              motivo: e.target.value
+            })}
+            rows={3}
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+            placeholder="Describa el motivo de la sanción..."
           />
         </div>
-      )}
 
-      <div className="mb-4">
-        <label className="block text-sm font-medium text-gray-700">
-          Motivo de la sanción
-        </label>
-        <textarea
-          value={resolutionForm.motivo}
-          onChange={(e) => setResolutionForm({
-            ...resolutionForm,
-            motivo: e.target.value
-          })}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
-          rows={4}
-        />
+        <div className="flex items-center">
+          <input
+            type="checkbox"
+            id="eliminarFotoPerfil"
+            checked={resolutionForm.eliminarFotoPerfil}
+            onChange={(e) => setResolutionForm({
+              ...resolutionForm,
+              eliminarFotoPerfil: e.target.checked
+            })}
+            className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+          />
+          <label htmlFor="eliminarFotoPerfil" className="ml-2 block text-sm text-gray-900">
+            Eliminar foto de perfil del usuario
+          </label>
+        </div>
       </div>
 
-      <div className="flex items-center">
-        <input
-          type="checkbox"
-          id="eliminarFotoPerfil"
-          checked={resolutionForm.eliminarFotoPerfil}
-          onChange={(e) => setResolutionForm({
-            ...resolutionForm,
-            eliminarFotoPerfil: e.target.checked
-          })}
-          className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
-        />
-        <label htmlFor="eliminarFotoPerfil" className="ml-2 text-sm text-gray-900">
-          Eliminar foto de perfil del usuario
-        </label>
-      </div>
-
-      <div className="mt-6 flex justify-end space-x-3">
+      <div className="mt-5 sm:mt-6 space-y-2">
         <button
+          type="button"
+          onClick={handleResolveReport}
+          className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-primary-600 text-base font-medium text-white hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 sm:text-sm"
+        >
+          Resolver Reporte
+        </button>
+        <button
+          type="button"
           onClick={() => setShowResolutionModal(false)}
-          className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+          className="w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 sm:text-sm"
         >
           Cancelar
         </button>
-        <button
-          onClick={handleResolveReport}
-          disabled={!resolutionForm.motivo}
-          className="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-md hover:bg-primary-700 disabled:bg-gray-300"
-        >
-          Aplicar sanción
-        </button>
       </div>
     </div>
-  )
+  );
+
+  const fetchSanciones = async (userId: string) => {
+    try {
+      const { data, error } = await supabaseAdmin
+        .from('sancion_administrativa')
+        .select(`
+          *,
+          admin:admin_id (username)
+        `)
+        .eq('usuario_id', userId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setSanciones(data || []);
+    } catch (error) {
+      console.error('Error al obtener sanciones:', error);
+    }
+  };
+
+  const SancionesHistorialModal = () => (
+    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+      <div className="bg-white rounded-lg p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-semibold">Historial de Sanciones</h3>
+          <button
+            onClick={() => setShowSancionesModal(false)}
+            className="text-gray-500 hover:text-gray-700"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        {sanciones.length > 0 ? (
+          <div className="space-y-4">
+            {sanciones.map((sancion) => (
+              <div key={sancion.id} className="border-b pb-4">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <span className={`px-2 py-1 rounded-full text-sm font-semibold ${
+                      sancion.tipo_sancion === 'amonestacion' ? 'bg-yellow-100 text-yellow-800' :
+                      sancion.tipo_sancion === 'suspension_temporal' ? 'bg-orange-100 text-orange-800' :
+                      'bg-red-100 text-red-800'
+                    }`}>
+                      {sancion.tipo_sancion.replace('_', ' ').charAt(0).toUpperCase() + 
+                       sancion.tipo_sancion.slice(1).replace('_', ' ')}
+                    </span>
+                    {sancion.duracion_dias && (
+                      <span className="ml-2 text-sm text-gray-600">
+                        ({sancion.duracion_dias} días)
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-sm text-gray-500">
+                    {new Date(sancion.created_at).toLocaleDateString()}
+                  </span>
+                </div>
+                <p className="mt-2 text-gray-700">{sancion.motivo}</p>
+                <p className="mt-1 text-sm text-gray-500">
+                  Aplicada por: {sancion.admin.username}
+                </p>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-center text-gray-500">No hay sanciones registradas</p>
+        )}
+      </div>
+    </div>
+  );
+
+  // Añadir esta función helper
+  const getProfileImageUrl = (fotoPerfilPath: string | null) => {
+    if (!fotoPerfilPath) {
+      return null;
+    }
+    return `${supabaseUrl}/storage/v1/object/public/fotoperfil/${fotoPerfilPath}`;
+  };
 
   return (
     <div className="container mx-auto px-2 py-4 sm:px-4 sm:py-8">
@@ -395,77 +495,25 @@ export default function ProfileReports() {
                       </div>
                       <div className="text-sm text-red-500">Razón: {reporte.razon}</div>
                       <div className="text-sm text-gray-500">Tipo de contenido: {reporte.tipo_contenido}</div>
-                      <div className="mt-6">
+                      <div className="mt-2">
                         <span className={`px-2 inline-flex text-lg leading-5 font-semibold rounded-full ${getReportStatusColor(reporte.estado)}`}>
                           {reporte.estado.charAt(0).toUpperCase() + reporte.estado.slice(1)}
                         </span>
                       </div>
                     </div>
-                    <div className="flex items-center justify-end space-x-3 mt-2 sm:mt-0">
+                    <div className="flex space-x-2">
                       <button
                         onClick={() => handleExpandReporte(reporte.id)}
-                        className="text-primary-600 hover:text-secondary-500 text-base sm:text-lg font-medium mb-32"
+                        className="mt-4 sm:mt-0 px-4 py-2 bg-primary-500 text-white rounded-md hover:bg-primary-600 transition-colors"
                       >
-                         {'->'} Ver detalles
+                        Ver detalles
                       </button>
-                      <Menu as="div" className="relative inline-block text-left mb-32">
-                        <div>
-                          <Menu.Button className="inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-3 py-2 bg-white text-sm sm:text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-100 focus:ring-primary-500">
-                            Acciones
-                            <ChevronDownIcon className="-mr-1 ml-2 h-5 w-5" aria-hidden="true" />
-                          </Menu.Button>
-                        </div>
-                        <Transition
-                          as={Fragment}
-                          enter="transition ease-out duration-100"
-                          enterFrom="transform opacity-0 scale-95"
-                          enterTo="transform opacity-100 scale-100"
-                          leave="transition ease-in duration-75"
-                          leaveFrom="transform opacity-100 scale-100"
-                          leaveTo="transform opacity-0 scale-95"
-                        >
-                          <Menu.Items className="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none">
-                            <div className="py-1">
-                              <Menu.Item>
-                                {({ active }) => (
-                                  <button
-                                    onClick={() => handleReporteAction(reporte.id, 'open')}
-                                    className={`${
-                                      active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
-                                    } block w-full text-left px-4 py-2 text-sm sm:text-base`}
-                                  >
-                                    Marcar como abierto
-                                  </button>
-                                )}
-                              </Menu.Item>
-                              <Menu.Item>
-                                {({ active }) => (
-                                  <button
-                                    onClick={() => handleReporteAction(reporte.id, 'resolve')}
-                                    className={`${
-                                      active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
-                                    } block w-full text-left px-4 py-2 text-sm sm:text-base`}
-                                  >
-                                    Resolver
-                                  </button>
-                                )}
-                              </Menu.Item>
-                              <Menu.Item>
-                                {({ active }) => (
-                                  <button
-                                    onClick={() => handleReporteAction(reporte.id, 'dismiss')}
-                                    className={`${
-                                      active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
-                                    } block w-full text-left px-4 py-2 text-sm sm:text-base`}
-                                  >
-                                    Desestimar
-                                  </button>
-                                )}
-                              </Menu.Item>
-                            </div>
-                          </Menu.Items>
-                        </Transition>
-                      </Menu>
+                      <Link
+                        href={`/user-management?search=${reporte.usuario_reportado.username}#search`}
+                        className="mt-4 sm:mt-0 px-4 py-2 bg-secondary-500 text-white rounded-md hover:bg-secondary-600 transition-colors"
+                      >
+                        Ver gestión de usuario
+                      </Link>
                     </div>
                   </div>
                 </li>
@@ -473,12 +521,136 @@ export default function ProfileReports() {
             </ul>
           </div>
 
-          {/* Controles de paginación */}
+          {/* Modal para detalles del perfil */}
+          {expandedReporte && profileDetails && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center overflow-y-auto">
+              <div className="bg-white rounded-lg p-6 m-4 max-w-4xl w-full max-h-[80vh] flex flex-col">
+                {/* Header del modal con título y estado */}
+                <div className="flex justify-between items-center mb-4 pb-4 border-b">
+                  <div>
+                    <h3 className="text-2xl font-bold text-primary-700">Detalles del Perfil Reportado</h3>
+                    <div className="mt-2">
+                      <span className={`px-3 py-1 text-sm font-semibold rounded-full ${getReportStatusColor(reportes.find(r => r.id === expandedReporte)?.estado || 'abierto')}`}>
+                        {(reportes.find(r => r.id === expandedReporte)?.estado || 'abierto').charAt(0).toUpperCase() + 
+                         (reportes.find(r => r.id === expandedReporte)?.estado || 'abierto').slice(1)}
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setExpandedReporte(null)}
+                    className="text-gray-500 hover:text-gray-700"
+                  >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+
+                {/* Contenido del modal en grid de 2 columnas */}
+                <div className="flex-1 overflow-y-auto">
+                  <div className="grid grid-cols-2 gap-6">
+                    {/* Columna izquierda: Foto e info básica */}
+                    <div className="space-y-4">
+                      {profileDetails.foto_perfil && (
+                        <div>
+                          <Image
+                            src={getProfileImageUrl(profileDetails.foto_perfil) || ''}
+                            alt="Foto de perfil"
+                            width={200}
+                            height={200}
+                            className="rounded-lg"
+                          />
+                        </div>
+                      )}
+                      <div className="bg-gray-50 p-4 rounded-lg">
+                        <h4 className="font-semibold text-lg mb-2">Información básica</h4>
+                        <div className="space-y-2">
+                          <p><strong>Username:</strong> {profileDetails.username}</p>
+                          <p><strong>Edad:</strong> {profileDetails.edad}</p>
+                          <p><strong>Sexo:</strong> {profileDetails.sexo}</p>
+                          <p><strong>Ubicación:</strong> {profileDetails.ubicacion}</p>
+                          <p><strong>Nacionalidad:</strong> {profileDetails.nacionalidad}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Columna derecha: Biografía, géneros y habilidades */}
+                    <div className="space-y-4">
+                      <div className="bg-gray-50 p-4 rounded-lg">
+                        <h4 className="font-semibold text-lg mb-2">Biografía</h4>
+                        <p className="text-gray-700">{profileDetails.biografia}</p>
+                      </div>
+
+                      <div className="bg-gray-50 p-4 rounded-lg">
+                        <h4 className="font-semibold text-lg mb-2">Géneros musicales</h4>
+                        <div className="flex flex-wrap gap-2">
+                          {profileDetails.perfil_genero.map((g, i) => (
+                            <span key={i} className="bg-primary-100 text-primary-800 px-3 py-1 rounded-full text-sm">
+                              {g.genero}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="bg-gray-50 p-4 rounded-lg">
+                        <h4 className="font-semibold text-lg mb-2">Habilidades</h4>
+                        <div className="flex flex-wrap gap-2">
+                          {profileDetails.perfil_habilidad.map((h, i) => (
+                            <span key={i} className="bg-secondary-100 text-secondary-800 px-3 py-1 rounded-full text-sm">
+                              {h.habilidad}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="bg-gray-50 p-4 rounded-lg">
+                        <h4 className="font-semibold text-lg mb-2">Redes sociales</h4>
+                        <ul className="space-y-2">
+                          {profileDetails.red_social.map((red, i) => (
+                            <li key={i}>
+                              <span className="font-medium">{red.nombre}:</span>{' '}
+                              <a href={red.url} target="_blank" rel="noopener noreferrer" className="text-primary-600 hover:underline">
+                                {red.url}
+                              </a>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Footer con acciones */}
+                <div className="mt-6 pt-4 border-t flex justify-end space-x-4">
+                  <button
+                    onClick={() => handleReporteAction(expandedReporte, 'open')}
+                    className="px-4 py-2 bg-yellow-500 text-white rounded-md hover:bg-yellow-600 transition-colors"
+                  >
+                    Marcar como abierto
+                  </button>
+                  <button
+                    onClick={() => handleReporteAction(expandedReporte, 'resolve')}
+                    className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors"
+                  >
+                    Resolver
+                  </button>
+                  <button
+                    onClick={() => handleReporteAction(expandedReporte, 'dismiss')}
+                    className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors"
+                  >
+                    Desestimar
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Paginación */}
           <div className="mt-6 flex justify-between items-center bg-white p-4 rounded-lg shadow">
             <button
               onClick={() => handlePageChange(currentPage - 1)}
               disabled={currentPage === 1}
-              className="bg-primary-500 text-white px-4 py-2 rounded disabled:bg-gray-300 text-sm font-medium transition-colors duration-200 ease-in-out hover:bg-primary-600 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-opacity-50"
+              className="bg-primary-500 text-white px-4 py-2 rounded disabled:bg-gray-300"
             >
               Anterior
             </button>
@@ -488,7 +660,7 @@ export default function ProfileReports() {
             <button
               onClick={() => handlePageChange(currentPage + 1)}
               disabled={currentPage === totalPages}
-              className="bg-primary-500 text-white px-4 py-2 rounded disabled:bg-gray-300 text-sm font-medium transition-colors duration-200 ease-in-out hover:bg-primary-600 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-opacity-50"
+              className="bg-primary-500 text-white px-4 py-2 rounded disabled:bg-gray-300"
             >
               Siguiente
             </button>
@@ -496,100 +668,16 @@ export default function ProfileReports() {
         </>
       )}
 
-      {/* Modal para mostrar detalles del perfil */}
-      {expandedReporte && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-10 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-white">
-            <div className="mt-3">
-              <h3 className="text-2xl leading-6 font-bold text-primary-700 text-center mb-6">
-                Detalles del Reporte
-              </h3>
-              <div className="mt-2 px-4 py-5 max-h-[70vh] overflow-y-auto">
-                {/* ... detalles del reporte ... */}
-                
-                {/* Información del perfil reportado */}
-                {profileDetails && (
-                  <div className="mt-4">
-                    <h4 className="text-lg font-semibold mb-2 text-secondary-600">
-                      Información del Perfil Reportado
-                    </h4>
-                    {/* Mostrar foto de perfil si existe */}
-                    {profileDetails.foto_perfil && (
-                      <div className="mb-4">
-                        <Image
-                          src={profileDetails.foto_perfil}
-                          alt="Foto de perfil"
-                          width={200}
-                          height={200}
-                          className="rounded-lg"
-                        />
-                      </div>
-                    )}
-                    {/* Información básica */}
-                    <div className="grid grid-cols-2 gap-4">
-                      <p><strong>Username:</strong> {profileDetails.username}</p>
-                      <p><strong>Edad:</strong> {profileDetails.edad}</p>
-                      <p><strong>Sexo:</strong> {profileDetails.sexo}</p>
-                      <p><strong>Ubicación:</strong> {profileDetails.ubicacion}</p>
-                      <p><strong>Nacionalidad:</strong> {profileDetails.nacionalidad}</p>
-                    </div>
-                    {/* Biografía */}
-                    <div className="mt-4">
-                      <p><strong>Biografía:</strong></p>
-                      <p className="text-gray-600">{profileDetails.biografia}</p>
-                    </div>
-                    {/* Géneros musicales */}
-                    <div className="mt-4">
-                      <p><strong>Géneros musicales:</strong></p>
-                      <div className="flex flex-wrap gap-2">
-                        {profileDetails.perfil_genero.map((g, i) => (
-                          <span key={i} className="bg-primary-100 text-primary-800 px-2 py-1 rounded-full text-sm">
-                            {g.genero}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                    {/* Habilidades */}
-                    <div className="mt-4">
-                      <p><strong>Habilidades:</strong></p>
-                      <div className="flex flex-wrap gap-2">
-                        {profileDetails.perfil_habilidad.map((h, i) => (
-                          <span key={i} className="bg-secondary-100 text-secondary-800 px-2 py-1 rounded-full text-sm">
-                            {h.habilidad}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                    {/* Redes sociales */}
-                    <div className="mt-4">
-                      <p><strong>Redes sociales:</strong></p>
-                      <ul className="list-disc list-inside">
-                        {profileDetails.red_social.map((red, i) => (
-                          <li key={i}>
-                            {red.nombre}: <a href={red.url} target="_blank" rel="noopener noreferrer" className="text-primary-600 hover:underline">
-                              {red.url}
-                            </a>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
-                )}
-              </div>
-              {/* ... botones de acción ... */}
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Modal de resolución */}
       {showResolutionModal && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-4 mx-auto p-5 border w-11/12 max-w-2xl shadow-lg rounded-md bg-white">
+          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
             <ResolutionModal />
           </div>
         </div>
       )}
+
+      {showSancionesModal && <SancionesHistorialModal />}
     </div>
   );
 }

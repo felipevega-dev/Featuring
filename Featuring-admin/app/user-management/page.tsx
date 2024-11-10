@@ -137,34 +137,38 @@ export default function UserManagement() {
     return () => clearTimeout(timer)
   }, [searchTerm, filter, currentPage])
 
+  useEffect(() => {
+    // Obtener el parámetro de búsqueda de la URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const searchParam = urlParams.get('search');
+    if (searchParam) {
+      setSearchTerm(searchParam);
+    }
+  }, []);
+
   async function fetchUsers() {
     setLoading(true)
     setError(null)
     try {
-      let query = supabaseAdmin.from('perfil').select('*', { count: 'exact' })
+      // Construir la query para perfiles
+      let query = supabaseAdmin.from('perfil').select('*', { count: 'exact' });
 
       // Aplicar búsqueda si existe
       if (searchTerm) {
-        query = query.or(`username.ilike.%${searchTerm}%,usuario_id.in.(${
-          supabaseAdmin.auth.admin.listUsers().then(({ data }) => 
-            data?.users.filter(u => 
-              u.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-              u.user_metadata?.full_name?.toLowerCase().includes(searchTerm.toLowerCase())
-            ).map(u => u.id).join(',')
-          )
-        })`)
+        query = query.ilike('username', `%${searchTerm}%`);
       }
 
-      const { count } = await query
+      // Aplicar filtros
+      if (filter === 'suspended') {
+        query = query.eq('suspendido', true);
+      } else if (filter === 'warned') {
+        query = query.gt('amonestaciones', 0);
+      }
 
-      setTotalUsers(count || 0)
+      const { count } = await query;
+      setTotalUsers(count || 0);
 
-      const { data: authUsers, error: authError } = await supabaseAdmin.auth.admin.listUsers({
-        page: currentPage,
-        perPage: USERS_PER_PAGE,
-      })
-      if (authError) throw authError
-
+      // Obtener los perfiles con la misma búsqueda y filtros
       const { data: perfiles, error: perfilError } = await supabaseAdmin
         .from("perfil")
         .select(`
@@ -173,55 +177,68 @@ export default function UserManagement() {
           perfil_habilidad (habilidad),
           red_social (nombre, url)
         `)
-        .range((currentPage - 1) * USERS_PER_PAGE, currentPage * USERS_PER_PAGE - 1)
+        .ilike(searchTerm ? 'username' : '', searchTerm ? `%${searchTerm}%` : '%%')
+        .range((currentPage - 1) * USERS_PER_PAGE, currentPage * USERS_PER_PAGE - 1);
 
-      if (perfilError) throw perfilError
+      if (perfilError) throw perfilError;
+
+      const { data: authUsers, error: authError } = await supabaseAdmin.auth.admin.listUsers({
+        page: currentPage,
+        perPage: USERS_PER_PAGE,
+      });
+      if (authError) throw authError;
 
       const usersWithProfiles: UserWithSanciones[] = (await Promise.all(
-        authUsers.users.map(async (authUser) => {
-          const perfil = perfiles.find(p => p.usuario_id === authUser.id)
-          
-          const { data: sanciones } = await supabaseAdmin
-            .from('sancion_administrativa')
-            .select('*')
-            .eq('usuario_id', authUser.id)
-            .eq('estado', 'activa')
-          
-          const amonestacionesActivas = sanciones?.filter(
-            s => s.tipo_sancion === 'amonestacion'
-          ).length || 0
+        authUsers.users
+          .filter(authUser => {
+            if (!searchTerm) return true;
+            const perfil = perfiles?.find(p => p.usuario_id === authUser.id);
+            return perfil?.username?.toLowerCase().includes(searchTerm.toLowerCase());
+          })
+          .map(async (authUser) => {
+            const perfil = perfiles?.find(p => p.usuario_id === authUser.id);
+            
+            const { data: sanciones } = await supabaseAdmin
+              .from('sancion_administrativa')
+              .select('*')
+              .eq('usuario_id', authUser.id)
+              .eq('estado', 'activa');
+            
+            const amonestacionesActivas = sanciones?.filter(
+              s => s.tipo_sancion === 'amonestacion'
+            ).length || 0;
 
-          const suspensionActiva = sanciones?.some(
-            s => ['suspension_temporal', 'suspension_permanente'].includes(s.tipo_sancion)
-          ) || false
+            const suspensionActiva = sanciones?.some(
+              s => ['suspension_temporal', 'suspension_permanente'].includes(s.tipo_sancion)
+            ) || false;
 
-          const user = {
-            ...authUser,
-            perfil: perfil ? {
-              ...perfil,
-              full_name: authUser.user_metadata?.full_name || "",
-              generos: perfil.perfil_genero.map((g: { genero: string }) => g.genero),
-              habilidades: perfil.perfil_habilidad.map((h: { habilidad: string }) => h.habilidad),
-            } : null,
-            sancionActiva: (sanciones && sanciones.length > 0) || false,
-            suspensionActiva,
-            amonestacionesActivas
-          }
+            const user = {
+              ...authUser,
+              perfil: perfil ? {
+                ...perfil,
+                full_name: perfil.username || "",
+                generos: perfil.perfil_genero.map((g: { genero: string }) => g.genero),
+                habilidades: perfil.perfil_habilidad.map((h: { habilidad: string }) => h.habilidad),
+              } : null,
+              sancionActiva: (sanciones && sanciones.length > 0) || false,
+              suspensionActiva,
+              amonestacionesActivas
+            };
 
-          // Aplicar filtros
-          if (filter === 'suspended' && !suspensionActiva) return null
-          if (filter === 'warned' && !amonestacionesActivas) return null
+            // Aplicar filtros
+            if (filter === 'suspended' && !suspensionActiva) return null;
+            if (filter === 'warned' && !amonestacionesActivas) return null;
 
-          return user
-        })
+            return user;
+          })
       )).filter((user): user is UserWithSanciones => user !== null);
 
-      setUsers(usersWithProfiles)
+      setUsers(usersWithProfiles);
     } catch (error) {
-      console.error('Error al obtener los usuarios:', error)
-      setError('No se pudieron cargar los usuarios')
+      console.error('Error al obtener los usuarios:', error);
+      setError('No se pudieron cargar los usuarios');
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 
@@ -463,7 +480,7 @@ export default function UserManagement() {
   }
 
   const handleRevocarSancion = async (sancionId: number) => {
-    const confirmed = await confirmAction('¿Está seguro que desea revocar esta sanción?')
+    const confirmed = await confirmAction('Está seguro que desea revocar esta sanción?')
     if (!confirmed) return
 
     try {
@@ -720,7 +737,7 @@ export default function UserManagement() {
             ) : (
               <div className="w-9 h-9 xs:w-12 xs:h-12 bg-gray-300 rounded-full flex items-center justify-center">
                 <span className="text-base xs:text-xl text-gray-600">
-                  {user.perfil?.full_name?.[0] || user.email?.[0]}
+                  {user.perfil?.username?.[0] || user.email?.[0]}
                 </span>
               </div>
             )}
@@ -730,13 +747,7 @@ export default function UserManagement() {
           <div className="ml-2 xs:ml-3 flex flex-col justify-center">
             <div className="flex flex-col xs:flex-row xs:items-center gap-1 xs:gap-2">
               <div className="text-sm xs:text-base font-medium text-gray-900 truncate max-w-[150px] xs:max-w-none">
-                {/* Solo primer nombre en xs, nombre completo en sm+ */}
-                <span className="xs:hidden">
-                  {user.perfil?.full_name?.split(' ')[0] || 'N/A'}
-                </span>
-                <span className="hidden xs:inline">
-                  {user.perfil?.full_name || 'N/A'}
-                </span>
+                {user.perfil?.username || 'N/A'}
               </div>
               {/* Badges */}
               {user.sancionActiva && (
@@ -843,7 +854,7 @@ export default function UserManagement() {
         <div className="flex flex-col xs:flex-row gap-2 xs:gap-3">
           <input
             type="text"
-            placeholder="Buscar por nombre o email..."
+            placeholder="Buscar por nombre de usuario..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="flex-1 px-3 py-1.5 xs:py-2 border border-gray-300 rounded-md text-xs xs:text-sm focus:ring-primary-500 focus:border-primary-500"
@@ -874,34 +885,49 @@ export default function UserManagement() {
         </div>
       )}
       
-      {!loading && !error && users.length > 0 && (
+      {!loading && !error && (
         <>
-          <div className="bg-white shadow-sm xs:shadow-md rounded-lg overflow-hidden w-[98%] xs:w-[350px] sm:w-[96%] mx-auto">
-            <ul className="divide-y divide-gray-100 xs:divide-gray-200">
-              {users.map((user) => renderUserItem(user))}
-            </ul>
-          </div>
+          {users.length > 0 ? (
+            <div className="bg-white shadow-sm xs:shadow-md rounded-lg overflow-hidden w-[98%] xs:w-[350px] sm:w-[96%] mx-auto">
+              <ul className="divide-y divide-gray-100 xs:divide-gray-200">
+                {users.map((user) => renderUserItem(user))}
+              </ul>
+            </div>
+          ) : (
+            <div className="text-center p-8 bg-white rounded-lg shadow-md">
+              <div className="text-lg font-medium text-gray-900 mb-2">
+                No se encontraron usuarios
+              </div>
+              {searchTerm && (
+                <div className="text-sm text-gray-500">
+                  No hay resultados para "{searchTerm}"
+                </div>
+              )}
+            </div>
+          )}
 
-          {/* Paginación más compacta */}
-          <div className="mt-4 xs:mt-6 flex justify-between items-center bg-white p-2 xs:p-3 rounded-lg shadow-sm xs:shadow-md">
-            <button
-              onClick={() => handlePageChange(currentPage - 1)}
-              disabled={currentPage === 1}
-              className="bg-primary-500 text-white px-2 xs:px-3 py-1 xs:py-1.5 rounded disabled:bg-gray-300 text-xs xs:text-sm font-medium transition-colors duration-200 ease-in-out hover:bg-primary-600 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-opacity-50"
-            >
-              Anterior
-            </button>
-            <span className="text-xs xs:text-sm font-medium text-gray-700">
-              Página {currentPage} de {totalPages}
-            </span>
-            <button
-              onClick={() => handlePageChange(currentPage + 1)}
-              disabled={currentPage === totalPages}
-              className="bg-primary-500 text-white px-2 xs:px-3 py-1 xs:py-1.5 rounded disabled:bg-gray-300 text-xs xs:text-sm font-medium transition-colors duration-200 ease-in-out hover:bg-primary-600 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-opacity-50"
-            >
-              Siguiente
-            </button>
-          </div>
+          {/* Paginación solo si hay usuarios */}
+          {users.length > 0 && (
+            <div className="mt-4 xs:mt-6 flex justify-between items-center bg-white p-2 xs:p-3 rounded-lg shadow-sm xs:shadow-md">
+              <button
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage === 1}
+                className="bg-primary-500 text-white px-2 xs:px-3 py-1 xs:py-1.5 rounded disabled:bg-gray-300 text-xs xs:text-sm font-medium transition-colors duration-200 ease-in-out hover:bg-primary-600 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-opacity-50"
+              >
+                Anterior
+              </button>
+              <span className="text-xs xs:text-sm font-medium text-gray-700">
+                Página {currentPage} de {totalPages}
+              </span>
+              <button
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage === totalPages}
+                className="bg-primary-500 text-white px-2 xs:px-3 py-1 xs:py-1.5 rounded disabled:bg-gray-300 text-xs xs:text-sm font-medium transition-colors duration-200 ease-in-out hover:bg-primary-600 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-opacity-50"
+              >
+                Siguiente
+              </button>
+            </div>
+          )}
         </>
       )}
 
