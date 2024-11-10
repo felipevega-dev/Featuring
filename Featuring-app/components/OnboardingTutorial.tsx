@@ -81,6 +81,18 @@ const OnboardingTutorial: React.FC<OnboardingTutorialProps> = ({ isVisible, onCl
         "Conecta por habilidades",
         "Descubre artistas cercanos"
       ]
+    },
+    {
+      title: "Sistema de Beneficios",
+      description: "Gana recompensas por tu participación activa en la comunidad.",
+      icon: "trophy-outline",
+      gradient: ['#7C3AED', '#9333EA'],
+      features: [
+        "Obtén insignias por tus logros",
+        "Desbloquea títulos especiales",
+        "Gana puntos de reputación",
+        "Accede a funciones premium"
+      ]
     }
   ];
 
