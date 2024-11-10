@@ -1199,6 +1199,8 @@ EXECUTE FUNCTION toggle_insignia_activa();
 -- Función principal para manejar sanciones
 CREATE OR REPLACE FUNCTION handle_sanctions()
 RETURNS TRIGGER AS $$
+DECLARE
+    amonestaciones_count INTEGER;
 BEGIN
     -- Si es una actualización y el estado cambió a 'revocada' o 'cumplida'
     IF (TG_OP = 'UPDATE' AND 
@@ -1225,58 +1227,53 @@ BEGIN
             UPDATE perfil 
             SET suspended = true 
             WHERE usuario_id = NEW.usuario_id;
+        
+        -- Si es una amonestación, verificar el número total de amonestaciones activas
+        ELSIF (NEW.tipo_sancion = 'amonestacion') THEN
+            SELECT COUNT(*)
+            INTO amonestaciones_count
+            FROM sancion_administrativa
+            WHERE usuario_id = NEW.usuario_id
+            AND tipo_sancion = 'amonestacion'
+            AND estado = 'activa';
+
+            -- Si con esta nueva amonestación llega a 3, crear una suspensión temporal automática
+            IF amonestaciones_count >= 3 THEN
+                INSERT INTO sancion_administrativa (
+                    usuario_id,
+                    admin_id,
+                    tipo_sancion,
+                    motivo,
+                    duracion_dias,
+                    estado,
+                    fecha_inicio,
+                    fecha_fin
+                ) VALUES (
+                    NEW.usuario_id,
+                    NEW.admin_id,
+                    'suspension_temporal',
+                    'Suspensión automática por acumular 3 amonestaciones',
+                    3, -- 3 días de suspensión
+                    'activa',
+                    NOW(),
+                    NOW() + INTERVAL '7 days'
+                );
+
+                -- Marcar las amonestaciones como cumplidas
+                UPDATE sancion_administrativa
+                SET estado = 'cumplida'
+                WHERE usuario_id = NEW.usuario_id
+                AND tipo_sancion = 'amonestacion'
+                AND estado = 'activa';
+
+                -- Actualizar el estado suspended del usuario
+                UPDATE perfil 
+                SET suspended = true 
+                WHERE usuario_id = NEW.usuario_id;
+            END IF;
         END IF;
     END IF;
 
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
-
--- Función para actualizar sanciones expiradas
-CREATE OR REPLACE FUNCTION update_expired_sanctions()
-RETURNS void AS $$
-DECLARE
-    affected_users UUID[];
-BEGIN
-    -- Obtener usuarios con sanciones expiradas
-    SELECT ARRAY_AGG(DISTINCT usuario_id)
-    INTO affected_users
-    FROM sancion_administrativa
-    WHERE estado = 'activa'
-    AND tipo_sancion = 'suspension_temporal'
-    AND fecha_fin IS NOT NULL
-    AND fecha_fin < NOW();
-
-    -- Actualizar sanciones expiradas
-    UPDATE sancion_administrativa
-    SET estado = 'cumplida'
-    WHERE estado = 'activa'
-    AND tipo_sancion = 'suspension_temporal'
-    AND fecha_fin IS NOT NULL
-    AND fecha_fin < NOW();
-
-    -- Actualizar estado suspended de los usuarios afectados
-    IF affected_users IS NOT NULL THEN
-        UPDATE perfil
-        SET suspended = EXISTS (
-            SELECT 1 
-            FROM sancion_administrativa 
-            WHERE usuario_id = perfil.usuario_id 
-            AND estado = 'activa'
-            AND (tipo_sancion = 'suspension_temporal' OR tipo_sancion = 'suspension_permanente')
-        )
-        WHERE usuario_id = ANY(affected_users);
-    END IF;
-END;
-$$ LANGUAGE plpgsql;
-
--- Crear trigger para la función principal
-CREATE TRIGGER trigger_handle_sanctions
-AFTER INSERT OR UPDATE ON sancion_administrativa
-FOR EACH ROW
-EXECUTE FUNCTION handle_sanctions();
-
--- Programar la verificación de sanciones expiradas
-SELECT cron.schedule('*/5 * * * *', $$
-    SELECT update_expired_sanctions();
-$$);

@@ -234,6 +234,7 @@ export default function ChatDetail() {
       console.log("Recording started");
     } catch (err) {
       console.error("Failed to start recording", err);
+      Alert.alert("Error", "No se pudo iniciar la grabación");
     }
   };
 
@@ -255,6 +256,7 @@ export default function ChatDetail() {
       }
     } catch (error) {
       console.error("Failed to stop recording", error);
+      Alert.alert("Error", "No se pudo detener la grabación");
     }
   };
 
@@ -267,25 +269,34 @@ export default function ChatDetail() {
       const fileName = `audio_${Date.now()}.m4a`;
       const filePath = `${currentUserId}/${fileName}`;
 
-      const fileContent = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
-      const blob = new Blob([Buffer.from(fileContent, 'base64')], { type: "application/octet-stream" });
+      const formData = new FormData();
+      formData.append('file', {
+        uri: uri,
+        name: fileName,
+        type: 'audio/m4a'
+      } as any);
 
-      const { data, error } = await supabase.storage
-        .from("audio_messages")
-        .upload(filePath, blob, {
-          contentType: "audio/m4a",
-        });
+      const response = await fetch(`${supabaseUrl}/storage/v1/object/audio_messages/${filePath}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+        },
+        body: formData
+      });
 
-      if (error) throw error;
+      if (!response.ok) {
+        throw new Error('Error al subir el archivo');
+      }
 
       const { data: { publicUrl } } = supabase.storage
-        .from("audio_messages")
+        .from('audio_messages')
         .getPublicUrl(filePath);
 
       console.log("Audio uploaded, public URL:", publicUrl);
       await sendMessage("Audio message", "audio", publicUrl);
     } catch (error) {
       console.error("Error sending audio message:", error);
+      Alert.alert("Error", "No se pudo enviar el mensaje de audio");
     }
   };
 
