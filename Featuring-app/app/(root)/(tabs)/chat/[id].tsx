@@ -424,60 +424,44 @@ export default function ChatDetail() {
       const base64Content = await FileSystem.readAsStringAsync(uri, { 
         encoding: FileSystem.EncodingType.Base64 
       });
-
+  
       // Crear un objeto FormData
       const formData = new FormData();
       const fileName = `${tipo}_${Date.now()}.${uri.split('.').pop()}`;
       const filePath = `${currentUserId}/${fileName}`;
-
+  
       // Añadir el archivo al FormData
       formData.append('file', {
         uri: uri,
         name: fileName,
         type: tipo === 'imagen' ? 'image/jpeg' : 'video/mp4'
       } as any);
-
+  
+      // Seleccionar el bucket correcto según el tipo de contenido
+      const bucket = tipo === 'imagen' ? 'chat_images' : 'chat_videos';
+  
       // Subir usando fetch directamente
-      const response = await fetch(`${supabaseUrl}/storage/v1/object/chat_media/${filePath}`, {
+      const response = await fetch(`${supabaseUrl}/storage/v1/object/${bucket}/${filePath}`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
         },
         body: formData
       });
-
+  
       if (!response.ok) {
         throw new Error('Error al subir el archivo');
       }
-
+  
       const { data: { publicUrl } } = supabase.storage
-        .from("chat_media")
+        .from(bucket)  // Usar el bucket correspondiente
         .getPublicUrl(filePath);
-
+  
       console.log(`${tipo.charAt(0).toUpperCase() + tipo.slice(1)} uploaded, public URL:`, publicUrl);
       await sendMessage(`${tipo.charAt(0).toUpperCase() + tipo.slice(1)} message`, tipo === 'imagen' ? 'imagen' : 'video_chat', publicUrl);
     } catch (error) {
       console.error(`Error sending ${tipo} message:`, error);
       Alert.alert("Error", `No se pudo enviar el ${tipo}`);
-    }
-  };
-
-  const handleVideoPress = (uri: string) => {
-    // Aquí puedes usar un componente de video o abrir el video en un navegador
-    // Por ejemplo, usando un modal o un navegador externo
-    Linking.openURL(uri); // Abre el video en el navegador
-  };
-
-  const pickDocument = async () => {
-    try {
-      const result = await DocumentPicker.getDocumentAsync();
-      
-      if (result.assets && result.assets.length > 0) {
-        const file = result.assets[0];
-        await sendFileMessage(file.uri, file.name);
-      }
-    } catch (err) {
-      console.error('Error al seleccionar el archivo:', err);
     }
   };
 

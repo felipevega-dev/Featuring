@@ -406,11 +406,17 @@ CREATE TABLE historial_premium (
 ------------------------------------------
 -- 3. CREATE POLICIES
 ------------------------------------------
--- chat multimedia
-CREATE POLICY "permitirtodo 1d5ffb1_0" ON storage.objects FOR SELECT TO public USING (bucket_id = 'chat_media');
-CREATE POLICY "permitirtodo 1d5ffb1_1" ON storage.objects FOR INSERT TO public WITH CHECK (bucket_id = 'chat_media');
-CREATE POLICY "permitirtodo 1d5ffb1_2" ON storage.objects FOR UPDATE TO public USING (bucket_id = 'chat_media');
-CREATE POLICY "permitirtodo 1d5ffb1_3" ON storage.objects FOR DELETE TO public USING (bucket_id = 'chat_media');
+-- Crear políticas para chat_images
+CREATE POLICY "permitirtodo_chat_images_0" ON storage.objects FOR SELECT TO public USING (bucket_id = 'chat_images');
+CREATE POLICY "permitirtodo_chat_images_1" ON storage.objects FOR INSERT TO public WITH CHECK (bucket_id = 'chat_images');
+CREATE POLICY "permitirtodo_chat_images_2" ON storage.objects FOR UPDATE TO public USING (bucket_id = 'chat_images');
+CREATE POLICY "permitirtodo_chat_images_3" ON storage.objects FOR DELETE TO public USING (bucket_id = 'chat_images');
+
+-- Crear políticas para chat_videos
+CREATE POLICY "permitirtodo_chat_videos_0" ON storage.objects FOR SELECT TO public USING (bucket_id = 'chat_videos');
+CREATE POLICY "permitirtodo_chat_videos_1" ON storage.objects FOR INSERT TO public WITH CHECK (bucket_id = 'chat_videos');
+CREATE POLICY "permitirtodo_chat_videos_2" ON storage.objects FOR UPDATE TO public USING (bucket_id = 'chat_videos');
+CREATE POLICY "permitirtodo_chat_videos_3" ON storage.objects FOR DELETE TO public USING (bucket_id = 'chat_videos');
 
 -- chat audios
 CREATE POLICY "permitirtodo zgnxxx_0" ON storage.objects FOR SELECT TO public USING (bucket_id = 'audio_messages');
@@ -798,34 +804,6 @@ CREATE TRIGGER create_preferences_on_profile
 AFTER INSERT ON perfil
 FOR EACH ROW
 EXECUTE FUNCTION create_default_preferences();
-
--- Función para actualizar el estado suspended
-CREATE OR REPLACE FUNCTION update_perfil_suspended()
-RETURNS TRIGGER AS $$
-BEGIN
-  IF NEW.estado = 'activa' AND 
-    (NEW.tipo_sancion = 'suspension_temporal' OR NEW.tipo_sancion = 'suspension_permanente') THEN
-    UPDATE perfil SET suspended = true WHERE usuario_id = NEW.usuario_id;
-  ELSIF NEW.estado = 'cumplida' OR NEW.estado = 'revocada' THEN
-    -- Verificar si no hay otras suspensiones activas
-    IF NOT EXISTS (
-      SELECT 1 FROM sancion_administrativa 
-      WHERE usuario_id = NEW.usuario_id 
-      AND estado = 'activa'
-      AND (tipo_sancion = 'suspension_temporal' OR tipo_sancion = 'suspension_permanente')
-    ) THEN
-      UPDATE perfil SET suspended = false WHERE usuario_id = NEW.usuario_id;
-    END IF;
-  END IF;
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
--- Crear trigger para mantener suspended actualizado
-CREATE TRIGGER trigger_update_perfil_suspended
-AFTER INSERT OR UPDATE ON sancion_administrativa
-FOR EACH ROW
-EXECUTE FUNCTION update_perfil_suspended();
 
 -- Función para obtener usuarios por país
 CREATE OR REPLACE FUNCTION get_users_by_country()
@@ -1217,3 +1195,88 @@ BEFORE UPDATE OF activo ON perfil_insignia
 FOR EACH ROW
 WHEN (NEW.activo IS DISTINCT FROM OLD.activo)
 EXECUTE FUNCTION toggle_insignia_activa();
+
+-- Función principal para manejar sanciones
+CREATE OR REPLACE FUNCTION handle_sanctions()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- Si es una actualización y el estado cambió a 'revocada' o 'cumplida'
+    IF (TG_OP = 'UPDATE' AND 
+        (NEW.estado = 'revocada' OR NEW.estado = 'cumplida')) THEN
+        
+        -- Actualizar el estado suspended solo si no hay otras sanciones activas
+        UPDATE perfil 
+        SET suspended = EXISTS (
+            SELECT 1 
+            FROM sancion_administrativa 
+            WHERE usuario_id = NEW.usuario_id 
+            AND estado = 'activa'
+            AND (tipo_sancion = 'suspension_temporal' OR tipo_sancion = 'suspension_permanente')
+            AND id != NEW.id
+        )
+        WHERE usuario_id = NEW.usuario_id;
+        
+    -- Si es una inserción o actualización a estado 'activa'
+    ELSIF (TG_OP = 'INSERT' OR 
+           (TG_OP = 'UPDATE' AND NEW.estado = 'activa')) THEN
+        
+        -- Si es una suspensión, marcar como suspended
+        IF (NEW.tipo_sancion IN ('suspension_temporal', 'suspension_permanente')) THEN
+            UPDATE perfil 
+            SET suspended = true 
+            WHERE usuario_id = NEW.usuario_id;
+        END IF;
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Función para actualizar sanciones expiradas
+CREATE OR REPLACE FUNCTION update_expired_sanctions()
+RETURNS void AS $$
+DECLARE
+    affected_users UUID[];
+BEGIN
+    -- Obtener usuarios con sanciones expiradas
+    SELECT ARRAY_AGG(DISTINCT usuario_id)
+    INTO affected_users
+    FROM sancion_administrativa
+    WHERE estado = 'activa'
+    AND tipo_sancion = 'suspension_temporal'
+    AND fecha_fin IS NOT NULL
+    AND fecha_fin < NOW();
+
+    -- Actualizar sanciones expiradas
+    UPDATE sancion_administrativa
+    SET estado = 'cumplida'
+    WHERE estado = 'activa'
+    AND tipo_sancion = 'suspension_temporal'
+    AND fecha_fin IS NOT NULL
+    AND fecha_fin < NOW();
+
+    -- Actualizar estado suspended de los usuarios afectados
+    IF affected_users IS NOT NULL THEN
+        UPDATE perfil
+        SET suspended = EXISTS (
+            SELECT 1 
+            FROM sancion_administrativa 
+            WHERE usuario_id = perfil.usuario_id 
+            AND estado = 'activa'
+            AND (tipo_sancion = 'suspension_temporal' OR tipo_sancion = 'suspension_permanente')
+        )
+        WHERE usuario_id = ANY(affected_users);
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Crear trigger para la función principal
+CREATE TRIGGER trigger_handle_sanctions
+AFTER INSERT OR UPDATE ON sancion_administrativa
+FOR EACH ROW
+EXECUTE FUNCTION handle_sanctions();
+
+-- Programar la verificación de sanciones expiradas
+SELECT cron.schedule('*/5 * * * *', $$
+    SELECT update_expired_sanctions();
+$$);

@@ -1,62 +1,9 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import Link from 'next/link'
-import Image from 'next/image'
+import { FiVideo, FiMusic, FiImage, FiMessageCircle, FiUser } from 'react-icons/fi'
 
-interface ContentItem {
-  id: string;
-  titulo: string;
-  usuario_id: string;
-  genero: string;
-  caratula: string;
-  archivo_audio: string;
-}
-
-export default function ContentModeration() {
-  const [content, setContent] = useState<ContentItem[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const supabase = createClientComponentClient()
-
-  useEffect(() => {
-    fetchContent()
-  }, [])
-
-  async function fetchContent() {
-    setLoading(true)
-    const { data, error } = await supabase
-      .from('cancion')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(10)
-
-    if (error) {
-      console.error('Error fetching content:', error)
-      setError('No se pudo cargar el contenido')
-    } else {
-      setContent(data || [])
-    }
-    setLoading(false)
-  }
-
-  async function handleModeration(id: string, action: 'approve' | 'reject') {
-    try {
-      const { error } = await supabase
-        .from('cancion')
-        .update({ estado: action === 'approve' ? 'aprobado' : 'rechazado' })
-        .eq('id', id)
-
-      if (error) throw error
-
-      // Actualizar el estado local
-      setContent(content.filter(item => item.id !== id))
-    } catch (error) {
-      console.error(`Error al ${action === 'approve' ? 'aprobar' : 'rechazar'} el contenido:`, error)
-    }
-  }
-
+export default function ContentModerationMain() {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-8">
@@ -66,53 +13,35 @@ export default function ContentModeration() {
         </Link>
       </div>
 
-      {loading && <div className="text-center text-xl">Cargando contenido...</div>}
-      {error && <div className="text-center text-xl text-danger-600">Error: {error}</div>}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {/* Videos */}
+        <Link href="/content-moderation/videos" 
+          className="flex items-center justify-center p-6 bg-blue-500 text-white rounded-lg shadow-md hover:bg-blue-600 transition duration-300">
+          <FiVideo className="mr-3" size={24} />
+          <span className="text-xl font-semibold">Videos de Watch</span>
+        </Link>
 
-      {!loading && !error && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {content.map((item) => (
-            <div key={item.id} className="bg-white shadow-lg rounded-lg overflow-hidden">
-              <div className="relative h-48">
-                <Image
-                  src={item.caratula || '/placeholder-image.jpg'}
-                  alt={item.titulo}
-                  layout="fill"
-                  objectFit="cover"
-                />
-              </div>
-              <div className="p-4">
-                <h2 className="text-xl font-semibold text-primary-600 mb-2">{item.titulo}</h2>
-                <p className="text-secondary-700 mb-1">Género: {item.genero}</p>
-                <audio controls className="w-full mb-4">
-                  <source src={item.archivo_audio} type="audio/mpeg" />
-                  Tu navegador no soporta el elemento de audio.
-                </audio>
-                <div className="flex justify-between">
-                  <button
-                    onClick={() => handleModeration(item.id, 'approve')}
-                    className="bg-success-500 text-white px-4 py-2 rounded hover:bg-success-600 transition duration-300"
-                  >
-                    Aprobar
-                  </button>
-                  <button
-                    onClick={() => handleModeration(item.id, 'reject')}
-                    className="bg-danger-500 text-white px-4 py-2 rounded hover:bg-danger-600 transition duration-300"
-                  >
-                    Rechazar
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+        {/* Canciones y Carátulas */}
+        <Link href="/content-moderation/songs" 
+          className="flex items-center justify-center p-6 bg-green-500 text-white rounded-lg shadow-md hover:bg-green-600 transition duration-300">
+          <FiMusic className="mr-3" size={24} />
+          <span className="text-xl font-semibold">Canciones de Comunidad</span>
+        </Link>
 
-      {!loading && !error && content.length === 0 && (
-        <div className="text-center text-xl text-secondary-700">
-          No hay contenido pendiente de moderación.
-        </div>
-      )}
+        {/* Fotos de Perfil */}
+        <Link href="/content-moderation/profile-photos" 
+          className="flex items-center justify-center p-6 bg-purple-500 text-white rounded-lg shadow-md hover:bg-purple-600 transition duration-300">
+          <FiUser className="mr-3" size={24} />
+          <span className="text-xl font-semibold">Fotos de Perfil</span>
+        </Link>
+
+        {/* Contenido del Chat */}
+        <Link href="/content-moderation/chat" 
+          className="flex items-center justify-center p-6 bg-yellow-500 text-white rounded-lg shadow-md hover:bg-yellow-600 transition duration-300">
+          <FiMessageCircle className="mr-3" size={24} />
+          <span className="text-xl font-semibold">Contenido del Chat</span>
+        </Link>
+      </div>
     </div>
   )
 }

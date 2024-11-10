@@ -70,9 +70,13 @@ const isValidHttpUrl = (string: string) => {
 
 const getValidImageUrl = (url: string | null) => {
   if (!url) return null;
+  
+  // Si ya es una URL completa, la retornamos
   if (isValidHttpUrl(url)) return url;
-  // Si no es una URL válida, podríamos devolver una imagen por defecto o null
-  return null;
+  
+  // Si es una ruta de storage, construimos la URL completa
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  return `${supabaseUrl}/storage/v1/object/public/fotoperfil/${url}`;
 }
 
 const USERS_PER_PAGE = 20
@@ -146,6 +150,15 @@ export default function UserManagement() {
     }
   }, []);
 
+  useEffect(() => {
+    // Verificar sanciones cada 5 minutos
+    const interval = setInterval(() => {
+      fetchUsers();
+    }, 5 * 60 * 1000);
+
+    return () => clearInterval(interval);
+  }, []);
+
   async function fetchUsers() {
     setLoading(true)
     setError(null)
@@ -188,6 +201,12 @@ export default function UserManagement() {
       });
       if (authError) throw authError;
 
+      // Obtener sanciones activas (ya estarán actualizadas por el trigger)
+      const { data: allSanciones } = await supabaseAdmin
+        .from('sancion_administrativa')
+        .select('*')
+        .eq('estado', 'activa');
+
       const usersWithProfiles: UserWithSanciones[] = (await Promise.all(
         authUsers.users
           .filter(authUser => {
@@ -198,21 +217,18 @@ export default function UserManagement() {
           .map(async (authUser) => {
             const perfil = perfiles?.find(p => p.usuario_id === authUser.id);
             
-            const { data: sanciones } = await supabaseAdmin
-              .from('sancion_administrativa')
-              .select('*')
-              .eq('usuario_id', authUser.id)
-              .eq('estado', 'activa');
+            // Filtrar sanciones para este usuario
+            const userSanciones = allSanciones?.filter(s => s.usuario_id === authUser.id) || [];
             
-            const amonestacionesActivas = sanciones?.filter(
+            const amonestacionesActivas = userSanciones.filter(
               s => s.tipo_sancion === 'amonestacion'
             ).length || 0;
 
-            const suspensionActiva = sanciones?.some(
+            const suspensionActiva = userSanciones.some(
               s => ['suspension_temporal', 'suspension_permanente'].includes(s.tipo_sancion)
             ) || false;
 
-            const user = {
+            return {
               ...authUser,
               perfil: perfil ? {
                 ...perfil,
@@ -220,20 +236,20 @@ export default function UserManagement() {
                 generos: perfil.perfil_genero.map((g: { genero: string }) => g.genero),
                 habilidades: perfil.perfil_habilidad.map((h: { habilidad: string }) => h.habilidad),
               } : null,
-              sancionActiva: (sanciones && sanciones.length > 0) || false,
+              sancionActiva: userSanciones.length > 0,
               suspensionActiva,
-              amonestacionesActivas
+              amonestacionesActivas,
+              prioridadOrden: suspensionActiva ? 2 : (amonestacionesActivas > 0 ? 1 : 0)
             };
-
-            // Aplicar filtros
-            if (filter === 'suspended' && !suspensionActiva) return null;
-            if (filter === 'warned' && !amonestacionesActivas) return null;
-
-            return user;
           })
       )).filter((user): user is UserWithSanciones => user !== null);
 
-      setUsers(usersWithProfiles);
+      // Ordenar usuarios por prioridad
+      const sortedUsers = usersWithProfiles.sort((a, b) => {
+        return b.prioridadOrden - a.prioridadOrden;
+      });
+
+      setUsers(sortedUsers);
     } catch (error) {
       console.error('Error al obtener los usuarios:', error);
       setError('No se pudieron cargar los usuarios');
@@ -263,13 +279,16 @@ export default function UserManagement() {
       return;
     }
 
-    // Confirmar antes de aplicar suspensión permanente
-    if (sancionForm.tipo === 'suspension_permanente') {
-      const confirmed = await confirmAction('¿Está seguro que desea aplicar una suspensión permanente? Esta es una acción grave.');
-      if (!confirmed) return;
-    }
-
     try {
+      const now = new Date();
+      let fecha_fin = null;
+
+      // Calcular fecha_fin para suspensiones temporales
+      if (sancionForm.tipo === 'suspension_temporal' && sancionForm.duracion) {
+        fecha_fin = new Date(now);
+        fecha_fin.setDate(fecha_fin.getDate() + sancionForm.duracion);
+      }
+
       // 1. Aplicar la sanción
       await supabaseAdmin
         .from('sancion_administrativa')
@@ -279,6 +298,8 @@ export default function UserManagement() {
           tipo_sancion: sancionForm.tipo,
           motivo: sancionForm.motivo,
           duracion_dias: sancionForm.duracion,
+          fecha_inicio: now.toISOString(),
+          fecha_fin: fecha_fin?.toISOString(),
           estado: 'activa'
         });
 
