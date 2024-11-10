@@ -25,6 +25,7 @@ import { useLocalSearchParams } from 'expo-router';
 import Constants from "expo-constants";
 import { sendPushNotification } from '@/utils/pushNotifications';
 import { RealtimeChannel } from '@supabase/supabase-js';
+import { ReportButton } from '@/components/reports/ReportButton';
 
 const SWIPE_THRESHOLD = 120;
 
@@ -48,6 +49,7 @@ interface CardProps {
   isFirst?: boolean;
   onSwipe?: (direction: "left" | "right") => void;
   onLike?: (userId: string) => void;
+  currentUserId: string;
   [key: string]: any;
 }
 
@@ -56,6 +58,7 @@ const Card: React.FC<CardProps> = ({
   isFirst,
   onSwipe,
   onLike,
+  currentUserId,
   ...rest
 }) => {
   const [imageError, setImageError] = useState(false);
@@ -224,7 +227,25 @@ const Card: React.FC<CardProps> = ({
 
   return (
     <View className="absolute w-[90%] h-[75%]" style={{ top: '3%', left: '5%' }}>
-      {/* Botón Ver Perfil animado - Ajustado */}
+      {/* Botones de acción */}
+      <View className="absolute top-4 left-2 right-2 flex-row justify-between z-50">
+        <ReportButton
+          contentId={card.usuario_id}
+          contentType="perfil"
+          reportedUserId={card.usuario_id}
+          currentUserId={currentUserId}
+          buttonStyle="bg-danger-400 shadow-md"
+          iconOnly={true}
+        />
+        <TouchableOpacity
+          onPress={() => router.push("/preferencias")}
+          className="bg-secondary-400 p-2 rounded-full shadow-md"
+        >
+          <Ionicons name="settings-outline" size={20} color="white" />
+        </TouchableOpacity>
+      </View>
+
+      {/* Botón Ver Perfil */}
       <Animated.View 
         style={[buttonTransform]}
         className="absolute top-[56%] left-[30%] right-[30%] z-50"
@@ -235,19 +256,6 @@ const Card: React.FC<CardProps> = ({
           <View className="bg-primary-500 px-4 py-2 rounded-full">
             <Text className="text-white font-bold text-center">Ver Perfil</Text>
           </View>
-        </TouchableOpacity>
-      </Animated.View>
-
-      {/* Botón Settings animado - Ajustado */}
-      <Animated.View 
-        style={[buttonTransform]}
-        className="absolute top-4 left-2 z-50"
-      >
-        <TouchableOpacity
-          onPress={() => router.push("/preferencias")}
-          className="bg-secondary-400 p-2 rounded-full shadow-md"
-        >
-          <Ionicons name="settings-outline" size={20} color="white" />
         </TouchableOpacity>
       </Animated.View>
 
@@ -844,6 +852,7 @@ const Match = () => {
               isFirst={true}
               onSwipe={handleSwipe}
               onLike={handleLike}
+              currentUserId={currentUserId || ''}
               panHandlers={panResponder.panHandlers}
               style={{
                 transform: [
@@ -862,6 +871,7 @@ const Match = () => {
             isFirst={false}
             onSwipe={handleSwipe}
             onLike={handleLike}
+            currentUserId={currentUserId || ''}
           />
         );
       })

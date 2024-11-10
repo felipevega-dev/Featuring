@@ -269,6 +269,93 @@ export default function ProfileReports() {
 
   const totalPages = Math.ceil(totalReportes / REPORTES_PER_PAGE)
 
+  const ResolutionModal = () => (
+    <div className="space-y-4">
+      <div className="mb-4">
+        <label className="block text-sm font-medium text-gray-700">
+          Tipo de sanción
+        </label>
+        <select
+          value={resolutionForm.tipo}
+          onChange={(e) => setResolutionForm({
+            ...resolutionForm,
+            tipo: e.target.value as ResolutionForm['tipo']
+          })}
+          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+        >
+          <option value="amonestacion">Amonestación</option>
+          <option value="suspension_temporal">Suspensión temporal</option>
+          <option value="suspension_permanente">Suspensión permanente</option>
+        </select>
+      </div>
+
+      {resolutionForm.tipo === 'suspension_temporal' && (
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700">
+            Duración (días)
+          </label>
+          <input
+            type="number"
+            min="1"
+            value={resolutionForm.duracion || ''}
+            onChange={(e) => setResolutionForm({
+              ...resolutionForm,
+              duracion: parseInt(e.target.value)
+            })}
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+          />
+        </div>
+      )}
+
+      <div className="mb-4">
+        <label className="block text-sm font-medium text-gray-700">
+          Motivo de la sanción
+        </label>
+        <textarea
+          value={resolutionForm.motivo}
+          onChange={(e) => setResolutionForm({
+            ...resolutionForm,
+            motivo: e.target.value
+          })}
+          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+          rows={4}
+        />
+      </div>
+
+      <div className="flex items-center">
+        <input
+          type="checkbox"
+          id="eliminarFotoPerfil"
+          checked={resolutionForm.eliminarFotoPerfil}
+          onChange={(e) => setResolutionForm({
+            ...resolutionForm,
+            eliminarFotoPerfil: e.target.checked
+          })}
+          className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+        />
+        <label htmlFor="eliminarFotoPerfil" className="ml-2 text-sm text-gray-900">
+          Eliminar foto de perfil del usuario
+        </label>
+      </div>
+
+      <div className="mt-6 flex justify-end space-x-3">
+        <button
+          onClick={() => setShowResolutionModal(false)}
+          className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+        >
+          Cancelar
+        </button>
+        <button
+          onClick={handleResolveReport}
+          disabled={!resolutionForm.motivo}
+          className="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-md hover:bg-primary-700 disabled:bg-gray-300"
+        >
+          Aplicar sanción
+        </button>
+      </div>
+    </div>
+  )
+
   return (
     <div className="container mx-auto px-2 py-4 sm:px-4 sm:py-8">
       <div className="flex flex-col sm:flex-row justify-between items-center mb-4 sm:mb-8">
@@ -499,23 +586,7 @@ export default function ProfileReports() {
       {showResolutionModal && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
           <div className="relative top-4 mx-auto p-5 border w-11/12 max-w-2xl shadow-lg rounded-md bg-white">
-            {/* ... contenido del modal de resolución ... */}
-            <div className="flex items-center mt-4">
-              <input
-                type="checkbox"
-                id="eliminarFotoPerfil"
-                checked={resolutionForm.eliminarFotoPerfil}
-                onChange={(e) => setResolutionForm({
-                  ...resolutionForm,
-                  eliminarFotoPerfil: e.target.checked
-                })}
-                className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
-              />
-              <label htmlFor="eliminarFotoPerfil" className="ml-2 block text-sm text-gray-900">
-                Eliminar foto de perfil del usuario
-              </label>
-            </div>
-            {/* ... resto del modal ... */}
+            <ResolutionModal />
           </div>
         </div>
       )}

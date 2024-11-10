@@ -570,7 +570,15 @@ const handleLike = async () => {
         // Actualizar el estado local inmediatamente
         setComentarioLikes(prevLikes => ({
           ...prevLikes,
-          [comentarioId]: [...(prevLikes[comentarioId] || []), { usuario_id: currentUserId }]
+          [comentarioId]: [
+            ...(prevLikes[comentarioId] || []),
+            { 
+              id: Date.now(), // ID temporal
+              usuario_id: currentUserId,
+              comentario_id: comentarioId,
+              created_at: new Date().toISOString()
+            }
+          ]
         }));
 
         setComentarios(prevComentarios => 
