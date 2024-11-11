@@ -1,8 +1,9 @@
-import React from 'react';
-import { View, FlatList, TouchableOpacity, Text, Image } from 'react-native';
+import React, { useState } from 'react';
+import { View, FlatList, TouchableOpacity, Text, Image, Modal } from 'react-native';
 import { Video, ResizeMode } from "expo-av";
 import { FontAwesome } from "@expo/vector-icons";
 import AudioPlayer from '@/components/AudioPlayer';
+import { ReportButton } from '@/components/reports/ReportButton';
 
 interface Message {
   id: number;
@@ -30,21 +31,80 @@ const formatTime = (dateString: string): string => {
   });
 };
 
+// Componente para el modal de reporte
+const ReportModal = ({ 
+  isVisible, 
+  onClose, 
+  message, 
+  currentUserId 
+}: { 
+  isVisible: boolean; 
+  onClose: () => void; 
+  message: Message | null;
+  currentUserId: string;
+}) => {
+  if (!message) return null;
+
+  return (
+    <Modal
+      visible={isVisible}
+      transparent={true}
+      animationType="fade"
+      onRequestClose={onClose}
+    >
+      <TouchableOpacity
+        className="flex-1 bg-black/50 justify-center items-center"
+        activeOpacity={1}
+        onPress={onClose}
+      >
+        <View className="bg-white rounded-lg w-[80%] p-4">
+          <Text className="text-lg font-bold mb-4">Opciones de mensaje</Text>
+          
+          <ReportButton
+            contentId={message.id.toString()}
+            contentType={message.tipo_contenido}
+            reportedUserId={message.emisor_id}
+            currentUserId={currentUserId}
+            buttonStyle="bg-red-500 w-full mb-2"
+            buttonText={`Reportar ${
+              message.tipo_contenido === 'texto' ? 'mensaje' :
+              message.tipo_contenido === 'audio' ? 'audio' :
+              message.tipo_contenido === 'imagen' ? 'imagen' :
+              message.tipo_contenido === 'video_chat' ? 'video' : 'archivo'
+            }`}
+          />
+          
+          <TouchableOpacity
+            onPress={onClose}
+            className="bg-gray-200 p-3 rounded-lg"
+          >
+            <Text className="text-center font-medium">Cancelar</Text>
+          </TouchableOpacity>
+        </View>
+      </TouchableOpacity>
+    </Modal>
+  );
+};
+
 // Componente para un mensaje individual
 const MessageItem = React.memo(({ 
   message, 
   isCurrentUser, 
   onLongPress,
-  onMediaPress 
+  onMediaPress,
+  onReport,
+  currentUserId
 }: {
   message: Message;
   isCurrentUser: boolean;
   onLongPress: () => void;
   onMediaPress: () => void;
+  onReport: () => void;
+  currentUserId: string | null;
 }) => {
   return (
     <TouchableOpacity
-      onLongPress={onLongPress}
+      onLongPress={isCurrentUser ? onLongPress : onReport}
       className={`flex-row ${isCurrentUser ? 'justify-end' : 'justify-start'} mb-2`}
     >
       <View
@@ -120,6 +180,14 @@ export const MessageList = ({
   onLongPress,
   onMediaPress 
 }: MessageListProps) => {
+  const [reportModalVisible, setReportModalVisible] = useState(false);
+  const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
+
+  const handleReport = (message: Message) => {
+    setSelectedMessage(message);
+    setReportModalVisible(true);
+  };
+
   const renderMessage = React.useCallback(({ item }: { item: Message }) => {
     const isCurrentUser = item.emisor_id === currentUserId;
     return (
@@ -128,22 +196,36 @@ export const MessageList = ({
         isCurrentUser={isCurrentUser}
         onLongPress={() => onLongPress(item)}
         onMediaPress={() => onMediaPress(item)}
+        onReport={() => handleReport(item)}
+        currentUserId={currentUserId}
       />
     );
   }, [currentUserId, onLongPress, onMediaPress]);
 
   return (
-    <FlatList
-      data={messages}
-      renderItem={renderMessage}
-      keyExtractor={(item) => `message-${item.id}`}
-      inverted
-      contentContainerStyle={{
-        flexGrow: 1,
-        justifyContent: "flex-end",
-        paddingVertical: 10,
-        margin: 12,
-      }}
-    />
+    <>
+      <FlatList
+        data={messages}
+        renderItem={renderMessage}
+        keyExtractor={(item) => `message-${item.id}`}
+        inverted
+        contentContainerStyle={{
+          flexGrow: 1,
+          justifyContent: "flex-end",
+          paddingVertical: 10,
+          margin: 12,
+        }}
+      />
+
+      <ReportModal
+        isVisible={reportModalVisible}
+        onClose={() => {
+          setReportModalVisible(false);
+          setSelectedMessage(null);
+        }}
+        message={selectedMessage}
+        currentUserId={currentUserId || ''}
+      />
+    </>
   );
 }; 
