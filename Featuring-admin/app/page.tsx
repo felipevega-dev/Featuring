@@ -13,7 +13,7 @@ import {
   FiActivity,
   FiPieChart,
   FiSettings,
-  FiTrendingUp
+  FiMail
 } from 'react-icons/fi'
 import { useAdminStats } from '@/hooks/useAdminStats'
 
@@ -26,9 +26,6 @@ export default function Home() {
     pendingContent, 
     activeReports, 
     approvedContent,
-    totalSongs,
-    totalVideos,
-    recentActivity,
     isLoading, 
     error 
   } = useAdminStats()
@@ -90,22 +87,6 @@ export default function Home() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Estadísticas Rápidas */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 hover:border-primary-100 transition-colors">
-            <div className="flex items-center">
-              <div className="p-3 bg-blue-50 rounded-lg">
-                <FiUsers className="h-6 w-6 text-blue-600" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">Usuarios</p>
-                <p className="text-2xl font-semibold text-gray-900">{isLoading ? '...' : totalUsers}</p>
-              </div>
-            </div>
-          </div>
-          {/* ... otras estadísticas ... */}
-        </div>
-
         {/* Menú Principal */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {/* Gestión de Usuarios */}
@@ -183,16 +164,16 @@ export default function Home() {
             </div>
           </Link>
 
-          {/* Análisis de Engagement */}
-          <Link href="/engagement" className="group">
+          {/* Soporte */}
+          <Link href="/soporte" className="group">
             <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-100 hover:border-primary-100 hover:shadow-md transition-all duration-200">
               <div className="flex items-center space-x-4">
                 <div className="p-4 bg-indigo-50 rounded-xl group-hover:bg-indigo-100 transition-colors">
-                  <FiTrendingUp className="h-8 w-8 text-indigo-600" />
+                  <FiMail className="h-8 w-8 text-indigo-600" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900">Engagement</h3>
-                  <p className="text-sm text-gray-500 mt-1">Análisis de interacciones</p>
+                  <h3 className="text-lg font-semibold text-gray-900">Soporte</h3>
+                  <p className="text-sm text-gray-500 mt-1">Chat con usuarios</p>
                 </div>
               </div>
             </div>

@@ -8,7 +8,9 @@ import {
   FiImage, 
   FiMic, 
   FiFilm,
-  FiAlertCircle
+  FiAlertCircle,
+  FiActivity,
+  FiCheckCircle
 } from 'react-icons/fi'
 import { useState, useEffect } from 'react'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
@@ -21,6 +23,7 @@ interface ContentStats {
     videos: number;
     audios: number;
   };
+  approvedContent: number;
 }
 
 export default function ContentModerationMain() {
@@ -31,7 +34,8 @@ export default function ContentModerationMain() {
       images: 0,
       videos: 0,
       audios: 0
-    }
+    },
+    approvedContent: 0
   })
   const [loading, setLoading] = useState(true)
   const supabase = createClientComponentClient()
@@ -42,17 +46,17 @@ export default function ContentModerationMain() {
 
   const fetchStats = async () => {
     try {
-      // Obtener estadísticas de videos pendientes
-      const { data: videos } = await supabase
-        .from('video')
-        .select('id')
-        .eq('estado', 'pendiente')
+      // Obtener estadísticas de videos pendientes y aprobados
+      const [{ data: pendingVideos }, { data: approvedVideos }] = await Promise.all([
+        supabase.from('video').select('id').eq('estado', 'pendiente'),
+        supabase.from('video').select('id').eq('estado', 'aprobado')
+      ]);
 
-      // Obtener estadísticas de canciones pendientes
-      const { data: songs } = await supabase
-        .from('cancion')
-        .select('id')
-        .eq('estado', 'pendiente')
+      // Obtener estadísticas de canciones pendientes y aprobadas
+      const [{ data: pendingSongs }, { data: approvedSongs }] = await Promise.all([
+        supabase.from('cancion').select('id').eq('estado', 'pendiente'),
+        supabase.from('cancion').select('id').eq('estado', 'aprobado')
+      ]);
 
       // Obtener estadísticas de contenido del chat
       const { data: chatImages } = await supabase.storage.from('chat_images').list()
@@ -60,13 +64,14 @@ export default function ContentModerationMain() {
       const { data: chatAudios } = await supabase.storage.from('audio_messages').list()
 
       setStats({
-        pendingVideos: videos?.length || 0,
-        pendingSongs: songs?.length || 0,
+        pendingVideos: pendingVideos?.length || 0,
+        pendingSongs: pendingSongs?.length || 0,
         pendingChatContent: {
           images: chatImages?.length || 0,
           videos: chatVideos?.length || 0,
           audios: chatAudios?.length || 0
-        }
+        },
+        approvedContent: (approvedVideos?.length || 0) + (approvedSongs?.length || 0)
       })
     } catch (error) {
       console.error('Error fetching stats:', error)
@@ -77,12 +82,43 @@ export default function ContentModerationMain() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold text-primary-700">Moderación de Contenido</h1>
-        <Link href="/" className="bg-primary-500 text-white px-4 py-2 rounded hover:bg-primary-600 transition duration-300">
-          Volver al Menú Principal
-        </Link>
+    <div className="flex justify-between items-center mb-8">
+      <h1 className="text-3xl font-bold text-primary-700">Moderación de Contenido</h1>
+      <Link href="/" className="bg-primary-500 text-white px-4 py-2 rounded hover:bg-primary-600 transition duration-300">
+        Volver al Menú Principal
+      </Link>
+    </div>
+
+    {/* Estadísticas de Contenido */}
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+      <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+        <div className="flex items-center">
+          <div className="p-3 bg-yellow-50 rounded-lg">
+            <FiActivity className="h-6 w-6 text-yellow-600" />
+          </div>
+          <div className="ml-4">
+            <p className="text-sm font-medium text-gray-500">Pendientes</p>
+            <p className="text-2xl font-semibold text-gray-900">
+              {!loading ? stats.pendingChatContent.images + stats.pendingChatContent.videos + stats.pendingChatContent.audios : '...'}
+            </p>
+          </div>
+        </div>
       </div>
+
+      <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+        <div className="flex items-center">
+          <div className="p-3 bg-green-50 rounded-lg">
+            <FiCheckCircle className="h-6 w-6 text-green-600" />
+          </div>
+          <div className="ml-4">
+            <p className="text-sm font-medium text-gray-500">Aprobados</p>
+            <p className="text-2xl font-semibold text-gray-900">
+              {!loading ? stats.approvedContent : '...'}
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
 
       {/* Secciones Principales */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -99,7 +135,7 @@ export default function ContentModerationMain() {
           </div>
           <div className="p-4 bg-white">
             <p className="text-gray-600 mb-4">
-              Modera los videos subidos a la sección Watch
+              Modera los videos subidos por usuarios a la sección Watch
             </p>
             <Link 
               href="/content-moderation/videos"
@@ -204,5 +240,7 @@ export default function ContentModerationMain() {
         </div>
       )}
     </div>
+
   )
+
 }

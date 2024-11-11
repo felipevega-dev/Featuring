@@ -6,7 +6,7 @@ import { supabaseAdmin } from '../../lib/supabase'
 import { User, Session } from '@supabase/supabase-js'
 import Image from 'next/image'
 import Link from 'next/link'
-import { FiAlertCircle, FiActivity, FiUsers, FiFrown } from 'react-icons/fi'
+import { FiAlertCircle, FiActivity, FiUsers, FiFrown, FiCheckCircle } from 'react-icons/fi'
 import { notificationService } from '../../services/notificationService'
 
 interface Perfil {
