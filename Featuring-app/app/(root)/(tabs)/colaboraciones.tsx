@@ -84,9 +84,9 @@ export default function ColaboracionesScreen() {
         .from('colaboracion')
         .select(`
           *,
-          cancion:cancion_id(titulo, caratula),
-          perfil:usuario_id(username, foto_perfil),
-          perfil2:usuario_id2(username, foto_perfil),
+          cancion:cancion_id!inner(titulo, caratula),
+          perfil:usuario_id!inner(username, foto_perfil),
+          perfil2:usuario_id2!inner(username, foto_perfil),
           valoraciones:valoracion_colaboracion(valoracion)
         `)
         .or(`usuario_id.eq.${currentUserId},usuario_id2.eq.${currentUserId}`)
@@ -96,6 +96,7 @@ export default function ColaboracionesScreen() {
       if (error) throw error;
 
       const colaboracionesFormateadas = data
+        .filter(col => col.cancion && col.perfil && col.perfil2)
         .map(col => ({
           ...col,
           valoracion: col.valoraciones?.[0]?.valoracion
@@ -207,17 +208,23 @@ export default function ColaboracionesScreen() {
       checkRating();
     }, [item.id, otherUserId]);
 
+    if (!item.cancion || !item.perfil || !item.perfil2) {
+      return null;
+    }
+
     return (
       <View className={`bg-white p-4 rounded-lg mb-3 shadow ${
         item.estado === 'pendiente' ? 'border-l-4 border-yellow-500' : ''
       }`}>
         <View className="flex-row items-center mb-3">
           <Image
-            source={{ uri: item.cancion.caratula }}
+            source={{ 
+              uri: item.cancion?.caratula || 'https://via.placeholder.com/50'
+            }}
             className="w-12 h-12 rounded"
           />
           <View className="ml-3 flex-1">
-            <Text className="font-bold text-lg">{item.cancion.titulo}</Text>
+            <Text className="font-bold text-lg">{item.cancion?.titulo || 'Canción no disponible'}</Text>
             <View className={`self-start px-2 py-1 rounded mt-1 ${getEstadoColor(item.estado)}`}>
               <Text className="text-xs capitalize">{item.estado}</Text>
             </View>

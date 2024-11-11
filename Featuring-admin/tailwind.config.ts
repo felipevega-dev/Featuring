@@ -1,6 +1,8 @@
 import type { Config } from "tailwindcss";
+import { fontFamily } from "tailwindcss/defaultTheme"
 
 const config: Config = {
+  darkMode: ["class"],
   content: [
     "./pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./components/**/*.{js,ts,jsx,tsx,mdx}",
@@ -9,16 +11,15 @@ const config: Config = {
     "./public/**/*.{js,ts,jsx,tsx,mdx}",
   ],
   theme: {
+    container: {
+      center: true,
+      padding: "2rem",
+      screens: {
+        "2xl": "1400px",
+      },
+    },
     extend: {
       screens: {
-        'xs': '375px',     // Teléfonos pequeños
-        'sm': '640px',     // Teléfonos grandes/tablets pequeñas
-        'md': '768px',     // Tablets
-        'lg': '1024px',    // Laptops/Desktops pequeños
-        'xl': '1280px',    // Desktops
-        '2xl': '1536px',   // Pantallas grandes
-      },
-      maxWidth: {
         'xs': '375px',
         'sm': '640px',
         'md': '768px',
@@ -26,23 +27,15 @@ const config: Config = {
         'xl': '1280px',
         '2xl': '1536px',
       },
-      spacing: {
-        'screen-5': '5vw',
-        'screen-10': '10vw',
-        'screen-15': '15vw',
-        'screen-20': '20vw',
-      },
-      fontFamily: {
-        Jakarta: ["Jakarta", "sans-serif"],
-        JakartaBold: ["Jakarta-Bold", "sans-serif"],
-        JakartaExtraBold: ["Jakarta-ExtraBold", "sans-serif"],
-        JakartaExtraLight: ["Jakarta-ExtraLight", "sans-serif"],
-        JakartaLight: ["Jakarta-Light", "sans-serif"],
-        JakartaMedium: ["Jakarta-Medium", "sans-serif"],
-        JakartaSemiBold: ["Jakarta-SemiBold", "sans-serif"],
-      },
       colors: {
+        border: "hsl(var(--border))",
+        input: "hsl(var(--input))",
+        ring: "hsl(var(--ring))",
+        background: "hsl(var(--background))",
+        foreground: "hsl(var(--foreground))",
         primary: {
+          DEFAULT: "hsl(var(--primary))",
+          foreground: "hsl(var(--primary-foreground))",
           100: "#F3F0F8",
           200: "#E6E1F1",
           300: "#C5B6E3",
@@ -54,6 +47,8 @@ const config: Config = {
           900: "#2C0C54",
         },
         secondary: {
+          DEFAULT: "hsl(var(--secondary))",
+          foreground: "hsl(var(--secondary-foreground))",
           100: "#E6FBF8",
           200: "#CCF7F1",
           300: "#99EFE3",
@@ -63,6 +58,26 @@ const config: Config = {
           700: "#008773",
           800: "#006B5A",
           900: "#004F41",
+        },
+        destructive: {
+          DEFAULT: "hsl(var(--destructive))",
+          foreground: "hsl(var(--destructive-foreground))",
+        },
+        muted: {
+          DEFAULT: "hsl(var(--muted))",
+          foreground: "hsl(var(--muted-foreground))",
+        },
+        accent: {
+          DEFAULT: "hsl(var(--accent))",
+          foreground: "hsl(var(--accent-foreground))",
+        },
+        popover: {
+          DEFAULT: "hsl(var(--popover))",
+          foreground: "hsl(var(--popover-foreground))",
+        },
+        card: {
+          DEFAULT: "hsl(var(--card))",
+          foreground: "hsl(var(--card-foreground))",
         },
         success: {
           100: "#F0FFF4",
@@ -108,9 +123,38 @@ const config: Config = {
           800: "#ADADAD",
         },
       },
+      borderRadius: {
+        lg: "var(--radius)",
+        md: "calc(var(--radius) - 2px)",
+        sm: "calc(var(--radius) - 4px)",
+      },
+      fontFamily: {
+        sans: ["var(--font-sans)", ...fontFamily.sans],
+        Jakarta: ["Jakarta", "sans-serif"],
+        JakartaBold: ["Jakarta-Bold", "sans-serif"],
+        JakartaExtraBold: ["Jakarta-ExtraBold", "sans-serif"],
+        JakartaExtraLight: ["Jakarta-ExtraLight", "sans-serif"],
+        JakartaLight: ["Jakarta-Light", "sans-serif"],
+        JakartaMedium: ["Jakarta-Medium", "sans-serif"],
+        JakartaSemiBold: ["Jakarta-SemiBold", "sans-serif"],
+      },
+      keyframes: {
+        "accordion-down": {
+          from: { height: "0" },
+          to: { height: "var(--radix-accordion-content-height)" },
+        },
+        "accordion-up": {
+          from: { height: "var(--radix-accordion-content-height)" },
+          to: { height: "0" },
+        },
+      },
+      animation: {
+        "accordion-down": "accordion-down 0.2s ease-out",
+        "accordion-up": "accordion-up 0.2s ease-out",
+      },
     },
   },
-  plugins: [],
+  plugins: [require("tailwindcss-animate")],
 };
 
 export default config;

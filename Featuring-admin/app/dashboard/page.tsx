@@ -74,23 +74,12 @@ export default function Dashboard() {
 
       {/* Métricas de Almacenamiento */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-        <div className="bg-white p-6 rounded-lg shadow-lg">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">Almacenamiento Total</p>
-              <h3 className="text-2xl font-bold text-primary-500">
-                {(metrics.storageMetrics?.total_size_gb * 1024).toFixed(2)} MB
-              </h3>
-            </div>
-            <FiHardDrive className="text-primary-500 w-8 h-8" />
-          </div>
-        </div>
 
         <div className="bg-white p-6 rounded-lg shadow-lg">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500">Espacio en Videos</p>
-              <h3 className="text-2xl font-bold">
+              <h3 className="text-2xl font-bold text-secondary-500">
                 {(metrics.storageMetrics?.videos_size_gb * 1024).toFixed(2)} MB
               </h3>
             </div>
@@ -102,7 +91,7 @@ export default function Dashboard() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500">Espacio en Canciones</p>
-              <h3 className="text-2xl font-bold">
+              <h3 className="text-2xl font-bold text-warning-500">
                 {(metrics.storageMetrics?.songs_size_gb * 1024).toFixed(2)} MB
               </h3>
             </div>
@@ -111,15 +100,15 @@ export default function Dashboard() {
         </div>
       
 
-      <div className="bg-white p-6 rounded-lg shadow-lg">
+        <div className="bg-white p-6 rounded-lg shadow-lg">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500">Espacio en Carátulas</p>
-              <h3 className="text-2xl font-bold">
+              <h3 className="text-2xl font-bold text-green-500">
                 {(metrics.storageMetrics?.covers_size_gb * 1024).toFixed(2)} MB
               </h3>
             </div>
-            <FiCamera className="text-black-500 w-8 h-8" />
+            <FiCamera className="text-green-500 w-8 h-8" />
         </div>
       </div>
 
@@ -127,7 +116,7 @@ export default function Dashboard() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500">Espacio en Fotos de Perfil</p>
-              <h3 className="text-2xl font-bold">
+              <h3 className="text-2xl font-bold text-red-500">
                 {(metrics.storageMetrics?.profile_pics_size_gb * 1024).toFixed(2)} MB
               </h3>
             </div>
@@ -136,10 +125,22 @@ export default function Dashboard() {
       </div>
 
       <div className="bg-white p-6 rounded-lg shadow-lg">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-md text-gray-500">Almacenamiento Total</p>
+              <h3 className="text-3xl font-bold text-primary-500">
+                {(metrics.storageMetrics?.total_size_gb * 1024).toFixed(2)} MB
+              </h3>
+            </div>
+            <FiHardDrive className="text-primary-500 w-12 h-12" />
+          </div>
+      </div>
+
+      <div className="bg-white p-6 rounded-lg shadow-lg">
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm text-gray-500">Chat Videos</p>
-            <h3 className="text-2xl font-bold">
+            <h3 className="text-2xl font-bold text-blue-500">
               {(metrics.storageMetrics?.chat_videos_size_gb * 1024).toFixed(2)} MB
             </h3>
           </div>
@@ -147,11 +148,12 @@ export default function Dashboard() {
         </div>
       </div>
 
+
       <div className="bg-white p-6 rounded-lg shadow-lg">
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm text-gray-500">Chat Imágenes</p>
-            <h3 className="text-2xl font-bold">
+            <h3 className="text-2xl font-bold text-green-500">
               {(metrics.storageMetrics?.chat_images_size_gb * 1024).toFixed(2)} MB
             </h3>
           </div>
@@ -163,7 +165,7 @@ export default function Dashboard() {
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm text-gray-500">Mensajes de Audio</p>
-            <h3 className="text-2xl font-bold">
+              <h3 className="text-2xl font-bold text-purple-500">
               {(metrics.storageMetrics?.audio_messages_size_gb * 1024).toFixed(2)} MB
             </h3>
           </div>
@@ -176,7 +178,7 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Distribución de Almacenamiento */}
         <div className="bg-white p-6 rounded-lg shadow-lg">
-          <h3 className="text-lg font-semibold mb-4">Distribución de Almacenamiento</h3>
+          <h3 className="text-lg font-semibold mb-4 text-primary-500">Distribución de Almacenamiento</h3>
           <div className="h-80">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
@@ -196,7 +198,7 @@ export default function Dashboard() {
                       fill={
                         entry.name === 'Videos' ? '#00CED1' :
                         entry.name === 'Canciones' ? '#FFB74B':
-                        entry.name === 'Carátulas' ? '#000000' :
+                        entry.name === 'Carátulas' ? '#4BFF4B' :
                         entry.name === 'Fotos de Perfil' ? '#FF4B4B' :
                         entry.name === 'Chat Videos' ? '#4B9FFF' :
                         entry.name === 'Chat Imágenes' ? '#4BFF4B' :
@@ -218,7 +220,7 @@ export default function Dashboard() {
 
         {/* Usuarios por País */}
         <div className="bg-white p-6 rounded-lg shadow-lg">
-          <h3 className="text-lg font-semibold mb-4">Usuarios por País</h3>
+          <h3 className="text-lg font-semibold mb-4 text-primary-500">Usuarios por País</h3>
           <div className="h-80">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
@@ -247,7 +249,7 @@ export default function Dashboard() {
 
         {/* Archivos más Grandes */}
         <div className="bg-white p-6 rounded-lg shadow-lg">
-          <h3 className="text-lg font-semibold mb-4">Archivos más Grandes</h3>
+          <h3 className="text-lg font-semibold mb-4 text-primary-500">Archivos más Grandes</h3>
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
@@ -284,7 +286,7 @@ export default function Dashboard() {
 
         {/* Usuarios por Edad */}
         <div className="bg-white p-6 rounded-lg shadow-lg">
-          <h3 className="text-lg font-semibold mb-4">Distribución por Edad</h3>
+          <h3 className="text-lg font-semibold mb-4 text-primary-500">Distribución por Edad</h3>
           <div className="h-80">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart
