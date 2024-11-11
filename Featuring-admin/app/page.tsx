@@ -149,21 +149,6 @@ export default function Home() {
             </div>
           </Link>
 
-          {/* Configuración del Sistema */}
-          <Link href="/system-config" className="group">
-            <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-100 hover:border-primary-100 hover:shadow-md transition-all duration-200">
-              <div className="flex items-center space-x-4">
-                <div className="p-4 bg-gray-50 rounded-xl group-hover:bg-gray-100 transition-colors">
-                  <FiSettings className="h-8 w-8 text-gray-600" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900">Configuración</h3>
-                  <p className="text-sm text-gray-500 mt-1">Ajustes del sistema</p>
-                </div>
-              </div>
-            </div>
-          </Link>
-
           {/* Soporte */}
           <Link href="/soporte" className="group">
             <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-100 hover:border-primary-100 hover:shadow-md transition-all duration-200">
@@ -174,6 +159,21 @@ export default function Home() {
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900">Soporte</h3>
                   <p className="text-sm text-gray-500 mt-1">Chat con usuarios</p>
+                </div>
+              </div>
+            </div>
+          </Link>
+
+          {/* Configuración del Sistema */}
+          <Link href="/system-config" className="group">
+            <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-100 hover:border-primary-100 hover:shadow-md transition-all duration-200">
+              <div className="flex items-center space-x-4">
+                <div className="p-4 bg-gray-50 rounded-xl group-hover:bg-gray-100 transition-colors">
+                  <FiSettings className="h-8 w-8 text-gray-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">Configuración</h3>
+                  <p className="text-sm text-gray-500 mt-1">Ajustes del sistema</p>
                 </div>
               </div>
             </div>
