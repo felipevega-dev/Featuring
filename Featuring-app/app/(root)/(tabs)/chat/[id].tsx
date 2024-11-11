@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   View,
   Text,
@@ -22,14 +22,13 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { FontAwesome } from "@expo/vector-icons";
 import { Audio, Video } from "expo-av";
 import * as ImagePicker from 'expo-image-picker';
-import * as FileSystem from "expo-file-system";
 import AudioPlayer from '@/components/AudioPlayer';
-import * as DocumentPicker from 'expo-document-picker';
 import { useUnreadMessages } from '@/contexts/UnreadMessagesContext';
 import Constants from 'expo-constants';
 import { ResizeMode } from 'expo-av';
 import { sendPushNotification } from '@/utils/pushNotifications';
 import { ReportButton } from '../../../../components/reports/ReportButton';
+import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -77,18 +76,29 @@ export default function ChatDetail() {
 
   const [isBlockModalVisible, setIsBlockModalVisible] = useState(false);
 
+  const [loadingStates, setLoadingStates] = useState({
+    messages: false,
+    sending: false,
+    media: false
+  });
+  const [error, setError] = useState<string | null>(null);
+
+  const handleError = (error: any, context: string) => {
+    console.error(`Error en ${context}:`, error);
+    setError(`Error: ${error.message}`);
+    setTimeout(() => setError(null), 3000);
+  };
+
   useEffect(() => {
-    let refreshInterval: NodeJS.Timeout;
+    let channel: RealtimeChannel;
     
     const initialize = async () => {
       try {
-        setIsLoading(true);
+        setLoadingStates(prev => ({ ...prev, messages: true }));
         
-        // 1. Obtener usuario y datos iniciales
         await getCurrentUser();
         
         if (currentUserId) {
-          // 2. Cargar todos los datos iniciales inmediatamente
           await Promise.all([
             fetchMessages(),
             getOtherUserInfo(),
@@ -96,60 +106,60 @@ export default function ChatDetail() {
             markMessagesAsRead()
           ]);
 
-          // 3. Configurar suscripción en tiempo real
-          const channel = supabase
+          channel = supabase
             .channel(`chat-${id}-${currentUserId}`)
             .on(
               'postgres_changes',
               {
-                event: 'INSERT',
+                event: '*',
                 schema: 'public',
                 table: 'mensaje',
-                filter: `or(emisor_id.eq.${id},receptor_id.eq.${id})`,
+                filter: `or(and(emisor_id.eq.${currentUserId},receptor_id.eq.${id}),and(emisor_id.eq.${id},receptor_id.eq.${currentUserId}))`,
               },
               async (payload) => {
-                console.log('Nuevo mensaje recibido:', payload);
-                await fetchMessages();
+                console.log('Cambio en mensajes:', payload);
                 
-                const newMsg = payload.new as Message;
-                if (newMsg.receptor_id === currentUserId) {
-                  await markMessagesAsRead();
-                  updateUnreadMessagesCount();
-                }
+                if (payload.eventType === 'INSERT') {
+                  const newMsg = payload.new as Message;
+                  setMessages(prev => {
+                    const msgExists = prev.some(msg => msg.id === newMsg.id);
+                    if (msgExists) return prev;
+                    return [newMsg, ...prev];
+                  });
 
-                if (flatListRef.current) {
-                  flatListRef.current.scrollToOffset({ offset: 0, animated: true });
+                  if (newMsg.receptor_id === currentUserId) {
+                    await markMessagesAsRead();
+                    updateUnreadMessagesCount();
+                  }
+
+                  if (flatListRef.current) {
+                    flatListRef.current.scrollToOffset({ offset: 0, animated: true });
+                  }
+                } else if (payload.eventType === 'DELETE') {
+                  setMessages(prev => prev.filter(msg => msg.id !== payload.old.id));
                 }
               }
             )
-            .subscribe();
-
-          // 4. Iniciar el refresco automático después de la carga inicial
-          refreshInterval = setInterval(async () => {
-            await fetchMessages();
-          }, 5000);
-
-          return () => {
-            channel.unsubscribe();
-          };
+            .subscribe((status) => {
+              console.log('Status de suscripción:', status);
+            });
         }
       } catch (error) {
-        console.error('Error en la inicialización:', error);
+        handleError(error, 'initialization');
       } finally {
-        setIsLoading(false);
+        setLoadingStates(prev => ({ ...prev, messages: false }));
       }
     };
 
-    // Forzar una recarga inmediata al entrar
     initialize();
 
-    // Limpieza al desmontar
     return () => {
-      if (refreshInterval) {
-        clearInterval(refreshInterval);
+      if (channel) {
+        console.log('Desuscribiendo del canal...');
+        channel.unsubscribe();
       }
     };
-  }, [currentUserId, id]); // Añadimos currentUserId como dependencia
+  }, [currentUserId, id]);
 
   useEffect(() => {
     (async () => {
@@ -184,31 +194,50 @@ export default function ChatDetail() {
   };
 
   const fetchMessages = async () => {
-    if (!currentUserId) return;
+    if (!currentUserId) {
+      console.log('No hay usuario actual');
+      return;
+    }
     
     try {
-      const { data: bloqueos } = await supabase
+      console.log('Fetching messages for:', { currentUserId, otherId: id });
+      
+      const { data: bloqueos, error: bloqueoError } = await supabase
         .from("bloqueo")
         .select("*")
         .or(`and(usuario_id.eq.${currentUserId},bloqueado_id.eq.${id}),and(usuario_id.eq.${id},bloqueado_id.eq.${currentUserId})`);
 
+      if (bloqueoError) {
+        console.error('Error al verificar bloqueos:', bloqueoError);
+        throw bloqueoError;
+      }
+
       if (bloqueos && bloqueos.length > 0) {
+        console.log('Usuario bloqueado');
         setMessages([]);
         return;
       }
 
+      const MESSAGES_PER_PAGE = 20;
       const { data, error } = await supabase
         .from("mensaje")
         .select("*")
         .or(
           `and(emisor_id.eq.${currentUserId},receptor_id.eq.${id}),and(emisor_id.eq.${id},receptor_id.eq.${currentUserId})`
         )
-        .order("fecha_envio", { ascending: false });
+        .order("fecha_envio", { ascending: false })
+        .range(0, MESSAGES_PER_PAGE - 1);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error al obtener mensajes:', error);
+        throw error;
+      }
+
+      console.log('Mensajes obtenidos:', data?.length || 0);
       setMessages(data || []);
     } catch (error) {
       console.error("Error al obtener mensajes:", error);
+      handleError(error, 'fetching messages');
     }
   };
 
@@ -431,27 +460,36 @@ export default function ChatDetail() {
 
   const sendMediaMessage = async (uri: string, tipo: 'imagen' | 'video') => {
     try {
-      // Leer el archivo como base64
-      const base64Content = await FileSystem.readAsStringAsync(uri, { 
-        encoding: FileSystem.EncodingType.Base64 
-      });
-  
-      // Crear un objeto FormData
+      setLoadingStates(prev => ({ ...prev, media: true }));
+      
+      if (!currentUserId) {
+        throw new Error("Usuario no autenticado");
+      }
+
+      // Comprimir imagen/video antes de subir
+      let compressedUri = uri;
+      if (tipo === 'imagen') {
+        const manipResult = await manipulateAsync(
+          uri,
+          [{ resize: { width: 1080 } }],
+          { compress: 0.7, format: SaveFormat.JPEG }
+        );
+        compressedUri = manipResult.uri;
+      }
+
       const formData = new FormData();
-      const fileName = `${tipo}_${Date.now()}.${uri.split('.').pop()}`;
+      const extension = compressedUri.split('.').pop();
+      const fileName = `${Date.now()}.${extension}`;
       const filePath = `${currentUserId}/${fileName}`;
-  
-      // Añadir el archivo al FormData
+
       formData.append('file', {
-        uri: uri,
+        uri: compressedUri,
         name: fileName,
         type: tipo === 'imagen' ? 'image/jpeg' : 'video/mp4'
       } as any);
-  
-      // Seleccionar el bucket correcto según el tipo de contenido
+
       const bucket = tipo === 'imagen' ? 'chat_images' : 'chat_videos';
-  
-      // Subir usando fetch directamente
+
       const response = await fetch(`${supabaseUrl}/storage/v1/object/${bucket}/${filePath}`, {
         method: 'POST',
         headers: {
@@ -459,20 +497,38 @@ export default function ChatDetail() {
         },
         body: formData
       });
-  
+
       if (!response.ok) {
         throw new Error('Error al subir el archivo');
       }
-  
+
       const { data: { publicUrl } } = supabase.storage
-        .from(bucket)  // Usar el bucket correspondiente
+        .from(bucket)
         .getPublicUrl(filePath);
-  
-      console.log(`${tipo.charAt(0).toUpperCase() + tipo.slice(1)} uploaded, public URL:`, publicUrl);
-      await sendMessage(`${tipo.charAt(0).toUpperCase() + tipo.slice(1)} message`, tipo === 'imagen' ? 'imagen' : 'video_chat', publicUrl);
+
+      const { data: messageData, error: messageError } = await supabase
+        .from("mensaje")
+        .insert({
+          emisor_id: currentUserId,
+          receptor_id: id,
+          contenido: `${tipo.charAt(0).toUpperCase() + tipo.slice(1)} message`,
+          tipo_contenido: tipo === 'imagen' ? 'imagen' : 'video_chat',
+          url_contenido: publicUrl,
+        })
+        .select()
+        .single();
+
+      if (messageError) throw messageError;
+
+      if (messageData) {
+        setMessages(prev => [messageData, ...prev]);
+      }
+
     } catch (error) {
       console.error(`Error sending ${tipo} message:`, error);
-      Alert.alert("Error", `No se pudo enviar el ${tipo}`);
+      handleError(error, `sending ${tipo}`);
+    } finally {
+      setLoadingStates(prev => ({ ...prev, media: false }));
     }
   };
 
@@ -506,20 +562,15 @@ export default function ChatDetail() {
     }
   };
 
-  const renderMessage = ({ item }: { item: Message }) => {
-    const isCurrentUser = item.emisor_id === currentUserId;
-
-    // Solo permitir reportar mensajes que no son del usuario actual
-    const handleLongPress = () => {
-      if (!isCurrentUser) {
-        setSelectedMessage(item);
-        setShowReportOptions(true);
-      }
-    };
-
+  // Memoizar el renderizado de mensajes
+  const MemoizedMessage = React.memo(({ item, isCurrentUser, onLongPress }: {
+    item: Message;
+    isCurrentUser: boolean;
+    onLongPress: () => void;
+  }) => {
     return (
       <TouchableOpacity
-        onLongPress={handleLongPress}
+        onLongPress={onLongPress}
         className={`flex-row ${isCurrentUser ? 'justify-end' : 'justify-start'} mb-2`}
       >
         <View
@@ -555,13 +606,6 @@ export default function ChatDetail() {
               isLooping
             />
           )}
-          {item.tipo_contenido === 'archivo' && item.url_contenido && (
-            <TouchableOpacity onPress={() => Linking.openURL(item.url_contenido!)}>
-              <Text className={`${isCurrentUser ? 'text-white' : 'text-primary-700'} font-JakartaMedium`}>
-                {item.contenido}
-              </Text>
-            </TouchableOpacity>
-          )}
           <Text
             className={`text-xs mt-1 ${
               isCurrentUser ? 'text-primary-200' : 'text-primary-400'
@@ -572,7 +616,19 @@ export default function ChatDetail() {
         </View>
       </TouchableOpacity>
     );
-  };
+  });
+
+  // Usar el componente memoizado en el FlatList
+  const renderMessage = useCallback(({ item }: { item: Message }) => {
+    const isCurrentUser = item.emisor_id === currentUserId;
+    return (
+      <MemoizedMessage
+        item={item}
+        isCurrentUser={isCurrentUser}
+        onLongPress={() => handleLongPress(item)}
+      />
+    );
+  }, [currentUserId]);
 
   const blockUser = async (userIdToBlock: string) => {
     try {
@@ -746,7 +802,7 @@ export default function ChatDetail() {
     }
   };
 
-  if (isLoading) {
+  if (loadingStates.messages) {
     return (
       <View className="flex-1 justify-center items-center">
         <ActivityIndicator size="large" color="#6D29D2" />
@@ -959,6 +1015,12 @@ export default function ChatDetail() {
             </View>
           </TouchableOpacity>
         </Modal>
+
+        {error && (
+          <View className="absolute top-0 w-full bg-red-500 p-2">
+            <Text className="text-white text-center">{error}</Text>
+          </View>
+        )}
       </View>
     </SafeAreaView>
   );
