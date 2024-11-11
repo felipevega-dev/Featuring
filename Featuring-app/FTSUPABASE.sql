@@ -599,12 +599,16 @@ CREATE INDEX idx_sancion_administrativa_estado ON sancion_administrativa(estado)
 
 CREATE INDEX idx_perfil_puntos_reputacion ON perfil(puntos_reputacion);
 
--- Agregar después de los índices existentes
-
 CREATE INDEX idx_support_tickets_usuario ON support_tickets(usuario_id);
 CREATE INDEX idx_support_tickets_estado ON support_tickets(estado);
 CREATE INDEX idx_support_tickets_tipo ON support_tickets(tipo);
 CREATE INDEX idx_support_tickets_created_at ON support_tickets(created_at DESC);
+
+-- Índices adicionales para optimizar consultas del chat
+CREATE INDEX IF NOT EXISTS idx_mensaje_fecha_envio ON mensaje(fecha_envio DESC);
+CREATE INDEX IF NOT EXISTS idx_mensaje_tipo_contenido ON mensaje(tipo_contenido);
+CREATE INDEX IF NOT EXISTS idx_mensaje_emisor_receptor_fecha ON mensaje(emisor_id, receptor_id, fecha_envio DESC);
+CREATE INDEX IF NOT EXISTS idx_mensaje_url_contenido ON mensaje(url_contenido) WHERE url_contenido IS NOT NULL;
 
 ------------------------------------------
 -- 5. CREATE FUNCTIONS
@@ -1390,3 +1394,177 @@ CREATE TRIGGER trigger_notify_support_ticket_response
     AFTER UPDATE OF respuesta ON support_tickets
     FOR EACH ROW
     EXECUTE FUNCTION notify_support_ticket_response();
+
+
+-- 2. Función para limpiar mensajes antiguos
+CREATE OR REPLACE FUNCTION clean_old_messages()
+RETURNS void
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    -- Eliminar mensajes más antiguos de 6 meses
+    DELETE FROM mensaje
+    WHERE fecha_envio < NOW() - INTERVAL '6 months';
+END;
+$$;
+
+-- Programar limpieza mensual de mensajes antiguos
+SELECT cron.schedule('0 0 1 * *', $$
+    SELECT clean_old_messages();
+$$);
+
+-- 3. Función y trigger para manejar notificaciones de chat
+CREATE OR REPLACE FUNCTION handle_chat_notification()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- Insertar notificación solo si el usuario tiene las notificaciones activadas
+    INSERT INTO notificacion (
+        usuario_id,
+        usuario_origen_id,
+        tipo_notificacion,
+        mensaje,
+        leido
+    )
+    SELECT 
+        NEW.receptor_id,
+        NEW.emisor_id,
+        'mensaje_nuevo',
+        CASE 
+            WHEN NEW.tipo_contenido = 'texto' THEN 
+                (SELECT username || ': ' || LEFT(NEW.contenido, 50) || '...'
+                 FROM perfil WHERE usuario_id = NEW.emisor_id)
+            ELSE 
+                (SELECT username || ' te envió un ' || NEW.tipo_contenido
+                 FROM perfil WHERE usuario_id = NEW.emisor_id)
+        END,
+        false
+    FROM preferencias_usuario
+    WHERE usuario_id = NEW.receptor_id
+    AND notificaciones_mensajes = true;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trigger_chat_notification
+AFTER INSERT ON mensaje
+FOR EACH ROW
+EXECUTE FUNCTION handle_chat_notification();
+
+-- 4. Función para obtener estadísticas del chat
+CREATE OR REPLACE FUNCTION get_chat_statistics(user_id UUID)
+RETURNS JSON
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    result JSON;
+BEGIN
+    SELECT json_build_object(
+        'total_messages', (
+            SELECT COUNT(*) 
+            FROM mensaje 
+            WHERE emisor_id = user_id OR receptor_id = user_id
+        ),
+        'messages_sent', (
+            SELECT COUNT(*) 
+            FROM mensaje 
+            WHERE emisor_id = user_id
+        ),
+        'messages_received', (
+            SELECT COUNT(*) 
+            FROM mensaje 
+            WHERE receptor_id = user_id
+        ),
+        'media_messages', (
+            SELECT json_build_object(
+                'images', COUNT(*) FILTER (WHERE tipo_contenido = 'imagen'),
+                'videos', COUNT(*) FILTER (WHERE tipo_contenido = 'video_chat'),
+                'audio', COUNT(*) FILTER (WHERE tipo_contenido = 'audio')
+            )
+            FROM mensaje 
+            WHERE emisor_id = user_id OR receptor_id = user_id
+        ),
+        'active_chats', (
+            SELECT COUNT(DISTINCT 
+                CASE 
+                    WHEN emisor_id = user_id THEN receptor_id 
+                    ELSE emisor_id 
+                END)
+            FROM mensaje 
+            WHERE (emisor_id = user_id OR receptor_id = user_id)
+            AND fecha_envio > NOW() - INTERVAL '30 days'
+        )
+    ) INTO result;
+
+    RETURN result;
+END;
+$$;
+
+-- 5. Vista materializada para mensajes no leídos
+CREATE MATERIALIZED VIEW IF NOT EXISTS unread_messages_count AS
+SELECT 
+    receptor_id,
+    COUNT(*) as unread_count
+FROM mensaje
+WHERE leido = false
+GROUP BY receptor_id;
+
+-- Función para refrescar la vista de mensajes no leídos
+CREATE OR REPLACE FUNCTION refresh_unread_messages()
+RETURNS void
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    REFRESH MATERIALIZED VIEW unread_messages_count;
+END;
+$$;
+
+-- Programar actualización cada 5 minutos
+SELECT cron.schedule('*/5 * * * *', $$
+    SELECT refresh_unread_messages();
+$$);
+
+-- 6. Función para marcar mensajes como leídos eficientemente
+CREATE OR REPLACE FUNCTION mark_messages_as_read(
+    p_receptor_id UUID,
+    p_emisor_id UUID
+)
+RETURNS void
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    UPDATE mensaje
+    SET leido = true
+    WHERE receptor_id = p_receptor_id
+    AND emisor_id = p_emisor_id
+    AND leido = false;
+    
+    -- Refrescar la vista de mensajes no leídos
+    PERFORM refresh_unread_messages();
+END;
+$$;
+
+-- 7. Trigger para limpiar archivos huérfanos
+CREATE OR REPLACE FUNCTION clean_orphaned_chat_files()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- Si el mensaje tenía un archivo adjunto, eliminar el archivo
+    IF OLD.url_contenido IS NOT NULL THEN
+        -- Determinar el bucket basado en el tipo de contenido
+        CASE OLD.tipo_contenido
+            WHEN 'imagen' THEN
+                PERFORM storage.delete('chat_images', OLD.url_contenido);
+            WHEN 'video_chat' THEN
+                PERFORM storage.delete('chat_videos', OLD.url_contenido);
+            WHEN 'audio' THEN
+                PERFORM storage.delete('audio_messages', OLD.url_contenido);
+        END CASE;
+    END IF;
+    RETURN OLD;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trigger_clean_chat_files
+BEFORE DELETE ON mensaje
+FOR EACH ROW
+EXECUTE FUNCTION clean_orphaned_chat_files();

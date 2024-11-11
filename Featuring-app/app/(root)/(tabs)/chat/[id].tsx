@@ -12,7 +12,6 @@ import {
   Alert,
   Image,
   Dimensions,
-  Linking,
   Modal,
   StyleSheet,
   StatusBar,
@@ -1037,7 +1036,7 @@ export default function ChatDetail() {
                 <ReportButton
                   contentId={selectedMessage.id}
                   contentType={selectedMessage.tipo_contenido === 'video' ? 'video_chat' : selectedMessage.tipo_contenido}
-                  reportedUserId={selectedMessage.emisor_id}
+                  reportedUserId={selectedMessage.emisor_id}c
                   currentUserId={currentUserId || ''}
                   buttonStyle="bg-red-500 w-full mb-2"
                   buttonText={`Reportar ${

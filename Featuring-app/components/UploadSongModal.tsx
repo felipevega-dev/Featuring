@@ -8,6 +8,7 @@ import {
   Modal,
   Alert,
   ScrollView,
+  StyleSheet,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import * as DocumentPicker from "expo-document-picker";
@@ -16,6 +17,8 @@ import { Ionicons } from '@expo/vector-icons';
 import GenreSelectionModal from './GenreSelectionModal';
 import CollaboratorSelectionModal from './CollaboratorSelectionModal';
 import { validateContent } from '@/utils/contentFilter';
+import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
+import Constants from 'expo-constants';
 
 interface UploadSongModalProps {
   isVisible: boolean;
@@ -45,6 +48,9 @@ export default function UploadSongModal({
   const [selectedCollaborator, setSelectedCollaborator] = useState<Colaborador | null>(null);
   const [isCollaboratorModalVisible, setIsCollaboratorModalVisible] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  const supabaseUrl = Constants.expoConfig?.extra?.supabaseUrl;
+  const [isUploading, setIsUploading] = useState(false);
 
   useEffect(() => {
     getCurrentUser();
@@ -100,13 +106,20 @@ export default function UploadSongModal({
         aspect: [1, 1],
         quality: 1,
       });
+
       if (!result.canceled && result.assets && result.assets.length > 0) {
-        const fileUri = result.assets[0].uri;
-        const fileName = fileUri.split("/").pop() || "cover.jpg";
-        if (fileUri) {
-          setCoverImage(fileUri);
-          setCoverImageName(sanitizeFileName(fileName));
-        }
+        const asset = result.assets[0];
+        
+        // Comprimir la imagen antes de guardarla
+        const manipResult = await manipulateAsync(
+          asset.uri,
+          [{ resize: { width: 1080, height: 1080 } }],
+          { compress: 0.8, format: SaveFormat.JPEG }
+        );
+
+        const fileName = `cover_${Date.now()}.jpg`;
+        setCoverImage(manipResult.uri);
+        setCoverImageName(fileName);
       }
     } catch (error) {
       console.error("Error picking image:", error);
@@ -116,6 +129,8 @@ export default function UploadSongModal({
 
   const uploadSong = async () => {
     try {
+      setIsUploading(true);
+
       // Validar título
       const titleValidation = validateContent(title, 'titulo');
       if (!titleValidation.isValid) {
@@ -148,48 +163,56 @@ export default function UploadSongModal({
         return;
       }
 
-      const sanitizedAudioFileName = sanitizeFileName(audioFileName);
-      const sanitizedCoverImageName = sanitizeFileName(coverImageName);
-
-      // Subir archivo de audio
-      const formData = new FormData();
-      formData.append('file', {
+      // Subir archivo de audio usando fetch
+      const audioFormData = new FormData();
+      audioFormData.append('file', {
         uri: audioFile,
-        name: sanitizedAudioFileName,
+        name: audioFileName,
         type: 'audio/mpeg'
       } as any);
 
-      const { data: audioData, error: audioUploadError } = await supabase.storage
-        .from("canciones")
-        .upload(`${user.id}/${sanitizedAudioFileName}`, formData);
-      if (audioUploadError) throw audioUploadError;
+      const audioResponse = await fetch(
+        `${supabaseUrl}/storage/v1/object/canciones/${user.id}/${audioFileName}`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+          },
+          body: audioFormData
+        }
+      );
 
-      // Obtener URL pública del archivo de audio
-      const {
-        data: { publicUrl: audioPublicUrl },
-      } = supabase.storage
-        .from("canciones")
-        .getPublicUrl(`${user.id}/${sanitizedAudioFileName}`);
+      if (!audioResponse.ok) throw new Error('Error al subir el audio');
 
-      // Subir imagen de portada
+      // Subir imagen de portada usando fetch
       const imageFormData = new FormData();
       imageFormData.append('file', {
         uri: coverImage,
-        name: sanitizedCoverImageName,
+        name: coverImageName,
         type: 'image/jpeg'
       } as any);
 
-      const { data: imageData, error: imageUploadError } = await supabase.storage
-        .from("caratulas")
-        .upload(`${user.id}/${sanitizedCoverImageName}`, imageFormData);
-      if (imageUploadError) throw imageUploadError;
+      const imageResponse = await fetch(
+        `${supabaseUrl}/storage/v1/object/caratulas/${user.id}/${coverImageName}`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+          },
+          body: imageFormData
+        }
+      );
 
-      // Obtener URL pública de la imagen de portada
-      const {
-        data: { publicUrl: imagePublicUrl },
-      } = supabase.storage
+      if (!imageResponse.ok) throw new Error('Error al subir la imagen');
+
+      // Obtener URLs públicas
+      const { data: { publicUrl: audioPublicUrl } } = supabase.storage
+        .from("canciones")
+        .getPublicUrl(`${user.id}/${audioFileName}`);
+
+      const { data: { publicUrl: imagePublicUrl } } = supabase.storage
         .from("caratulas")
-        .getPublicUrl(`${user.id}/${sanitizedCoverImageName}`);
+        .getPublicUrl(`${user.id}/${coverImageName}`);
 
       // Crear entrada en la tabla cancion
       const { data: songData, error: songError } = await supabase
@@ -204,34 +227,12 @@ export default function UploadSongModal({
         })
         .select()
         .single();
+
       if (songError) throw songError;
 
-      // Si hay un colaborador seleccionado, crear la colaboración
+      // Manejar colaboración si existe
       if (selectedCollaborator) {
-        const { error: collaborationError } = await supabase
-          .from("colaboracion")
-          .insert({
-            cancion_id: songData.id,
-            usuario_id: user.id,
-            usuario_id2: selectedCollaborator.usuario_id,
-            estado: 'pendiente'
-          });
-
-        if (collaborationError) throw collaborationError;
-
-        // Crear notificación para el colaborador
-        const { error: notificationError } = await supabase
-          .from("notificacion")
-          .insert({
-            usuario_id: selectedCollaborator.usuario_id,
-            usuario_origen_id: user.id,
-            tipo_notificacion: 'solicitud_colaboracion',
-            contenido_id: songData.id,
-            mensaje: `${title} - Solicitud de colaboración pendiente`,
-            leido: false
-          });
-
-        if (notificationError) throw notificationError;
+        await handleCollaboration(songData.id, user.id);
       }
 
       Alert.alert("Éxito", "Tu canción ha sido subida");
@@ -240,6 +241,39 @@ export default function UploadSongModal({
     } catch (error) {
       console.error("Error uploading song:", error);
       Alert.alert("Error", "No se pudo subir la canción");
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleCollaboration = async (songId: number, userId: string) => {
+    if (!selectedCollaborator) return;
+
+    try {
+      const { error: collaborationError } = await supabase
+        .from("colaboracion")
+        .insert({
+          cancion_id: songId,
+          usuario_id: userId,
+          usuario_id2: selectedCollaborator.usuario_id,
+          estado: 'pendiente'
+        });
+
+      if (collaborationError) throw collaborationError;
+
+      await supabase
+        .from("notificacion")
+        .insert({
+          usuario_id: selectedCollaborator.usuario_id,
+          usuario_origen_id: userId,
+          tipo_notificacion: 'solicitud_colaboracion',
+          contenido_id: songId,
+          mensaje: `${title} - Solicitud de colaboración pendiente`,
+          leido: false
+        });
+    } catch (error) {
+      console.error("Error creating collaboration:", error);
+      // No lanzamos el error para que no interrumpa la subida de la canción
     }
   };
 
@@ -252,8 +286,14 @@ export default function UploadSongModal({
               <TouchableOpacity onPress={onClose}>
                 <Ionicons name="arrow-back" size={24} color="white" />
               </TouchableOpacity>
-              <TouchableOpacity onPress={uploadSong}>
-                <Text className="text-white font-bold text-lg">Guardar</Text>
+              <TouchableOpacity
+                onPress={uploadSong}
+                disabled={isUploading}
+                style={[styles.uploadButton, isUploading && styles.uploadButtonDisabled]}
+              >
+                <Text style={styles.uploadButtonText}>
+                  {isUploading ? "Subiendo..." : "Guardar"}
+                </Text>
               </TouchableOpacity>
             </View>
 
@@ -353,3 +393,20 @@ export default function UploadSongModal({
     </Modal>
   );
 }
+
+const styles = StyleSheet.create({
+  uploadButton: {
+    backgroundColor: '#6D29D2',
+    padding: 15,
+    borderRadius: 10,
+    marginTop: 10,
+  },
+  uploadButtonDisabled: {
+    backgroundColor: '#9B9B9B',
+  },
+  uploadButtonText: {
+    color: 'white',
+    textAlign: 'center',
+    fontWeight: 'bold',
+  },
+});
