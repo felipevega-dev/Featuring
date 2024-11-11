@@ -161,6 +161,14 @@ export default function MenuModal({
       }
     },
     {
+      icon: 'bug',
+      label: 'Soporte',
+      onPress: () => {
+        onClose();
+        router.push("/soporte");
+      }
+    },
+    {
       icon: 'log-out-outline',
       label: 'Cerrar Sesión',
       onPress: handleSignOut,

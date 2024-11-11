@@ -403,6 +403,22 @@ CREATE TABLE historial_premium (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Agregar después de la tabla reporte_usuario y antes de la tabla notificacion
+
+CREATE TABLE support_tickets (
+    id BIGSERIAL PRIMARY KEY,
+    usuario_id UUID REFERENCES perfil(usuario_id) ON DELETE CASCADE,
+    titulo TEXT NOT NULL,
+    descripcion TEXT NOT NULL,
+    tipo TEXT NOT NULL CHECK (tipo IN ('bug', 'feature_request', 'consulta', 'otro')),
+    prioridad TEXT NOT NULL DEFAULT 'baja' CHECK (prioridad IN ('baja', 'media', 'alta')),
+    estado TEXT NOT NULL DEFAULT 'pendiente' CHECK (estado IN ('pendiente', 'en_proceso', 'resuelto', 'cerrado')),
+    admin_id UUID REFERENCES admin_roles(id),
+    respuesta TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 ------------------------------------------
 -- 3. CREATE POLICIES
 ------------------------------------------
@@ -513,6 +529,37 @@ CREATE POLICY "Solo super_admin pueden modificar roles"
     SELECT id FROM admin_roles WHERE role = 'super_admin'
   ));
 
+-- Políticas para support_tickets
+ALTER TABLE support_tickets ENABLE ROW LEVEL SECURITY;
+
+-- Los usuarios pueden ver sus propios tickets
+CREATE POLICY "Users can view own tickets" 
+ON support_tickets FOR SELECT 
+TO authenticated 
+USING (auth.uid() = usuario_id);
+
+-- Los admins pueden ver todos los tickets
+CREATE POLICY "Admins can view all tickets" 
+ON support_tickets FOR SELECT 
+TO authenticated 
+USING (auth.uid() IN (
+    SELECT id FROM admin_roles
+));
+
+-- Los admins pueden actualizar tickets
+CREATE POLICY "Admins can update tickets" 
+ON support_tickets FOR UPDATE 
+TO authenticated 
+USING (auth.uid() IN (
+    SELECT id FROM admin_roles
+));
+
+-- Los usuarios pueden crear tickets
+CREATE POLICY "Users can create tickets"
+ON support_tickets FOR INSERT
+TO authenticated
+WITH CHECK (auth.uid() = usuario_id);
+
 ------------------------------------------
 -- 4. CREATE INDEXES
 ------------------------------------------
@@ -551,6 +598,14 @@ CREATE INDEX idx_sancion_administrativa_usuario ON sancion_administrativa(usuari
 CREATE INDEX idx_sancion_administrativa_estado ON sancion_administrativa(estado);
 
 CREATE INDEX idx_perfil_puntos_reputacion ON perfil(puntos_reputacion);
+
+-- Agregar después de los índices existentes
+
+CREATE INDEX idx_support_tickets_usuario ON support_tickets(usuario_id);
+CREATE INDEX idx_support_tickets_estado ON support_tickets(estado);
+CREATE INDEX idx_support_tickets_tipo ON support_tickets(tipo);
+CREATE INDEX idx_support_tickets_created_at ON support_tickets(created_at DESC);
+
 ------------------------------------------
 -- 5. CREATE FUNCTIONS
 ------------------------------------------
@@ -1293,3 +1348,45 @@ BEGIN
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
+
+-- Trigger para actualizar updated_at
+CREATE OR REPLACE FUNCTION update_support_ticket_timestamp()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trigger_update_support_ticket_timestamp
+    BEFORE UPDATE ON support_tickets
+    FOR EACH ROW
+    EXECUTE FUNCTION update_support_ticket_timestamp();
+
+-- Trigger para notificar al usuario cuando su ticket es respondido
+CREATE OR REPLACE FUNCTION notify_support_ticket_response()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.respuesta IS NOT NULL AND (OLD.respuesta IS NULL OR NEW.respuesta != OLD.respuesta) THEN
+        INSERT INTO notificacion (
+            usuario_id,
+            tipo_notificacion,
+            contenido_id,
+            mensaje,
+            leido
+        ) VALUES (
+            NEW.usuario_id,
+            'respuesta_soporte',
+            NEW.id,
+            'Tu ticket de soporte ha sido respondido',
+            false
+        );
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trigger_notify_support_ticket_response
+    AFTER UPDATE OF respuesta ON support_tickets
+    FOR EACH ROW
+    EXECUTE FUNCTION notify_support_ticket_response();
