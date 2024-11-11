@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { FiVideo, FiMusic, FiImage, FiMessageCircle, FiUser } from 'react-icons/fi'
+import { FiVideo, FiMusic, FiMessageCircle } from 'react-icons/fi'
 
 export default function ContentModerationMain() {
   return (
@@ -26,13 +26,6 @@ export default function ContentModerationMain() {
           className="flex items-center justify-center p-6 bg-green-500 text-white rounded-lg shadow-md hover:bg-green-600 transition duration-300">
           <FiMusic className="mr-3" size={24} />
           <span className="text-xl font-semibold">Canciones de Comunidad</span>
-        </Link>
-
-        {/* Fotos de Perfil */}
-        <Link href="/content-moderation/fotos_perfil" 
-          className="flex items-center justify-center p-6 bg-purple-500 text-white rounded-lg shadow-md hover:bg-purple-600 transition duration-300">
-          <FiUser className="mr-3" size={24} />
-          <span className="text-xl font-semibold">Fotos de Perfil</span>
         </Link>
 
         {/* Contenido del Chat */}
