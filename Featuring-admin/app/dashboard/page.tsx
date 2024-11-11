@@ -1,21 +1,18 @@
 'use client'
 
-import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { 
-  FiDatabase, 
   FiUsers, 
   FiActivity, 
   FiHardDrive,
-  FiGlobe,
-  FiClock,
   FiBarChart2,
   FiVideo,
-  FiMusic
+  FiMusic,
+  FiCamera,
+  FiUser,
+  FiMessageSquare
 } from 'react-icons/fi'
 import {
-  LineChart,
-  Line,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -40,10 +37,6 @@ const formatSizeToMB = (bytes: number) => {
 export default function Dashboard() {
   const metrics = useSystemMetrics()
   const { 
-    totalUsers, 
-    pendingContent, 
-    activeReports, 
-    approvedContent,
     isLoading: statsLoading, 
     error: statsError 
   } = useAdminStats()
@@ -54,7 +47,9 @@ export default function Dashboard() {
     { name: 'Canciones', value: metrics.storageMetrics.songs_size_gb * 1024 },
     { name: 'Carátulas', value: metrics.storageMetrics.covers_size_gb * 1024 },
     { name: 'Fotos de Perfil', value: metrics.storageMetrics.profile_pics_size_gb * 1024 },
-    { name: 'Chat Media', value: metrics.storageMetrics.chat_media_size_gb * 1024 }
+    { name: 'Chat Videos', value: metrics.storageMetrics.chat_videos_size_gb * 1024 },
+    { name: 'Chat Imágenes', value: metrics.storageMetrics.chat_images_size_gb * 1024 },
+    { name: 'Mensajes de Audio', value: metrics.storageMetrics.audio_messages_size_gb * 1024 }
   ].filter(item => item.value > 0) : [];
 
   if (metrics.isLoading || statsLoading) {
@@ -77,56 +72,13 @@ export default function Dashboard() {
         </Link>
       </div>
 
-      {/* Métricas Principales */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <div className="bg-white p-6 rounded-lg shadow-lg">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">Usuarios Totales</p>
-              <h3 className="text-2xl font-bold">{totalUsers}</h3>
-            </div>
-            <FiUsers className="text-primary-500 w-8 h-8" />
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-lg shadow-lg">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">Contenido Pendiente</p>
-              <h3 className="text-2xl font-bold">{pendingContent}</h3>
-            </div>
-            <FiActivity className="text-secondary-500 w-8 h-8" />
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-lg shadow-lg">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">Reportes Activos</p>
-              <h3 className="text-2xl font-bold">{activeReports}</h3>
-            </div>
-            <FiBarChart2 className="text-warning-500 w-8 h-8" />
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-lg shadow-lg">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">Contenido Aprobado</p>
-              <h3 className="text-2xl font-bold">{approvedContent}</h3>
-            </div>
-            <FiActivity className="text-success-500 w-8 h-8" />
-          </div>
-        </div>
-      </div>
-
       {/* Métricas de Almacenamiento */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
         <div className="bg-white p-6 rounded-lg shadow-lg">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500">Almacenamiento Total</p>
-              <h3 className="text-2xl font-bold">
+              <h3 className="text-2xl font-bold text-primary-500">
                 {(metrics.storageMetrics?.total_size_gb * 1024).toFixed(2)} MB
               </h3>
             </div>
@@ -157,7 +109,68 @@ export default function Dashboard() {
             <FiMusic className="text-warning-500 w-8 h-8" />
           </div>
         </div>
+      
+
+      <div className="bg-white p-6 rounded-lg shadow-lg">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-500">Espacio en Carátulas</p>
+              <h3 className="text-2xl font-bold">
+                {(metrics.storageMetrics?.covers_size_gb * 1024).toFixed(2)} MB
+              </h3>
+            </div>
+            <FiCamera className="text-black-500 w-8 h-8" />
+        </div>
       </div>
+
+      <div className="bg-white p-6 rounded-lg shadow-lg">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-500">Espacio en Fotos de Perfil</p>
+              <h3 className="text-2xl font-bold">
+                {(metrics.storageMetrics?.profile_pics_size_gb * 1024).toFixed(2)} MB
+              </h3>
+            </div>
+            <FiUser className="text-red-500 w-8 h-8" />
+        </div>
+      </div>
+
+      <div className="bg-white p-6 rounded-lg shadow-lg">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm text-gray-500">Chat Videos</p>
+            <h3 className="text-2xl font-bold">
+              {(metrics.storageMetrics?.chat_videos_size_gb * 1024).toFixed(2)} MB
+            </h3>
+          </div>
+          <FiVideo className="text-blue-500 w-8 h-8" />
+        </div>
+      </div>
+
+      <div className="bg-white p-6 rounded-lg shadow-lg">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm text-gray-500">Chat Imágenes</p>
+            <h3 className="text-2xl font-bold">
+              {(metrics.storageMetrics?.chat_images_size_gb * 1024).toFixed(2)} MB
+            </h3>
+          </div>
+          <FiCamera className="text-green-500 w-8 h-8" />
+        </div>
+      </div>
+
+      <div className="bg-white p-6 rounded-lg shadow-lg">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm text-gray-500">Mensajes de Audio</p>
+            <h3 className="text-2xl font-bold">
+              {(metrics.storageMetrics?.audio_messages_size_gb * 1024).toFixed(2)} MB
+            </h3>
+          </div>
+          <FiMusic className="text-purple-500 w-8 h-8" />
+        </div>
+      </div>
+    </div>
 
       {/* Gráficos en grid de 2x2 */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -181,11 +194,13 @@ export default function Dashboard() {
                     <Cell 
                       key={`cell-${index}`} 
                       fill={
-                        entry.name === 'Videos' ? '#FF4B4B' :
-                        entry.name === 'Canciones' ? '#4B7BFF' :
-                        entry.name === 'Carátulas' ? '#FFB74B' :
-                        entry.name === 'Fotos de Perfil' ? '#4BFF4B' :
-                        '#FF4B9F'
+                        entry.name === 'Videos' ? '#00CED1' :
+                        entry.name === 'Canciones' ? '#FFB74B':
+                        entry.name === 'Carátulas' ? '#000000' :
+                        entry.name === 'Fotos de Perfil' ? '#FF4B4B' :
+                        entry.name === 'Chat Videos' ? '#4B9FFF' :
+                        entry.name === 'Chat Imágenes' ? '#4BFF4B' :
+                        '#9F4BFF'
                       } 
                     />
                   ))}

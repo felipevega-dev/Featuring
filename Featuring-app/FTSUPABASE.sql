@@ -896,7 +896,9 @@ DECLARE
     songs_size BIGINT;
     covers_size BIGINT;
     profile_pics_size BIGINT;
-    chat_media_size BIGINT;
+    chat_videos_size BIGINT;
+    chat_images_size BIGINT;
+    audio_messages_size BIGINT;
     largest_files json;
 BEGIN
     -- Obtener tamaño total
@@ -926,9 +928,19 @@ BEGIN
     WHERE bucket_id = 'fotoperfil';
 
     SELECT COALESCE(SUM((metadata->>'size')::BIGINT), 0)
-    INTO chat_media_size
+    INTO chat_videos_size
     FROM storage.objects
-    WHERE bucket_id = 'chat_media';
+    WHERE bucket_id = 'chat_videos';
+
+    SELECT COALESCE(SUM((metadata->>'size')::BIGINT), 0)
+    INTO chat_images_size
+    FROM storage.objects
+    WHERE bucket_id = 'chat_images';
+
+    SELECT COALESCE(SUM((metadata->>'size')::BIGINT), 0)
+    INTO audio_messages_size
+    FROM storage.objects
+    WHERE bucket_id = 'audio_messages';
 
     -- Obtener los 10 archivos más grandes
     SELECT json_agg(files)
@@ -951,13 +963,17 @@ BEGIN
         'songs_size_gb', (songs_size::float / 1024 / 1024 / 1024),
         'covers_size_gb', (covers_size::float / 1024 / 1024 / 1024),
         'profile_pics_size_gb', (profile_pics_size::float / 1024 / 1024 / 1024),
-        'chat_media_size_gb', (chat_media_size::float / 1024 / 1024 / 1024),
+        'chat_videos_size_gb', (chat_videos_size::float / 1024 / 1024 / 1024),
+        'chat_images_size_gb', (chat_images_size::float / 1024 / 1024 / 1024),
+        'audio_messages_size_gb', (audio_messages_size::float / 1024 / 1024 / 1024),
         'storage_distribution', json_build_object(
             'videos', videos_size,
             'songs', songs_size,
             'covers', covers_size,
             'profile_pics', profile_pics_size,
-            'chat_media', chat_media_size
+            'chat_videos', chat_videos_size,
+            'chat_images', chat_images_size,
+            'audio_messages', audio_messages_size
         ),
         'largest_files', largest_files
     );
@@ -1256,7 +1272,7 @@ BEGIN
                     3, -- 3 días de suspensión
                     'activa',
                     NOW(),
-                    NOW() + INTERVAL '7 days'
+                    NOW() + INTERVAL '3 days'
                 );
 
                 -- Marcar las amonestaciones como cumplidas
