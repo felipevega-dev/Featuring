@@ -10,14 +10,10 @@ import {
   FiAlertCircle, 
   FiCheckCircle, 
   FiLogOut, 
-  FiActivity, 
-  FiBarChart2,
-  FiMusic,
-  FiVideo,
-  FiFlag,
-  FiTrendingUp,
-  FiDatabase,
-  FiPieChart
+  FiActivity,
+  FiPieChart,
+  FiSettings,
+  FiTrendingUp
 } from 'react-icons/fi'
 import { useAdminStats } from '@/hooks/useAdminStats'
 
@@ -69,131 +65,140 @@ export default function Home() {
   }
 
   return (
-    <div className="flex flex-col items-center justify-center bg-gray-100 py-8 px-4 sm:px-6">
-      <div className="w-full max-w-7xl space-y-6 sm:space-y-8">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <h2 className="text-3xl sm:text-4xl font-extrabold text-gray-900 mb-4">Panel de Administración</h2>
-          <p className="text-lg sm:text-xl text-gray-600">
-            Bienvenido, {session.user.email}
-          </p>
-        </div>
-
-        {/* Estadísticas Principales */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500">Usuarios Totales</p>
-                <h3 className="text-2xl font-bold text-gray-900">
-                  {isLoading ? '...' : totalUsers}
-                </h3>
-              </div>
-              <FiUsers className="text-primary-500 w-8 h-8" />
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100">
+      {/* Header Principal */}
+      <header className="bg-white border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center py-6">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Panel de Administración</h1>
+              {session && (
+                <p className="mt-1 text-sm text-gray-500">
+                  Bienvenido, {session.user.email}
+                </p>
+              )}
             </div>
-          </div>
-
-          <div className="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500">Contenido Pendiente</p>
-                <h3 className="text-2xl font-bold text-gray-900">
-                  {isLoading ? '...' : pendingContent}
-                </h3>
-              </div>
-              <FiActivity className="text-secondary-500 w-8 h-8" />
-            </div>
-          </div>
-
-          <div className="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500">Reportes Activos</p>
-                <h3 className="text-2xl font-bold text-gray-900">
-                  {isLoading ? '...' : activeReports}
-                </h3>
-              </div>
-              <FiFlag className="text-warning-500 w-8 h-8" />
-            </div>
-          </div>
-
-          <div className="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500">Contenido Aprobado</p>
-                <h3 className="text-2xl font-bold text-gray-900">
-                  {isLoading ? '...' : approvedContent}
-                </h3>
-              </div>
-              <FiCheckCircle className="text-success-500 w-8 h-8" />
-            </div>
+            <button 
+              onClick={handleLogout}
+              className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+            >
+              <FiLogOut className="mr-2 -ml-1 h-5 w-5" />
+              Cerrar sesión
+            </button>
           </div>
         </div>
+      </header>
 
-        {/* Accesos Rápidos */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Link href="/user-management" 
-            className="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-all hover:bg-primary-50 group">
-            <div className="flex items-center space-x-4">
-              <div className="bg-primary-100 p-3 rounded-lg group-hover:bg-primary-200 transition-colors">
-                <FiUsers className="w-6 h-6 text-primary-600" />
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Estadísticas Rápidas */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 hover:border-primary-100 transition-colors">
+            <div className="flex items-center">
+              <div className="p-3 bg-blue-50 rounded-lg">
+                <FiUsers className="h-6 w-6 text-blue-600" />
               </div>
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900">Gestión de Usuarios</h3>
-                <p className="text-sm text-gray-500">Administrar usuarios y permisos</p>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-500">Usuarios</p>
+                <p className="text-2xl font-semibold text-gray-900">{isLoading ? '...' : totalUsers}</p>
+              </div>
+            </div>
+          </div>
+          {/* ... otras estadísticas ... */}
+        </div>
+
+        {/* Menú Principal */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {/* Gestión de Usuarios */}
+          <Link href="/user-management" className="group">
+            <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-100 hover:border-primary-100 hover:shadow-md transition-all duration-200">
+              <div className="flex items-center space-x-4">
+                <div className="p-4 bg-blue-50 rounded-xl group-hover:bg-blue-100 transition-colors">
+                  <FiUsers className="h-8 w-8 text-blue-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">Gestión de Usuarios</h3>
+                  <p className="text-sm text-gray-500 mt-1">Administrar usuarios y permisos</p>
+                </div>
               </div>
             </div>
           </Link>
 
-          <Link href="/content-moderation" 
-            className="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-all hover:bg-secondary-50 group">
-            <div className="flex items-center space-x-4">
-              <div className="bg-secondary-100 p-3 rounded-lg group-hover:bg-secondary-200 transition-colors">
-                <FiCheckCircle className="w-6 h-6 text-secondary-600" />
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900">Moderación de Contenido</h3>
-                <p className="text-sm text-gray-500">Revisar y aprobar contenido</p>
-              </div>
-            </div>
-          </Link>
-
-          <Link href="/reports" 
-            className="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-all hover:bg-warning-50 group">
-            <div className="flex items-center space-x-4">
-              <div className="bg-warning-100 p-3 rounded-lg group-hover:bg-warning-200 transition-colors">
-                <FiAlertCircle className="w-6 h-6 text-warning-600" />
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900">Reportes</h3>
-                <p className="text-sm text-gray-500">Gestionar reportes de usuarios</p>
+          {/* Moderación de Contenido */}
+          <Link href="/content-moderation" className="group">
+            <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-100 hover:border-primary-100 hover:shadow-md transition-all duration-200">
+              <div className="flex items-center space-x-4">
+                <div className="p-4 bg-green-50 rounded-xl group-hover:bg-green-100 transition-colors">
+                  <FiCheckCircle className="h-8 w-8 text-green-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">Moderación</h3>
+                  <p className="text-sm text-gray-500 mt-1">Revisar y aprobar contenido</p>
+                </div>
               </div>
             </div>
           </Link>
 
-          <Link href="/dashboard" 
-            className="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-all hover:bg-primary-50 group">
-            <div className="flex items-center space-x-4">
-              <div className="bg-primary-100 p-3 rounded-lg group-hover:bg-primary-200 transition-colors">
-                <FiPieChart className="w-6 h-6 text-primary-600" />
+          {/* Reportes */}
+          <Link href="/reports" className="group">
+            <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-100 hover:border-primary-100 hover:shadow-md transition-all duration-200">
+              <div className="flex items-center space-x-4">
+                <div className="p-4 bg-red-50 rounded-xl group-hover:bg-red-100 transition-colors">
+                  <FiAlertCircle className="h-8 w-8 text-red-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">Reportes</h3>
+                  <p className="text-sm text-gray-500 mt-1">Gestionar reportes de usuarios</p>
+                </div>
               </div>
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900">Estadísticas Avanzadas</h3>
-                <p className="text-sm text-gray-500">Métricas detalladas del sistema</p>
+            </div>
+          </Link>
+
+          {/* Estadísticas */}
+          <Link href="/dashboard" className="group">
+            <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-100 hover:border-primary-100 hover:shadow-md transition-all duration-200">
+              <div className="flex items-center space-x-4">
+                <div className="p-4 bg-purple-50 rounded-xl group-hover:bg-purple-100 transition-colors">
+                  <FiPieChart className="h-8 w-8 text-purple-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">Estadísticas</h3>
+                  <p className="text-sm text-gray-500 mt-1">Métricas y análisis detallados</p>
+                </div>
+              </div>
+            </div>
+          </Link>
+
+          {/* Configuración del Sistema */}
+          <Link href="/system-config" className="group">
+            <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-100 hover:border-primary-100 hover:shadow-md transition-all duration-200">
+              <div className="flex items-center space-x-4">
+                <div className="p-4 bg-gray-50 rounded-xl group-hover:bg-gray-100 transition-colors">
+                  <FiSettings className="h-8 w-8 text-gray-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">Configuración</h3>
+                  <p className="text-sm text-gray-500 mt-1">Ajustes del sistema</p>
+                </div>
+              </div>
+            </div>
+          </Link>
+
+          {/* Análisis de Engagement */}
+          <Link href="/engagement" className="group">
+            <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-100 hover:border-primary-100 hover:shadow-md transition-all duration-200">
+              <div className="flex items-center space-x-4">
+                <div className="p-4 bg-indigo-50 rounded-xl group-hover:bg-indigo-100 transition-colors">
+                  <FiTrendingUp className="h-8 w-8 text-indigo-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">Engagement</h3>
+                  <p className="text-sm text-gray-500 mt-1">Análisis de interacciones</p>
+                </div>
               </div>
             </div>
           </Link>
         </div>
-
-        {/* Botón de Cerrar Sesión */}
-        <button 
-          onClick={handleLogout}
-          className="mt-8 flex items-center justify-center px-6 py-3 border border-transparent rounded-md shadow-sm text-base font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 w-full sm:w-auto"
-        >
-          <FiLogOut className="mr-2" />
-          Cerrar sesión
-        </button>
-      </div>
+      </main>
     </div>
   )
 }

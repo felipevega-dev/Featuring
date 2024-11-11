@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { FiVideo, FiImage, FiMusic } from 'react-icons/fi'
+import { FiVideo, FiImage, FiMic } from 'react-icons/fi'
 
 export default function ChatContentModeration() {
   return (
@@ -16,22 +16,22 @@ export default function ChatContentModeration() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Videos del Chat */}
         <Link href="/content-moderation/chat/chat_videos" 
-          className="flex items-center justify-center p-6 bg-blue-500 text-white rounded-lg shadow-md hover:bg-blue-600 transition duration-300">
-          <FiVideo className="mr-3" size={24} />
+          className="flex flex-col items-center justify-center p-8 bg-blue-500 text-white rounded-lg shadow-md hover:bg-blue-600 transition duration-300">
+          <FiVideo className="mb-3" size={32} />
           <span className="text-xl font-semibold">Videos del Chat</span>
         </Link>
 
         {/* Imágenes del Chat */}
         <Link href="/content-moderation/chat/chat_images" 
-          className="flex items-center justify-center p-6 bg-green-500 text-white rounded-lg shadow-md hover:bg-green-600 transition duration-300">
-          <FiImage className="mr-3" size={24} />
+          className="flex flex-col items-center justify-center p-8 bg-green-500 text-white rounded-lg shadow-md hover:bg-green-600 transition duration-300">
+          <FiImage className="mb-3" size={32} />
           <span className="text-xl font-semibold">Imágenes del Chat</span>
         </Link>
 
         {/* Mensajes de Audio */}
         <Link href="/content-moderation/chat/audio_messages" 
-          className="flex items-center justify-center p-6 bg-red-500 text-white rounded-lg shadow-md hover:bg-red-600 transition duration-300">
-          <FiMusic className="mr-3" size={24} />
+          className="flex flex-col items-center justify-center p-8 bg-red-500 text-white rounded-lg shadow-md hover:bg-red-600 transition duration-300">
+          <FiMic className="mb-3" size={32} />
           <span className="text-xl font-semibold">Mensajes de Audio</span>
         </Link>
       </div>

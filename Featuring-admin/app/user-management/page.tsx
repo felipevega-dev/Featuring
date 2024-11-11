@@ -6,7 +6,7 @@ import { supabaseAdmin } from '../../lib/supabase'
 import { User, Session } from '@supabase/supabase-js'
 import Image from 'next/image'
 import Link from 'next/link'
-import { FiAlertCircle, FiActivity } from 'react-icons/fi'
+import { FiAlertCircle, FiActivity, FiUsers, FiFrown } from 'react-icons/fi'
 import { notificationService } from '../../services/notificationService'
 
 interface Perfil {
@@ -29,6 +29,10 @@ interface UserWithProfile extends User {
     full_name: string;
     generos: string[];
     habilidades: string[];
+    numtelefono: string | null;
+    sexo: string | null;
+    promedio_valoraciones: number;
+    puntos_reputacion: number;
   }) | null;
 }
 
@@ -113,6 +117,11 @@ export default function UserManagement() {
   const [filter, setFilter] = useState<'all' | 'suspended' | 'warned'>('all')
   const [showActivityModal, setShowActivityModal] = useState(false)
   const [userActivity, setUserActivity] = useState<any>(null)
+  const [userStats, setUserStats] = useState({
+    totalUsers: 0,
+    warnedUsers: 0,
+    suspendedUsers: 0
+  });
 
   useEffect(() => {
     const fetchSession = async () => {
@@ -159,94 +168,88 @@ export default function UserManagement() {
     return () => clearInterval(interval);
   }, []);
 
+  useEffect(() => {
+    fetchUserStats();
+  }, []);
+
   async function fetchUsers() {
     setLoading(true)
     setError(null)
     try {
-      // Construir la query para perfiles
-      let query = supabaseAdmin.from('perfil').select('*', { count: 'exact' });
+      // Construir la query base para perfiles
+      let query = supabaseAdmin.from('perfil').select(`
+        *,
+        perfil_genero (genero),
+        perfil_habilidad (habilidad),
+        red_social (nombre, url)
+      `);
 
       // Aplicar búsqueda si existe
       if (searchTerm) {
         query = query.ilike('username', `%${searchTerm}%`);
       }
 
-      // Aplicar filtros
-      if (filter === 'suspended') {
-        query = query.eq('suspendido', true);
-      } else if (filter === 'warned') {
-        query = query.gt('amonestaciones', 0);
-      }
-
-      const { count } = await query;
-      setTotalUsers(count || 0);
-
-      // Obtener los perfiles con la misma búsqueda y filtros
-      const { data: perfiles, error: perfilError } = await supabaseAdmin
-        .from("perfil")
-        .select(`
-          *,
-          perfil_genero (genero),
-          perfil_habilidad (habilidad),
-          red_social (nombre, url)
-        `)
-        .ilike(searchTerm ? 'username' : '', searchTerm ? `%${searchTerm}%` : '%%')
-        .range((currentPage - 1) * USERS_PER_PAGE, currentPage * USERS_PER_PAGE - 1);
-
+      // Obtener el conteo total y los perfiles
+      const { data: perfiles, error: perfilError, count } = await query;
       if (perfilError) throw perfilError;
 
+      // Obtener usuarios de auth
       const { data: authUsers, error: authError } = await supabaseAdmin.auth.admin.listUsers({
         page: currentPage,
         perPage: USERS_PER_PAGE,
       });
       if (authError) throw authError;
 
-      // Obtener sanciones activas (ya estarán actualizadas por el trigger)
+      // Obtener sanciones activas
       const { data: allSanciones } = await supabaseAdmin
         .from('sancion_administrativa')
         .select('*')
         .eq('estado', 'activa');
 
-      const usersWithProfiles: UserWithSanciones[] = (await Promise.all(
-        authUsers.users
-          .filter(authUser => {
-            if (!searchTerm) return true;
-            const perfil = perfiles?.find(p => p.usuario_id === authUser.id);
-            return perfil?.username?.toLowerCase().includes(searchTerm.toLowerCase());
-          })
-          .map(async (authUser) => {
-            const perfil = perfiles?.find(p => p.usuario_id === authUser.id);
-            
-            // Filtrar sanciones para este usuario
-            const userSanciones = allSanciones?.filter(s => s.usuario_id === authUser.id) || [];
-            
-            const amonestacionesActivas = userSanciones.filter(
-              s => s.tipo_sancion === 'amonestacion'
-            ).length || 0;
+      // Procesar usuarios con sus perfiles y sanciones
+      let usersWithProfiles = await Promise.all(
+        authUsers.users.map(async (authUser) => {
+          const perfil = perfiles?.find(p => p.usuario_id === authUser.id);
+          const userSanciones = allSanciones?.filter(s => s.usuario_id === authUser.id) || [];
+          
+          const amonestacionesActivas = userSanciones.filter(
+            s => s.tipo_sancion === 'amonestacion'
+          ).length || 0;
 
-            const suspensionActiva = userSanciones.some(
-              s => ['suspension_temporal', 'suspension_permanente'].includes(s.tipo_sancion)
-            ) || false;
+          const suspensionActiva = userSanciones.some(
+            s => ['suspension_temporal', 'suspension_permanente'].includes(s.tipo_sancion)
+          ) || false;
 
-            return {
-              ...authUser,
-              perfil: perfil ? {
-                ...perfil,
-                full_name: perfil.username || "",
-                generos: perfil.perfil_genero.map((g: { genero: string }) => g.genero),
-                habilidades: perfil.perfil_habilidad.map((h: { habilidad: string }) => h.habilidad),
-              } : null,
-              sancionActiva: userSanciones.length > 0,
-              suspensionActiva,
-              amonestacionesActivas,
-              prioridadOrden: suspensionActiva ? 2 : (amonestacionesActivas > 0 ? 1 : 0)
-            };
-          })
-      )).filter((user): user is UserWithSanciones => user !== null);
+          return {
+            ...authUser,
+            perfil: perfil ? {
+              ...perfil,
+              full_name: perfil.username || "",
+              generos: perfil.perfil_genero.map((g: { genero: string }) => g.genero),
+              habilidades: perfil.perfil_habilidad.map((h: { habilidad: string }) => h.habilidad),
+            } : null,
+            sancionActiva: userSanciones.length > 0,
+            suspensionActiva,
+            amonestacionesActivas
+          };
+        })
+      );
+
+      // Aplicar filtros después de procesar los usuarios
+      if (filter === 'suspended') {
+        usersWithProfiles = usersWithProfiles.filter(user => user.suspensionActiva);
+      } else if (filter === 'warned') {
+        usersWithProfiles = usersWithProfiles.filter(user => user.amonestacionesActivas > 0);
+      }
+
+      // Actualizar el total de usuarios según el filtro
+      setTotalUsers(usersWithProfiles.length);
 
       // Ordenar usuarios por prioridad
       const sortedUsers = usersWithProfiles.sort((a, b) => {
-        return b.prioridadOrden - a.prioridadOrden;
+        const prioridadA = a.suspensionActiva ? 2 : (a.amonestacionesActivas > 0 ? 1 : 0);
+        const prioridadB = b.suspensionActiva ? 2 : (b.amonestacionesActivas > 0 ? 1 : 0);
+        return prioridadB - prioridadA;
       });
 
       setUsers(sortedUsers);
@@ -775,11 +778,9 @@ export default function UserManagement() {
                 <div className="flex items-center">
                   {user.suspensionActiva ? (
                     <>
-                      {/* Badge para xs */}
                       <span className="inline-flex xs:hidden items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-red-100 text-red-800">
                         Sus.
                       </span>
-                      {/* Badge para sm+ */}
                       <span className="hidden xs:inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-red-100 text-red-800">
                         <FiAlertCircle className="mr-1 w-4 h-4" />
                         Suspendido
@@ -787,11 +788,9 @@ export default function UserManagement() {
                     </>
                   ) : user.amonestacionesActivas > 0 && (
                     <>
-                      {/* Badge para xs */}
                       <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-yellow-100 text-yellow-800">
                         {user.amonestacionesActivas} Sanciones
                       </span>
-                      {/* Badge para sm+ */}
                       <span className="hidden items-center px-2 py-1 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
                         {user.amonestacionesActivas} {user.amonestacionesActivas === 1 ? 'Amonestación' : 'Amonestaciones'}
                       </span>
@@ -855,191 +854,214 @@ export default function UserManagement() {
     </li>
   );
 
+  const fetchUserStats = async () => {
+    try {
+      // Total de usuarios
+      const { count: totalCount } = await supabase
+        .from('perfil')
+        .select('*', { count: 'exact', head: true });
+
+      // Usuarios únicos con amonestaciones activas
+      const { data: warnedUsers } = await supabase
+        .from('sancion_administrativa')
+        .select('usuario_id')
+        .eq('tipo_sancion', 'amonestacion')
+        .eq('estado', 'activa');
+
+      const uniqueWarnedUsers = new Set(warnedUsers?.map(u => u.usuario_id) || []);
+
+      // Usuarios suspendidos (usando la columna suspended)
+      const { count: suspendedCount } = await supabase
+        .from('perfil')
+        .select('*', { count: 'exact', head: true })
+        .eq('suspended', true);
+
+      setUserStats({
+        totalUsers: totalCount || 0,
+        warnedUsers: uniqueWarnedUsers.size,
+        suspendedUsers: suspendedCount || 0
+      });
+    } catch (error) {
+      console.error('Error al obtener estadísticas:', error);
+    }
+  };
+
+  // Agregar el renderizado del modal de detalles
+  const renderDetailsModal = () => {
+    const user = users.find(u => u.id === expandedUser);
+    if (!user) return null;
+
+    return (
+      <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+        <div className="relative top-20 mx-auto p-5 border w-[600px] shadow-lg rounded-md bg-white">
+          <div className="mt-3">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-medium leading-6 text-gray-900">
+                Detalles del Usuario
+              </h3>
+              <button
+                onClick={() => setExpandedUser(null)}
+                className="text-gray-400 hover:text-gray-500"
+              >
+                <span className="sr-only">Cerrar</span>
+                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <p><span className="font-medium">Nombre completo:</span> {user.user_metadata?.full_name || 'N/A'}</p>
+                <p><span className="font-medium">Username:</span> {user.perfil?.username || 'N/A'}</p>
+                <p><span className="font-medium">Email:</span> {user.email || 'N/A'}</p>
+                <p><span className="font-medium">Teléfono:</span> {user.perfil?.numtelefono || 'N/A'}</p>
+                <p><span className="font-medium">Sexo:</span> {user.perfil?.sexo || 'N/A'}</p>
+                <p><span className="font-medium">Ubicación:</span> {user.perfil?.ubicacion || 'N/A'}</p>
+                <p><span className="font-medium">Nacionalidad:</span> {user.perfil?.nacionalidad || 'N/A'}</p>
+              </div>
+              <div className="space-y-2">
+                <p><span className="font-medium">Edad:</span> {user.perfil?.edad || 'N/A'}</p>
+                <p><span className="font-medium">Promedio valoraciones:</span> {user.perfil?.promedio_valoraciones?.toFixed(1) || 'N/A'}</p>
+                <p><span className="font-medium">Puntos reputación:</span> {user.perfil?.puntos_reputacion || 'N/A'}</p>
+                <p><span className="font-medium">Géneros:</span> {user.perfil?.generos?.join(', ') || 'N/A'}</p>
+                <p><span className="font-medium">Habilidades:</span> {user.perfil?.habilidades?.join(', ') || 'N/A'}</p>
+              </div>
+            </div>
+
+            <div className="mt-5">
+              <button
+                onClick={() => setExpandedUser(null)}
+                className="w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 sm:text-sm"
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
-    <div className="container mx-auto px-1 xs:px-2 sm:px-4 md:px-6 lg:px-8 py-2 xs:py-4 sm:py-6">
-      {/* Header más compacto en móvil */}
-      <div className="flex flex-col xs:flex-row justify-between items-start xs:items-center mb-3 xs:mb-4 sm:mb-6">
-        <h1 className="text-lg xs:text-xl sm:text-2xl lg:text-3xl font-bold text-primary-700 mb-2 xs:mb-0">
-          Gestión de Usuarios
-        </h1>
+    <div className="container mx-auto px-4 py-8">
+      {/* Header con botón de volver */}
+      <div className="flex justify-between items-center mb-8">
+        <h1 className="text-3xl font-bold text-primary-700">Gestión de Usuarios</h1>
         <Link 
           href="/" 
-          className="w-full xs:w-auto bg-primary-500 text-white px-2 py-1 xs:px-3 sm:px-4 xs:py-1.5 rounded text-xs xs:text-sm transition-all duration-300 hover:bg-primary-600 text-center"
+          className="bg-primary-500 text-white px-4 py-2 rounded hover:bg-primary-600 transition duration-300"
         >
           Volver al Menú Principal
         </Link>
       </div>
 
-      {/* Búsqueda y Filtros más compactos */}
-      <div className="mb-4 xs:mb-6 space-y-2 xs:space-y-0">
-        <div className="flex flex-col xs:flex-row gap-2 xs:gap-3">
-          <input
-            type="text"
-            placeholder="Buscar por nombre de usuario..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="flex-1 px-3 py-1.5 xs:py-2 border border-gray-300 rounded-md text-xs xs:text-sm focus:ring-primary-500 focus:border-primary-500"
-          />
-          
-          <select
-            value={filter}
-            onChange={(e) => setFilter(e.target.value as 'all' | 'suspended' | 'warned')}
-            className="w-full xs:w-auto px-3 py-1.5 xs:py-2 border border-gray-300 rounded-md text-xs xs:text-sm focus:ring-primary-500 focus:border-primary-500"
-          >
-            <option value="all">Todos los usuarios</option>
-            <option value="suspended">Suspendidos</option>
-            <option value="warned">Amonestados</option>
-          </select>
-        </div>
-      </div>
-
-      {/* Lista de usuarios más compacta */}
-      {loading && (
-        <div className="text-center text-xs xs:text-sm sm:text-base">
-          Cargando usuarios...
-        </div>
-      )}
-      
-      {error && (
-        <div className="text-center text-xs xs:text-sm sm:text-base text-danger-600">
-          Error: {error}
-        </div>
-      )}
-      
-      {!loading && !error && (
-        <>
-          {users.length > 0 ? (
-            <div className="bg-white shadow-sm xs:shadow-md rounded-lg overflow-hidden w-[98%] xs:w-[350px] sm:w-[96%] mx-auto">
-              <ul className="divide-y divide-gray-100 xs:divide-gray-200">
-                {users.map((user) => renderUserItem(user))}
-              </ul>
+      {/* Estadísticas de Usuarios */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+          <div className="flex items-center">
+            <div className="p-3 bg-blue-50 rounded-lg">
+              <FiUsers className="h-6 w-6 text-blue-600" />
             </div>
-          ) : (
-            <div className="text-center p-8 bg-white rounded-lg shadow-md">
-              <div className="text-lg font-medium text-gray-900 mb-2">
-                No se encontraron usuarios
-              </div>
-              {searchTerm && (
-                <div className="text-sm text-gray-500">
-                  No hay resultados para "{searchTerm}"
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Paginación solo si hay usuarios */}
-          {users.length > 0 && (
-            <div className="mt-4 xs:mt-6 flex justify-between items-center bg-white p-2 xs:p-3 rounded-lg shadow-sm xs:shadow-md">
-              <button
-                onClick={() => handlePageChange(currentPage - 1)}
-                disabled={currentPage === 1}
-                className="bg-primary-500 text-white px-2 xs:px-3 py-1 xs:py-1.5 rounded disabled:bg-gray-300 text-xs xs:text-sm font-medium transition-colors duration-200 ease-in-out hover:bg-primary-600 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-opacity-50"
-              >
-                Anterior
-              </button>
-              <span className="text-xs xs:text-sm font-medium text-gray-700">
-                Página {currentPage} de {totalPages}
-              </span>
-              <button
-                onClick={() => handlePageChange(currentPage + 1)}
-                disabled={currentPage === totalPages}
-                className="bg-primary-500 text-white px-2 xs:px-3 py-1 xs:py-1.5 rounded disabled:bg-gray-300 text-xs xs:text-sm font-medium transition-colors duration-200 ease-in-out hover:bg-primary-600 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-opacity-50"
-              >
-                Siguiente
-              </button>
-            </div>
-          )}
-        </>
-      )}
-
-      {expandedUser && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50" id="my-modal">
-          <div className="relative top-4 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-white">
-            <div className="mt-2">
-              <h3 className="text-2xl leading-6 font-bold text-primary-700 text-center mb-6">Detalles del Usuario</h3>
-              <div className="mt-2 px-4 py-5 max-h-[70vh] overflow-y-auto">
-                {(() => {
-                  const user = getExpandedUserDetails();
-                  if (!user) return <p className="text-lg">No se encontraron detalles del usuario.</p>;
-                  return (
-                    <div className="space-y-6 text-base">
-                      <div className="flex items-center justify-center mb-6">
-                        {user.perfil?.foto_perfil && getValidImageUrl(user.perfil.foto_perfil) ? (
-                          <Image
-                            src={getValidImageUrl(user.perfil.foto_perfil) as string}
-                            alt="Foto de perfil"
-                            width={120}
-                            height={120}
-                            className="rounded-full object-cover"
-                          />
-                        ) : (
-                          <div className="w-32 h-32 bg-gray-300 rounded-full flex items-center justify-center">
-                            <span className="text-4xl text-gray-600">{user.perfil?.full_name?.[0] || user.email?.[0]}</span>
-                          </div>
-                        )}
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div>
-                          <p className="text-lg"><span className="font-semibold">Nombre:</span> {user.perfil?.full_name || 'No especificado'}</p>
-                          <p className="text-lg"><span className="font-semibold">Username:</span> {user.perfil?.username || 'No especificado'}</p>
-                          <p className="text-lg"><span className="font-semibold">Email:</span> {user.email}</p>
-                          <p className="text-lg"><span className="font-semibold">Teléfono:</span> {user.perfil?.numtelefono || 'No especificado'}</p>
-                          <p className="text-lg"><span className="font-semibold">Edad:</span> {user.perfil?.edad || 'No especificada'}</p>
-                          <p className="text-lg"><span className="font-semibold">Sexo:</span> {user.perfil?.sexo || 'No especificado'}</p>
-                        </div>
-                        <div>
-                          <p className="text-lg"><span className="font-semibold">Ubicación:</span> {user.perfil?.ubicacion || 'No especificada'}</p>
-                          <p className="text-lg"><span className="font-semibold">Nacionalidad:</span> {user.perfil?.nacionalidad || 'No especificada'}</p>
-                          <div className="mt-4">
-                            <p className="text-lg font-semibold">Biografía:</p>
-                            <p className="text-base mt-1">{user.perfil?.biografia || 'No especificada'}</p>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="mt-6">
-                        <p className="text-lg font-semibold mb-2">Géneros musicales:</p>
-                        <ul className="list-disc list-inside grid grid-cols-2 gap-2">
-                          {user.perfil?.generos.map((genero, index) => (
-                            <li key={index} className="text-base">{genero}</li>
-                          ))}
-                        </ul>
-                      </div>
-                      <div className="mt-6">
-                        <p className="text-lg font-semibold mb-2">Habilidades:</p>
-                        <ul className="list-disc list-inside grid grid-cols-2 gap-2">
-                          {user.perfil?.habilidades.map((habilidad, index) => (
-                            <li key={index} className="text-base">{habilidad}</li>
-                          ))}
-                        </ul>
-                      </div>
-                      <div className="mt-6">
-                        <p className="text-lg font-semibold mb-2">Redes sociales:</p>
-                        <ul className="list-disc list-inside">
-                          {user.perfil?.red_social.map((red, index) => (
-                            <li key={index} className="text-base">{red.nombre}: <a href={red.url} target="_blank" rel="noopener noreferrer" className="text-primary-600 hover:underline">{red.url}</a></li>
-                          ))}
-                        </ul>
-                      </div>
-                    </div>
-                  );
-                })()}
-              </div>
-              <div className="items-center px-4 py-3 mt-6">
-                <button
-                  id="ok-btn"
-                  className="px-6 py-3 bg-primary-500 text-white text-lg font-medium rounded-md w-full shadow-sm hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-300 transition duration-300"
-                  onClick={() => setExpandedUser(null)}
-                >
-                  Cerrar
-                </button>
-              </div>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-500">Total Usuarios</p>
+              <p className="text-2xl font-semibold text-gray-900">{userStats.totalUsers}</p>
             </div>
           </div>
         </div>
+
+        <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+          <div className="flex items-center">
+            <div className="p-3 bg-yellow-50 rounded-lg">
+              <FiAlertCircle className="h-6 w-6 text-yellow-600" />
+            </div>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-500">Amonestados</p>
+              <p className="text-2xl font-semibold text-gray-900">{userStats.warnedUsers}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+          <div className="flex items-center">
+            <div className="p-3 bg-red-50 rounded-lg">
+              <FiFrown className="h-6 w-6 text-red-600" />
+            </div>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-500">Suspendidos</p>
+              <p className="text-2xl font-semibold text-gray-900">{userStats.suspendedUsers}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Barra de búsqueda y filtros */}
+      <div className="mb-6 flex flex-col sm:flex-row gap-4">
+        <input
+          type="text"
+          placeholder="Buscar usuario..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="flex-1 p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+        />
+        <select
+          value={filter}
+          onChange={(e) => {
+            setFilter(e.target.value as 'all' | 'suspended' | 'warned');
+            setCurrentPage(1); // Resetear a la primera página al cambiar el filtro
+          }}
+          className="p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+        >
+          <option value="all">Todos los usuarios</option>
+          <option value="suspended">Usuarios suspendidos</option>
+          <option value="warned">Usuarios amonestados</option>
+        </select>
+      </div>
+
+      {/* Lista de usuarios */}
+      {loading ? (
+        <div className="flex justify-center items-center py-8">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-500"></div>
+        </div>
+      ) : error ? (
+        <div className="text-center text-red-500 py-8">{error}</div>
+      ) : (
+        <div className="bg-white rounded-lg shadow overflow-hidden">
+          <ul className="divide-y divide-gray-200">
+            {users.map((user) => renderUserItem(user))}
+          </ul>
+        </div>
       )}
 
+      {/* Paginación */}
+      {!loading && !error && (
+        <div className="mt-6 flex justify-center">
+          <nav className="flex items-center space-x-2">
+            <button
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+              className="px-3 py-1 rounded-md bg-primary-100 text-primary-700 disabled:opacity-50"
+            >
+              Anterior
+            </button>
+            <span className="px-3 py-1">
+              Página {currentPage} de {totalPages}
+            </span>
+            <button
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              className="px-3 py-1 rounded-md bg-primary-100 text-primary-700 disabled:opacity-50"
+            >
+              Siguiente
+            </button>
+          </nav>
+        </div>
+      )}
+
+      {/* Modales */}
       {showSancionModal && renderSancionModal()}
       {showActivityModal && renderActivityModal()}
+      {expandedUser && renderDetailsModal()}
     </div>
   )
 }
