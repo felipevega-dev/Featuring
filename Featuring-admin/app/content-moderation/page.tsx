@@ -22,14 +22,14 @@ export default function ContentModerationMain() {
         </Link>
 
         {/* Canciones y Carátulas */}
-        <Link href="/content-moderation/songs" 
+        <Link href="/content-moderation/canciones" 
           className="flex items-center justify-center p-6 bg-green-500 text-white rounded-lg shadow-md hover:bg-green-600 transition duration-300">
           <FiMusic className="mr-3" size={24} />
           <span className="text-xl font-semibold">Canciones de Comunidad</span>
         </Link>
 
         {/* Fotos de Perfil */}
-        <Link href="/content-moderation/profile-photos" 
+        <Link href="/content-moderation/fotos_perfil" 
           className="flex items-center justify-center p-6 bg-purple-500 text-white rounded-lg shadow-md hover:bg-purple-600 transition duration-300">
           <FiUser className="mr-3" size={24} />
           <span className="text-xl font-semibold">Fotos de Perfil</span>
