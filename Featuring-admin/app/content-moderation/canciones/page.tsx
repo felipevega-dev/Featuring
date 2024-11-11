@@ -44,81 +44,66 @@ export default function SongsModeration() {
   const supabase = createClientComponentClient()
   const supabaseAdmin = createClientComponentClient()
 
-  // Cargar canciones aprobadas del localStorage al iniciar
-  useEffect(() => {
-    const savedApprovedSongs = localStorage.getItem('approvedSongs')
-    if (savedApprovedSongs) {
-      setApprovedSongs(JSON.parse(savedApprovedSongs))
+  // Agregar estado para el reproductor global
+  const [globalAudioPlayer, setGlobalAudioPlayer] = useState<{
+    currentSong: SongItem | null;
+    progress: number;
+    duration: number;
+  }>({
+    currentSong: null,
+    progress: 0,
+    duration: 0
+  });
+
+  // Función para actualizar el progreso del audio
+  const handleTimeUpdate = (e: React.SyntheticEvent<HTMLAudioElement>) => {
+    const audio = e.target as HTMLAudioElement;
+    setGlobalAudioPlayer(prev => ({
+      ...prev,
+      progress: audio.currentTime,
+      duration: audio.duration
+    }));
+  };
+
+  // Función para cambiar la posición del audio
+  const handleSeek = (value: number) => {
+    const audioElement = document.getElementById(globalAudioPlayer.currentSong?.id.toString() || '') as HTMLAudioElement;
+    if (audioElement) {
+      audioElement.currentTime = value;
+      setGlobalAudioPlayer(prev => ({
+        ...prev,
+        progress: value
+      }));
     }
-  }, [])
+  };
 
-  useEffect(() => {
-    fetchSongs()
-  }, [])
-
-  useEffect(() => {
-    const fetchSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      setSession(session)
-    }
-    fetchSession()
-  }, [])
-
-  async function fetchSongs() {
-    try {
-      setLoading(true)
-      
-      // Obtener canciones directamente de la tabla cancion
-      const { data: songs, error: songsError } = await supabase
-        .from('cancion')
-        .select(`
-          *,
-          usuario:usuario_id(username)
-        `)
-        .order('created_at', { ascending: false });
-
-      if (songsError) throw songsError;
-
-      // Obtener IDs de canciones aprobadas del localStorage
-      const savedApprovedSongs = JSON.parse(localStorage.getItem('approvedSongs') || '[]')
-      const approvedIds = new Set(savedApprovedSongs.map((v: SongItem) => v.id))
-      
-      // Filtrar canciones pendientes excluyendo las aprobadas
-      setPendingSongs((songs || []).filter(song => !approvedIds.has(song.id)))
-      
-      // Mantener solo las canciones aprobadas que aún existen
-      const currentApprovedSongs = savedApprovedSongs.filter((song: SongItem) => 
-        songs?.some(v => v.id === song.id)
-      )
-      setApprovedSongs(currentApprovedSongs)
-      localStorage.setItem('approvedSongs', JSON.stringify(currentApprovedSongs))
-
-    } catch (error) {
-      console.error('Error fetching songs:', error)
-      setError('No se pudieron cargar las canciones')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handlePlayAudio = (audioId: string) => {
-    if (currentlyPlaying === audioId) {
-      setCurrentlyPlaying(null)
-      // Pausar el audio actual
-      const audioElement = document.getElementById(audioId) as HTMLAudioElement
-      if (audioElement) audioElement.pause()
-    } else {
-      // Pausar el audio anterior si existe
-      if (currentlyPlaying) {
-        const previousAudio = document.getElementById(currentlyPlaying) as HTMLAudioElement
-        if (previousAudio) previousAudio.pause()
+  // Modificar handlePlayAudio para usar el reproductor global
+  const handlePlayAudio = (song: SongItem) => {
+    if (globalAudioPlayer.currentSong?.id === song.id) {
+      const audioElement = document.getElementById(song.id.toString()) as HTMLAudioElement;
+      if (audioElement.paused) {
+        audioElement.play();
+      } else {
+        audioElement.pause();
       }
-      setCurrentlyPlaying(audioId)
-      // Reproducir el nuevo audio
-      const audioElement = document.getElementById(audioId) as HTMLAudioElement
-      if (audioElement) audioElement.play()
+    } else {
+      // Pausar la canción anterior si existe
+      if (globalAudioPlayer.currentSong) {
+        const previousAudio = document.getElementById(globalAudioPlayer.currentSong.id.toString()) as HTMLAudioElement;
+        if (previousAudio) previousAudio.pause();
+      }
+      // Reproducir la nueva canción
+      const audioElement = document.getElementById(song.id.toString()) as HTMLAudioElement;
+      if (audioElement) {
+        audioElement.play();
+        setGlobalAudioPlayer({
+          currentSong: song,
+          progress: 0,
+          duration: audioElement.duration
+        });
+      }
     }
-  }
+  };
 
   const handleAudioEnded = () => {
     setCurrentlyPlaying(null)
@@ -176,9 +161,17 @@ export default function SongsModeration() {
 
       if (sancionError) throw sancionError
 
-      // 2. Si se seleccionó eliminar el contenido, eliminar la canción y su carátula
+      // 2. Si se seleccionó eliminar el contenido
       if (sancionForm.eliminarContenido) {
-        // Eliminar archivo de audio
+        // Eliminar de la tabla cancion primero
+        const { error: deleteError } = await supabase
+          .from('cancion')
+          .delete()
+          .eq('id', selectedSong.id)
+
+        if (deleteError) throw deleteError
+
+        // Luego eliminar archivos del storage
         const { error: audioError } = await supabase
           .storage
           .from('canciones')
@@ -186,21 +179,18 @@ export default function SongsModeration() {
 
         if (audioError) throw audioError
 
-        // Eliminar carátula si existe
         if (selectedSong.caratula) {
-          const coverPath = selectedSong.archivo_audio.replace('canciones', 'caratulas')
           const { error: coverError } = await supabase
             .storage
             .from('caratulas')
-            .remove([coverPath])
+            .remove([selectedSong.caratula])
 
           if (coverError) throw coverError
         }
       }
 
       // 3. Actualizar la lista de canciones
-      setPendingSongs(pendingSongs.filter(v => v.id !== selectedSong.id))
-      setApprovedSongs(approvedSongs.filter(v => v.id !== selectedSong.id))
+      await fetchSongs() // Volver a cargar las canciones desde la base de datos
 
       // 4. Limpiar el estado y cerrar el modal
       setShowSancionModal(false)
@@ -324,6 +314,76 @@ export default function SongsModeration() {
     </div>
   )
 
+  async function fetchSongs() {
+    try {
+      setLoading(true)
+      
+      // Obtener canciones directamente de la tabla cancion
+      const { data: songs, error: songsError } = await supabase
+        .from('cancion')
+        .select(`
+          *,
+          usuario:perfil!usuario_id(username)
+        `)
+        .order('created_at', { ascending: false });
+
+      if (songsError) {
+        console.error('Error fetching songs:', songsError);
+        throw songsError;
+      }
+
+      console.log('Canciones obtenidas:', songs); // Para debug
+
+      // Obtener IDs de canciones aprobadas del localStorage
+      const savedApprovedSongs = JSON.parse(localStorage.getItem('approvedSongs') || '[]')
+      const approvedIds = new Set(savedApprovedSongs.map((v: SongItem) => v.id))
+      
+      // Filtrar canciones pendientes excluyendo las aprobadas
+      setPendingSongs((songs || []).filter(song => !approvedIds.has(song.id)))
+      
+      // Mantener solo las canciones aprobadas que aún existen
+      const currentApprovedSongs = savedApprovedSongs.filter((song: SongItem) => 
+        songs?.some(v => v.id === song.id)
+      )
+      setApprovedSongs(currentApprovedSongs)
+      localStorage.setItem('approvedSongs', JSON.stringify(currentApprovedSongs))
+
+    } catch (error) {
+      console.error('Error fetching songs:', error)
+      setError('No se pudieron cargar las canciones')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Agregar useEffect para cargar las canciones
+  useEffect(() => {
+    fetchSongs()
+  }, [])
+
+  // Agregar useEffect para cargar la sesión
+  useEffect(() => {
+    const fetchSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      setSession(session)
+    }
+    fetchSession()
+  }, [])
+
+  // Modificar el renderizado de los botones de reproducción
+  const renderPlayButton = (song: SongItem, isGlobal: boolean = false) => (
+    <button
+      onClick={() => handlePlayAudio(song)}
+      className={`${isGlobal ? 'p-2 rounded-full hover:bg-gray-100' : 'w-full bg-gray-100 p-4 rounded-lg hover:bg-gray-200 transition-colors flex items-center justify-center'}`}
+    >
+      {currentlyPlaying === song.id.toString() ? (
+        <FiPause className={`${isGlobal ? 'w-6 h-6' : 'w-4 h-4'} text-primary-600`} />
+      ) : (
+        <FiPlay className={`${isGlobal ? 'w-6 h-6' : 'w-4 h-4'} text-primary-600`} />
+      )}
+    </button>
+  )
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-8">
@@ -345,6 +405,42 @@ export default function SongsModeration() {
         </div>
       </div>
 
+      {/* Reproductor Global */}
+      {globalAudioPlayer.currentSong && (
+        <div className="fixed bottom-0 left-0 right-0 bg-white shadow-lg p-4">
+          <div className="max-w-7xl mx-auto flex items-center space-x-4">
+            {globalAudioPlayer.currentSong.caratula && (
+              <Image 
+                src={globalAudioPlayer.currentSong.caratula}
+                alt="Now playing"
+                width={50}
+                height={50}
+                className="rounded-lg"
+              />
+            )}
+            <div className="flex-1">
+              <p className="font-semibold">{globalAudioPlayer.currentSong.titulo}</p>
+              <p className="text-sm text-gray-600">{globalAudioPlayer.currentSong.usuario?.username}</p>
+            </div>
+            <div className="flex-1">
+              <input
+                type="range"
+                min={0}
+                max={globalAudioPlayer.duration || 100}
+                value={globalAudioPlayer.progress}
+                onChange={(e) => handleSeek(Number(e.target.value))}
+                className="w-full"
+              />
+              <div className="flex justify-between text-sm text-gray-600">
+                <span>{formatTime(globalAudioPlayer.progress)}</span>
+                <span>{formatTime(globalAudioPlayer.duration)}</span>
+              </div>
+            </div>
+            {renderPlayButton(globalAudioPlayer.currentSong, true)}
+          </div>
+        </div>
+      )}
+
       {/* Sección de Canciones Pendientes */}
       <div className="mb-12">
         <h2 className="text-2xl font-bold text-primary-700 mb-6">Canciones Pendientes</h2>
@@ -353,62 +449,48 @@ export default function SongsModeration() {
             <p>No hay canciones pendientes para moderar</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
             {pendingSongs.map((song) => (
               <div key={song.id} className="bg-white rounded-lg shadow-md overflow-hidden">
-                <div className="p-4">
+                <div className="p-3"> {/* Reducir el padding */}
                   {song.caratula && (
                     <Image 
                       src={song.caratula}
                       alt="Song cover"
-                      width={400}
-                      height={400}
-                      className="w-full rounded-lg mb-4 object-cover aspect-square"
+                      width={200} // Reducir el tamaño
+                      height={200}
+                      className="w-full rounded-lg mb-3 object-cover aspect-square"
                     />
                   )}
-                  <div className="mb-4">
-                    <audio 
-                      id={song.id.toString()}
-                      src={song.archivo_audio}
-                      onEnded={handleAudioEnded}
-                      className="hidden"
-                    />
-                    <button
-                      onClick={() => handlePlayAudio(song.id.toString())}
-                      className="w-full bg-gray-100 p-4 rounded-lg hover:bg-gray-200 transition-colors flex items-center justify-center"
-                    >
-                      {currentlyPlaying === song.id.toString() ? (
-                        <FiPause className="w-8 h-8 text-primary-600" />
-                      ) : (
-                        <FiPlay className="w-8 h-8 text-primary-600" />
-                      )}
-                    </button>
-                  </div>
-                  <div className="space-y-2">
-                    <p className="text-sm text-gray-600">
-                      <span className="font-semibold">Título:</span> {song.titulo}
+                  <audio 
+                    id={song.id.toString()}
+                    src={song.archivo_audio}
+                    onEnded={handleAudioEnded}
+                    onTimeUpdate={handleTimeUpdate}
+                    className="hidden"
+                  />
+                  <div className="space-y-1"> {/* Reducir el espaciado */}
+                    <p className="text-sm font-semibold truncate">{song.titulo}</p>
+                    <p className="text-xs text-gray-600 truncate">
+                      {song.usuario?.username || 'Desconocido'}
                     </p>
-                    <p className="text-sm text-gray-600">
-                      <span className="font-semibold">Usuario:</span> {song.usuario?.username || 'Desconocido'}
-                    </p>
-                    <p className="text-sm text-gray-600">
-                      <span className="font-semibold">Fecha:</span> {new Date(song.created_at).toLocaleString()}
+                    <p className="text-xs text-gray-500">
+                      {new Date(song.created_at).toLocaleDateString()}
                     </p>
                   </div>
-                  <div className="mt-4 flex justify-end space-x-2">
+                  <div className="mt-2 flex justify-end space-x-1"> {/* Reducir el espaciado */}
+                    {renderPlayButton(song)}
                     <button
                       onClick={() => handleApprove(song)}
-                      className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 transition-colors flex items-center"
+                      className="p-2 text-sm bg-green-500 text-white rounded hover:bg-green-600"
                     >
-                      <FiCheck className="mr-2" />
-                      Aprobar
+                      <FiCheck className="w-4 h-4" />
                     </button>
                     <button
                       onClick={() => handleReject(song)}
-                      className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 transition-colors flex items-center"
+                      className="p-2 text-sm bg-red-500 text-white rounded hover:bg-red-600"
                     >
-                      <FiTrash2 className="mr-2" />
-                      Rechazar
+                      <FiTrash2 className="w-4 h-4" />
                     </button>
                   </div>
                 </div>
@@ -426,7 +508,7 @@ export default function SongsModeration() {
             <p>No hay canciones aprobadas</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
             {approvedSongs.map((song) => (
               <div key={song.id} className="bg-white rounded-lg shadow-md overflow-hidden">
                 <div className="p-4">
@@ -446,16 +528,7 @@ export default function SongsModeration() {
                       onEnded={handleAudioEnded}
                       className="hidden"
                     />
-                    <button
-                      onClick={() => handlePlayAudio(song.id.toString())}
-                      className="w-full bg-gray-100 p-4 rounded-lg hover:bg-gray-200 transition-colors flex items-center justify-center"
-                    >
-                      {currentlyPlaying === song.id.toString() ? (
-                        <FiPause className="w-8 h-8 text-primary-600" />
-                      ) : (
-                        <FiPlay className="w-8 h-8 text-primary-600" />
-                      )}
-                    </button>
+                    {renderPlayButton(song)}
                   </div>
                   <div className="space-y-2">
                     <p className="text-sm text-gray-600">
@@ -488,3 +561,10 @@ export default function SongsModeration() {
     </div>
   )
 }
+
+// Función auxiliar para formatear el tiempo
+const formatTime = (seconds: number) => {
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = Math.floor(seconds % 60);
+  return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+};
