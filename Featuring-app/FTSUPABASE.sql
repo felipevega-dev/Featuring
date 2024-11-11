@@ -406,11 +406,17 @@ CREATE TABLE historial_premium (
 ------------------------------------------
 -- 3. CREATE POLICIES
 ------------------------------------------
--- chat multimedia
-CREATE POLICY "permitirtodo 1d5ffb1_0" ON storage.objects FOR SELECT TO public USING (bucket_id = 'chat_media');
-CREATE POLICY "permitirtodo 1d5ffb1_1" ON storage.objects FOR INSERT TO public WITH CHECK (bucket_id = 'chat_media');
-CREATE POLICY "permitirtodo 1d5ffb1_2" ON storage.objects FOR UPDATE TO public USING (bucket_id = 'chat_media');
-CREATE POLICY "permitirtodo 1d5ffb1_3" ON storage.objects FOR DELETE TO public USING (bucket_id = 'chat_media');
+-- Crear políticas para chat_images
+CREATE POLICY "permitirtodo_chat_images_0" ON storage.objects FOR SELECT TO public USING (bucket_id = 'chat_images');
+CREATE POLICY "permitirtodo_chat_images_1" ON storage.objects FOR INSERT TO public WITH CHECK (bucket_id = 'chat_images');
+CREATE POLICY "permitirtodo_chat_images_2" ON storage.objects FOR UPDATE TO public USING (bucket_id = 'chat_images');
+CREATE POLICY "permitirtodo_chat_images_3" ON storage.objects FOR DELETE TO public USING (bucket_id = 'chat_images');
+
+-- Crear políticas para chat_videos
+CREATE POLICY "permitirtodo_chat_videos_0" ON storage.objects FOR SELECT TO public USING (bucket_id = 'chat_videos');
+CREATE POLICY "permitirtodo_chat_videos_1" ON storage.objects FOR INSERT TO public WITH CHECK (bucket_id = 'chat_videos');
+CREATE POLICY "permitirtodo_chat_videos_2" ON storage.objects FOR UPDATE TO public USING (bucket_id = 'chat_videos');
+CREATE POLICY "permitirtodo_chat_videos_3" ON storage.objects FOR DELETE TO public USING (bucket_id = 'chat_videos');
 
 -- chat audios
 CREATE POLICY "permitirtodo zgnxxx_0" ON storage.objects FOR SELECT TO public USING (bucket_id = 'audio_messages');
@@ -799,34 +805,6 @@ AFTER INSERT ON perfil
 FOR EACH ROW
 EXECUTE FUNCTION create_default_preferences();
 
--- Función para actualizar el estado suspended
-CREATE OR REPLACE FUNCTION update_perfil_suspended()
-RETURNS TRIGGER AS $$
-BEGIN
-  IF NEW.estado = 'activa' AND 
-    (NEW.tipo_sancion = 'suspension_temporal' OR NEW.tipo_sancion = 'suspension_permanente') THEN
-    UPDATE perfil SET suspended = true WHERE usuario_id = NEW.usuario_id;
-  ELSIF NEW.estado = 'cumplida' OR NEW.estado = 'revocada' THEN
-    -- Verificar si no hay otras suspensiones activas
-    IF NOT EXISTS (
-      SELECT 1 FROM sancion_administrativa 
-      WHERE usuario_id = NEW.usuario_id 
-      AND estado = 'activa'
-      AND (tipo_sancion = 'suspension_temporal' OR tipo_sancion = 'suspension_permanente')
-    ) THEN
-      UPDATE perfil SET suspended = false WHERE usuario_id = NEW.usuario_id;
-    END IF;
-  END IF;
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
--- Crear trigger para mantener suspended actualizado
-CREATE TRIGGER trigger_update_perfil_suspended
-AFTER INSERT OR UPDATE ON sancion_administrativa
-FOR EACH ROW
-EXECUTE FUNCTION update_perfil_suspended();
-
 -- Función para obtener usuarios por país
 CREATE OR REPLACE FUNCTION get_users_by_country()
 RETURNS TABLE (country text, count bigint)
@@ -918,7 +896,9 @@ DECLARE
     songs_size BIGINT;
     covers_size BIGINT;
     profile_pics_size BIGINT;
-    chat_media_size BIGINT;
+    chat_videos_size BIGINT;
+    chat_images_size BIGINT;
+    audio_messages_size BIGINT;
     largest_files json;
 BEGIN
     -- Obtener tamaño total
@@ -948,9 +928,19 @@ BEGIN
     WHERE bucket_id = 'fotoperfil';
 
     SELECT COALESCE(SUM((metadata->>'size')::BIGINT), 0)
-    INTO chat_media_size
+    INTO chat_videos_size
     FROM storage.objects
-    WHERE bucket_id = 'chat_media';
+    WHERE bucket_id = 'chat_videos';
+
+    SELECT COALESCE(SUM((metadata->>'size')::BIGINT), 0)
+    INTO chat_images_size
+    FROM storage.objects
+    WHERE bucket_id = 'chat_images';
+
+    SELECT COALESCE(SUM((metadata->>'size')::BIGINT), 0)
+    INTO audio_messages_size
+    FROM storage.objects
+    WHERE bucket_id = 'audio_messages';
 
     -- Obtener los 10 archivos más grandes
     SELECT json_agg(files)
@@ -973,13 +963,17 @@ BEGIN
         'songs_size_gb', (songs_size::float / 1024 / 1024 / 1024),
         'covers_size_gb', (covers_size::float / 1024 / 1024 / 1024),
         'profile_pics_size_gb', (profile_pics_size::float / 1024 / 1024 / 1024),
-        'chat_media_size_gb', (chat_media_size::float / 1024 / 1024 / 1024),
+        'chat_videos_size_gb', (chat_videos_size::float / 1024 / 1024 / 1024),
+        'chat_images_size_gb', (chat_images_size::float / 1024 / 1024 / 1024),
+        'audio_messages_size_gb', (audio_messages_size::float / 1024 / 1024 / 1024),
         'storage_distribution', json_build_object(
             'videos', videos_size,
             'songs', songs_size,
             'covers', covers_size,
             'profile_pics', profile_pics_size,
-            'chat_media', chat_media_size
+            'chat_videos', chat_videos_size,
+            'chat_images', chat_images_size,
+            'audio_messages', audio_messages_size
         ),
         'largest_files', largest_files
     );
@@ -1217,3 +1211,85 @@ BEFORE UPDATE OF activo ON perfil_insignia
 FOR EACH ROW
 WHEN (NEW.activo IS DISTINCT FROM OLD.activo)
 EXECUTE FUNCTION toggle_insignia_activa();
+
+-- Función principal para manejar sanciones
+CREATE OR REPLACE FUNCTION handle_sanctions()
+RETURNS TRIGGER AS $$
+DECLARE
+    amonestaciones_count INTEGER;
+BEGIN
+    -- Si es una actualización y el estado cambió a 'revocada' o 'cumplida'
+    IF (TG_OP = 'UPDATE' AND 
+        (NEW.estado = 'revocada' OR NEW.estado = 'cumplida')) THEN
+        
+        -- Actualizar el estado suspended solo si no hay otras sanciones activas
+        UPDATE perfil 
+        SET suspended = EXISTS (
+            SELECT 1 
+            FROM sancion_administrativa 
+            WHERE usuario_id = NEW.usuario_id 
+            AND estado = 'activa'
+            AND (tipo_sancion = 'suspension_temporal' OR tipo_sancion = 'suspension_permanente')
+            AND id != NEW.id
+        )
+        WHERE usuario_id = NEW.usuario_id;
+        
+    -- Si es una inserción o actualización a estado 'activa'
+    ELSIF (TG_OP = 'INSERT' OR 
+           (TG_OP = 'UPDATE' AND NEW.estado = 'activa')) THEN
+        
+        -- Si es una suspensión, marcar como suspended
+        IF (NEW.tipo_sancion IN ('suspension_temporal', 'suspension_permanente')) THEN
+            UPDATE perfil 
+            SET suspended = true 
+            WHERE usuario_id = NEW.usuario_id;
+        
+        -- Si es una amonestación, verificar el número total de amonestaciones activas
+        ELSIF (NEW.tipo_sancion = 'amonestacion') THEN
+            SELECT COUNT(*)
+            INTO amonestaciones_count
+            FROM sancion_administrativa
+            WHERE usuario_id = NEW.usuario_id
+            AND tipo_sancion = 'amonestacion'
+            AND estado = 'activa';
+
+            -- Si con esta nueva amonestación llega a 3, crear una suspensión temporal automática
+            IF amonestaciones_count >= 3 THEN
+                INSERT INTO sancion_administrativa (
+                    usuario_id,
+                    admin_id,
+                    tipo_sancion,
+                    motivo,
+                    duracion_dias,
+                    estado,
+                    fecha_inicio,
+                    fecha_fin
+                ) VALUES (
+                    NEW.usuario_id,
+                    NEW.admin_id,
+                    'suspension_temporal',
+                    'Suspensión automática por acumular 3 amonestaciones',
+                    3, -- 3 días de suspensión
+                    'activa',
+                    NOW(),
+                    NOW() + INTERVAL '3 days'
+                );
+
+                -- Marcar las amonestaciones como cumplidas
+                UPDATE sancion_administrativa
+                SET estado = 'cumplida'
+                WHERE usuario_id = NEW.usuario_id
+                AND tipo_sancion = 'amonestacion'
+                AND estado = 'activa';
+
+                -- Actualizar el estado suspended del usuario
+                UPDATE perfil 
+                SET suspended = true 
+                WHERE usuario_id = NEW.usuario_id;
+            END IF;
+        END IF;
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;

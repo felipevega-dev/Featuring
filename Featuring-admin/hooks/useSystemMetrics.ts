@@ -7,19 +7,13 @@ interface StorageMetrics {
   songs_size_gb: number;
   covers_size_gb: number;
   profile_pics_size_gb: number;
-  chat_media_size_gb: number;
-  storage_distribution: {
-    videos: number;
-    songs: number;
-    covers: number;
-    profile_pics: number;
-    chat_media: number;
-  };
+  chat_videos_size_gb: number;
+  chat_images_size_gb: number;
+  audio_messages_size_gb: number;
   largest_files: Array<{
     bucket_id: string;
     name: string;
     size: number;
-    created_at: string;
   }>;
 }
 
@@ -41,14 +35,9 @@ export const useSystemMetrics = () => {
       songs_size_gb: 0,
       covers_size_gb: 0,
       profile_pics_size_gb: 0,
-      chat_media_size_gb: 0,
-      storage_distribution: {
-        videos: 0,
-        songs: 0,
-        covers: 0,
-        profile_pics: 0,
-        chat_media: 0
-      },
+      chat_videos_size_gb: 0,
+      chat_images_size_gb: 0,
+      audio_messages_size_gb: 0,
       largest_files: []
     },
     isLoading: true,
