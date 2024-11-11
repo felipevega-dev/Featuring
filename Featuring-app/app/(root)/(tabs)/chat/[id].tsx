@@ -19,12 +19,11 @@ import {
 import { supabase } from "@/lib/supabase";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { FontAwesome } from "@expo/vector-icons";
-import { Audio, Video } from "expo-av";
+import { Audio, Video, ResizeMode } from "expo-av";
 import * as ImagePicker from 'expo-image-picker';
 import AudioPlayer from '@/components/AudioPlayer';
 import { useUnreadMessages } from '@/contexts/UnreadMessagesContext';
 import Constants from 'expo-constants';
-import { ResizeMode } from 'expo-av';
 import { sendPushNotification } from '@/utils/pushNotifications';
 import { ReportButton } from '../../../../components/reports/ReportButton';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
@@ -613,6 +612,9 @@ export default function ChatDetail() {
     isCurrentUser: boolean;
     onLongPress: () => void;
   }) => {
+    // Añadir estado para controlar el modo de pantalla completa
+    const [isFullScreen, setIsFullScreen] = useState(false);
+
     return (
       <TouchableOpacity
         onLongPress={onLongPress}
@@ -621,7 +623,7 @@ export default function ChatDetail() {
         <View
           className={`rounded-lg p-3 ${
             isCurrentUser ? 'bg-primary-500' : 'bg-primary-100'
-          } ${['audio', 'imagen', 'video', 'archivo'].includes(item.tipo_contenido) ? 'w-[80%]' : 'max-w-[80%]'}`}
+          } ${['audio', 'imagen', 'video_chat', 'archivo'].includes(item.tipo_contenido) ? 'w-[85%]' : 'max-w-[80%]'}`}
         >
           {item.tipo_contenido === 'texto' && (
             <Text
@@ -636,20 +638,45 @@ export default function ChatDetail() {
             <AudioPlayer uri={item.url_contenido} />
           )}
           {item.tipo_contenido === 'imagen' && item.url_contenido && (
-            <Image
-              source={{ uri: item.url_contenido }}
-              style={{ width: '100%', height: 200, borderRadius: 10 }}
-              resizeMode="cover"
-            />
+            <TouchableOpacity 
+              onPress={() => setIsFullScreen(true)}
+              className="relative w-full"
+            >
+              <Image
+                source={{ uri: item.url_contenido }}
+                style={{ width: '100%', height: 200, borderRadius: 10 }}
+                resizeMode="cover"
+              />
+            </TouchableOpacity>
           )}
           {item.tipo_contenido === 'video_chat' && item.url_contenido && (
-            <Video
-              source={{ uri: item.url_contenido }}
-              style={{ width: '100%', height: 200, borderRadius: 10 }}
-              useNativeControls
-              resizeMode={ResizeMode.CONTAIN}
-              isLooping
-            />
+            <TouchableOpacity 
+              onPress={() => setIsFullScreen(true)}
+              className="relative w-full"
+            >
+              <Video
+                source={{ uri: item.url_contenido }}
+                style={{
+                  width: '100%',
+                  aspectRatio: 16/9,
+                  borderRadius: 10,
+                }}
+                useNativeControls
+                resizeMode={ResizeMode.COVER}
+                isLooping={false}
+                shouldPlay={false}
+              />
+              {/* Overlay semitransparente con icono de play */}
+              <View 
+                className="absolute inset-0 bg-black/20 items-center justify-center rounded-lg"
+              >
+                <FontAwesome 
+                  name="play-circle" 
+                  size={50} 
+                  color="rgba(255,255,255,0.9)" 
+                />
+              </View>
+            </TouchableOpacity>
           )}
           <Text
             className={`text-xs mt-1 ${
@@ -659,6 +686,51 @@ export default function ChatDetail() {
             {formatTime(item.fecha_envio)}
           </Text>
         </View>
+
+        {/* Modal para imagen/video en pantalla completa */}
+        <Modal
+          visible={isFullScreen}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setIsFullScreen(false)}
+        >
+          <View className="flex-1 bg-black">
+            <TouchableOpacity 
+              className="absolute top-10 right-4 z-10 bg-black/50 p-2 rounded-full"
+              onPress={() => setIsFullScreen(false)}
+            >
+              <FontAwesome name="close" size={24} color="white" />
+            </TouchableOpacity>
+            
+            {/* Renderizar imagen o video según el tipo de contenido */}
+            {item.tipo_contenido === 'imagen' && item.url_contenido && (
+              <View className="flex-1 justify-center">
+                <Image
+                  source={{ uri: item.url_contenido }}
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                  }}
+                  resizeMode="contain"
+                />
+              </View>
+            )}
+            {item.tipo_contenido === 'video_chat' && item.url_contenido && (
+              <Video
+                source={{ uri: item.url_contenido }}
+                style={{
+                  flex: 1,
+                  width: '100%',
+                  height: '100%',
+                }}
+                useNativeControls
+                resizeMode={ResizeMode.CONTAIN}
+                isLooping={true}
+                shouldPlay={true}
+              />
+            )}
+          </View>
+        </Modal>
       </TouchableOpacity>
     );
   });
