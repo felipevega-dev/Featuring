@@ -285,12 +285,14 @@ export default function ChatDetail() {
       }
     } catch (error) {
       console.error("Failed to stop recording", error);
-      Alert.alert("Error", "No se pudo detener la grabación");
+      handleError(error, 'stopping recording');
     }
   };
 
   const sendAudioMessage = async (uri: string) => {
     try {
+      setLoadingStates(prev => ({ ...prev, media: true }));
+      
       if (!currentUserId) {
         throw new Error("Usuario no autenticado");
       }
@@ -305,6 +307,7 @@ export default function ChatDetail() {
         type: 'audio/m4a'
       } as any);
 
+      // Subir el archivo
       const response = await fetch(`${supabaseUrl}/storage/v1/object/audio_messages/${filePath}`, {
         method: 'POST',
         headers: {
@@ -321,11 +324,38 @@ export default function ChatDetail() {
         .from('audio_messages')
         .getPublicUrl(filePath);
 
-      console.log("Audio uploaded, public URL:", publicUrl);
-      await sendMessage("Audio message", "audio", publicUrl);
+      // Insertar el mensaje y obtener el mensaje completo
+      const { data: messageData, error: messageError } = await supabase
+        .from("mensaje")
+        .insert({
+          emisor_id: currentUserId,
+          receptor_id: id,
+          contenido: "Audio message",
+          tipo_contenido: "audio",
+          url_contenido: publicUrl,
+        })
+        .select()
+        .single();
+
+      if (messageError) throw messageError;
+
+      // Actualizar el estado localmente
+      if (messageData) {
+        setMessages(prev => [messageData, ...prev]);
+        
+        // Scroll al último mensaje
+        if (flatListRef.current) {
+          flatListRef.current.scrollToOffset({ offset: 0, animated: true });
+        }
+      }
+
+      console.log("Audio enviado y mensaje creado:", messageData);
+
     } catch (error) {
       console.error("Error sending audio message:", error);
-      Alert.alert("Error", "No se pudo enviar el mensaje de audio");
+      handleError(error, 'sending audio');
+    } finally {
+      setLoadingStates(prev => ({ ...prev, media: false }));
     }
   };
 
@@ -337,6 +367,8 @@ export default function ChatDetail() {
     if ((!content.trim() && tipo === "texto") || !currentUserId) return;
 
     try {
+      setLoadingStates(prev => ({ ...prev, sending: true }));
+
       const { data: bloqueos } = await supabase
         .from("bloqueo")
         .select("*")
@@ -366,7 +398,8 @@ export default function ChatDetail() {
 
       if (receiverError) throw receiverError;
 
-      const { data, error } = await supabase
+      // Insertar el mensaje y obtener el mensaje completo
+      const { data: messageData, error } = await supabase
         .from("mensaje")
         .insert({
           emisor_id: currentUserId,
@@ -375,9 +408,20 @@ export default function ChatDetail() {
           tipo_contenido: tipo,
           url_contenido: url || null,
         })
-        .select();
+        .select()
+        .single();
 
       if (error) throw error;
+
+      // Actualizar el estado localmente
+      if (messageData) {
+        setMessages(prev => [messageData, ...prev]);
+        
+        // Scroll al último mensaje
+        if (flatListRef.current) {
+          flatListRef.current.scrollToOffset({ offset: 0, animated: true });
+        }
+      }
 
       if (receiverData?.push_token) {
         const mensajeNotificacion = tipo === "texto" 
@@ -394,7 +438,9 @@ export default function ChatDetail() {
       setNewMessage("");
     } catch (error) {
       console.error("Error al enviar mensaje:", error);
-      Alert.alert("Error", "No se pudo enviar el mensaje");
+      handleError(error, 'sending message');
+    } finally {
+      setLoadingStates(prev => ({ ...prev, sending: false }));
     }
   };
 
