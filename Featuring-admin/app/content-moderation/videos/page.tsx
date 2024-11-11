@@ -3,15 +3,20 @@
 import { useState, useEffect } from 'react'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import Link from 'next/link'
-import { FiTrash2, FiCheck, FiUser } from 'react-icons/fi'
+import { FiTrash2, FiCheck, FiUser, FiAlertCircle } from 'react-icons/fi'
 import { Session } from '@supabase/supabase-js'
 
 interface VideoItem {
-  name: string;
-  id: string;
+  id: number;
+  titulo: string;
+  descripcion: string;
+  url: string;
   created_at: string;
-  publicUrl: string;
-  userId: string;
+  usuario_id: string;
+  estado: string;
+  usuario?: {
+    username: string;
+  };
 }
 
 interface SancionForm {
@@ -62,59 +67,23 @@ export default function VideosModeration() {
     try {
       setLoading(true)
       
-      const { data: folders, error: foldersError } = await supabase
-        .storage
-        .from('videos')
-        .list()
+      // Obtener videos directamente de la tabla video
+      const { data: videos, error: videosError } = await supabase
+        .from('video')
+        .select(`
+          *,
+          usuario:perfil!usuario_id(username)
+        `)
+        .order('created_at', { ascending: false });
 
-      if (foldersError) throw foldersError
+      if (videosError) {
+        console.error('Error fetching videos:', videosError);
+        throw videosError;
+      }
 
-      const allVideos = await Promise.all(
-        folders.map(async (folder) => {
-          if (!folder.name) return []
-
-          const { data: userVideos, error: videosError } = await supabase
-            .storage
-            .from('videos')
-            .list(folder.name)
-
-          if (videosError) {
-            console.error(`Error fetching videos for user ${folder.name}:`, videosError)
-            return []
-          }
-
-          return userVideos.map(video => {
-            const fullPath = `${folder.name}/${video.name}`
-            const { data: { publicUrl } } = supabase
-              .storage
-              .from('videos')
-              .getPublicUrl(fullPath)
-
-            return {
-              ...video,
-              name: fullPath,
-              publicUrl,
-              userId: folder.name
-            }
-          })
-        })
-      )
-
-      const processedVideos = allVideos.flat().filter(video => video.publicUrl)
-      
-      // Obtener IDs de videos aprobados del localStorage
-      const savedApprovedVideos = JSON.parse(localStorage.getItem('approvedWatchVideos') || '[]')
-      const approvedIds = new Set(savedApprovedVideos.map((v: VideoItem) => v.id))
-      
-      // Filtrar videos pendientes excluyendo los aprobados
-      setPendingVideos(processedVideos.filter(video => !approvedIds.has(video.id)))
-      
-      // Mantener solo los videos aprobados que aún existen
-      const currentApprovedVideos = savedApprovedVideos.filter((video: VideoItem) => 
-        processedVideos.some(v => v.id === video.id)
-      )
-      setApprovedVideos(currentApprovedVideos)
-      localStorage.setItem('approvedWatchVideos', JSON.stringify(currentApprovedVideos))
+      // Separar videos por estado
+      setPendingVideos((videos || []).filter(video => video.estado === 'pendiente'));
+      setApprovedVideos((videos || []).filter(video => video.estado === 'aprobado'));
 
     } catch (error) {
       console.error('Error fetching videos:', error)
@@ -124,21 +93,43 @@ export default function VideosModeration() {
     }
   }
 
-  const handleApprove = (video: VideoItem) => {
-    setPendingVideos(prev => prev.filter(v => v.id !== video.id))
-    const newApprovedVideos = [...approvedVideos, video]
-    setApprovedVideos(newApprovedVideos)
-    localStorage.setItem('approvedWatchVideos', JSON.stringify(newApprovedVideos))
-  }
+  const handleApprove = async (video: VideoItem) => {
+    try {
+      // 1. Actualizar el estado en la base de datos
+      const { error } = await supabase
+        .from('video')
+        .update({ estado: 'aprobado' })
+        .eq('id', video.id);
 
-  const handleRevertApproval = (video: VideoItem) => {
-    setApprovedVideos(prev => {
-      const newApprovedVideos = prev.filter(v => v.id !== video.id)
-      localStorage.setItem('approvedWatchVideos', JSON.stringify(newApprovedVideos))
-      return newApprovedVideos
-    })
-    setPendingVideos(prev => [...prev, video])
-  }
+      if (error) throw error;
+
+      // 2. Actualizar estados locales
+      setPendingVideos(prev => prev.filter(v => v.id !== video.id));
+      setApprovedVideos(prev => [...prev, { ...video, estado: 'aprobado' }]);
+    } catch (error) {
+      console.error('Error al aprobar el video:', error);
+      alert('No se pudo aprobar el video');
+    }
+  };
+
+  const handleRevertApproval = async (video: VideoItem) => {
+    try {
+      // 1. Actualizar el estado en la base de datos
+      const { error } = await supabase
+        .from('video')
+        .update({ estado: 'pendiente' })
+        .eq('id', video.id);
+
+      if (error) throw error;
+
+      // 2. Actualizar estados locales
+      setApprovedVideos(prev => prev.filter(v => v.id !== video.id));
+      setPendingVideos(prev => [...prev, { ...video, estado: 'pendiente' }]);
+    } catch (error) {
+      console.error('Error al revertir aprobación:', error);
+      alert('No se pudo revertir la aprobación');
+    }
+  };
 
   const handleReject = async (video: VideoItem) => {
     setSelectedVideo(video)
@@ -205,6 +196,32 @@ export default function VideosModeration() {
       alert('No se pudo aplicar la sanción')
     }
   }
+
+  const handleDeleteDirect = async (video: VideoItem) => {
+    const confirmed = window.confirm('¿Estás seguro de que quieres eliminar este video? Esta acción no puede deshacerse.');
+    if (!confirmed) return;
+
+    try {
+      // 1. Eliminar el registro de la tabla video
+      const { error: deleteError } = await supabase
+        .from('video')
+        .delete()
+        .eq('id', video.id);
+
+      if (deleteError) {
+        console.error('Error al eliminar registro de la tabla:', deleteError);
+        throw deleteError;
+      }
+
+      // 2. Actualizar el estado local
+      setPendingVideos(prev => prev.filter(v => v.id !== video.id));
+      setApprovedVideos(prev => prev.filter(v => v.id !== video.id));
+
+    } catch (error) {
+      console.error('Error al eliminar el video:', error);
+      alert('No se pudo eliminar el video');
+    }
+  };
 
   const renderSancionModal = () => (
     <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
@@ -348,11 +365,11 @@ export default function VideosModeration() {
                   <video 
                     controls 
                     className="w-full rounded-lg mb-4 aspect-video"
-                    src={video.publicUrl}
+                    src={video.url}
                   />
                   <div className="space-y-2">
                     <p className="text-sm text-gray-600">
-                      <span className="font-semibold">Usuario ID:</span> {video.userId}
+                      <span className="font-semibold">Usuario ID:</span> {video.usuario_id}
                     </p>
                     <p className="text-sm text-gray-600">
                       <span className="font-semibold">Fecha:</span> {new Date(video.created_at).toLocaleString()}
@@ -361,17 +378,24 @@ export default function VideosModeration() {
                   <div className="mt-4 flex justify-end space-x-2">
                     <button
                       onClick={() => handleApprove(video)}
-                      className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 transition-colors flex items-center"
+                      className="p-2 text-sm bg-green-500 text-white rounded hover:bg-green-600"
+                      title="Aprobar"
                     >
-                      <FiCheck className="mr-2" />
-                      Aprobar
+                      <FiCheck className="w-4 h-4" />
                     </button>
                     <button
                       onClick={() => handleReject(video)}
-                      className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 transition-colors flex items-center"
+                      className="p-2 text-sm bg-yellow-500 text-white rounded hover:bg-yellow-600"
+                      title="Sancionar"
                     >
-                      <FiTrash2 className="mr-2" />
-                      Rechazar
+                      <FiAlertCircle className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => handleDeleteDirect(video)}
+                      className="p-2 text-sm bg-red-500 text-white rounded hover:bg-red-600"
+                      title="Eliminar"
+                    >
+                      <FiTrash2 className="w-4 h-4" />
                     </button>
                   </div>
                 </div>
@@ -396,11 +420,11 @@ export default function VideosModeration() {
                   <video 
                     controls 
                     className="w-full rounded-lg mb-4 aspect-video"
-                    src={video.publicUrl}
+                    src={video.url}
                   />
                   <div className="space-y-2">
                     <p className="text-sm text-gray-600">
-                      <span className="font-semibold">Usuario ID:</span> {video.userId}
+                      <span className="font-semibold">Usuario ID:</span> {video.usuario_id}
                     </p>
                     <p className="text-sm text-gray-600">
                       <span className="font-semibold">Fecha:</span> {new Date(video.created_at).toLocaleString()}

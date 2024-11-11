@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import Link from 'next/link'
-import { FiTrash2, FiCheck, FiUser, FiPlay, FiPause } from 'react-icons/fi'
+import { FiTrash2, FiCheck, FiUser, FiPlay, FiPause, FiAlertCircle } from 'react-icons/fi'
 import { Session } from '@supabase/supabase-js'
 import Image from 'next/image'
 
@@ -83,8 +83,10 @@ export default function SongsModeration() {
       const audioElement = document.getElementById(song.id.toString()) as HTMLAudioElement;
       if (audioElement.paused) {
         audioElement.play();
+        setIsPlaying(song.id);
       } else {
         audioElement.pause();
+        setIsPlaying(null);
       }
     } else {
       // Pausar la canción anterior si existe
@@ -96,6 +98,7 @@ export default function SongsModeration() {
       const audioElement = document.getElementById(song.id.toString()) as HTMLAudioElement;
       if (audioElement) {
         audioElement.play();
+        setIsPlaying(song.id);
         setGlobalAudioPlayer({
           currentSong: song,
           progress: 0,
@@ -109,21 +112,43 @@ export default function SongsModeration() {
     setCurrentlyPlaying(null)
   }
 
-  const handleApprove = (song: SongItem) => {
-    setPendingSongs(prev => prev.filter(v => v.id !== song.id))
-    const newApprovedSongs = [...approvedSongs, song]
-    setApprovedSongs(newApprovedSongs)
-    localStorage.setItem('approvedSongs', JSON.stringify(newApprovedSongs))
-  }
+  const handleApprove = async (song: SongItem) => {
+    try {
+      // 1. Actualizar el estado en la base de datos
+      const { error } = await supabase
+        .from('cancion')
+        .update({ estado: 'aprobado' })
+        .eq('id', song.id);
 
-  const handleRevertApproval = (song: SongItem) => {
-    setApprovedSongs(prev => {
-      const newApprovedSongs = prev.filter(v => v.id !== song.id)
-      localStorage.setItem('approvedSongs', JSON.stringify(newApprovedSongs))
-      return newApprovedSongs
-    })
-    setPendingSongs(prev => [...prev, song])
-  }
+      if (error) throw error;
+
+      // 2. Actualizar estados locales
+      setPendingSongs(prev => prev.filter(s => s.id !== song.id));
+      setApprovedSongs(prev => [...prev, { ...song, estado: 'aprobado' }]);
+    } catch (error) {
+      console.error('Error al aprobar la canción:', error);
+      alert('No se pudo aprobar la canción');
+    }
+  };
+
+  const handleRevertApproval = async (song: SongItem) => {
+    try {
+      // 1. Actualizar el estado en la base de datos
+      const { error } = await supabase
+        .from('cancion')
+        .update({ estado: 'pendiente' })
+        .eq('id', song.id);
+
+      if (error) throw error;
+
+      // 2. Actualizar estados locales
+      setApprovedSongs(prev => prev.filter(s => s.id !== song.id));
+      setPendingSongs(prev => [...prev, { ...song, estado: 'pendiente' }]);
+    } catch (error) {
+      console.error('Error al revertir aprobación:', error);
+      alert('No se pudo revertir la aprobación');
+    }
+  };
 
   const handleReject = async (song: SongItem) => {
     setSelectedSong(song)
@@ -332,21 +357,9 @@ export default function SongsModeration() {
         throw songsError;
       }
 
-      console.log('Canciones obtenidas:', songs); // Para debug
-
-      // Obtener IDs de canciones aprobadas del localStorage
-      const savedApprovedSongs = JSON.parse(localStorage.getItem('approvedSongs') || '[]')
-      const approvedIds = new Set(savedApprovedSongs.map((v: SongItem) => v.id))
-      
-      // Filtrar canciones pendientes excluyendo las aprobadas
-      setPendingSongs((songs || []).filter(song => !approvedIds.has(song.id)))
-      
-      // Mantener solo las canciones aprobadas que aún existen
-      const currentApprovedSongs = savedApprovedSongs.filter((song: SongItem) => 
-        songs?.some(v => v.id === song.id)
-      )
-      setApprovedSongs(currentApprovedSongs)
-      localStorage.setItem('approvedSongs', JSON.stringify(currentApprovedSongs))
+      // Separar canciones por estado
+      setPendingSongs((songs || []).filter(song => song.estado === 'pendiente'));
+      setApprovedSongs((songs || []).filter(song => song.estado === 'aprobado'));
 
     } catch (error) {
       console.error('Error fetching songs:', error)
@@ -370,19 +383,87 @@ export default function SongsModeration() {
     fetchSession()
   }, [])
 
-  // Modificar el renderizado de los botones de reproducción
+  // Modificar el estado de reproducción
+  const [isPlaying, setIsPlaying] = useState<number | null>(null);
+
+  // Modificar renderizado de los botones de reproducción
   const renderPlayButton = (song: SongItem, isGlobal: boolean = false) => (
     <button
       onClick={() => handlePlayAudio(song)}
       className={`${isGlobal ? 'p-2 rounded-full hover:bg-gray-100' : 'w-full bg-gray-100 p-4 rounded-lg hover:bg-gray-200 transition-colors flex items-center justify-center'}`}
     >
-      {currentlyPlaying === song.id.toString() ? (
+      {isPlaying === song.id ? (
         <FiPause className={`${isGlobal ? 'w-6 h-6' : 'w-4 h-4'} text-primary-600`} />
       ) : (
         <FiPlay className={`${isGlobal ? 'w-6 h-6' : 'w-4 h-4'} text-primary-600`} />
       )}
     </button>
-  )
+  );
+
+  // Agregar función para eliminar directamente
+  const handleDeleteDirect = async (song: SongItem) => {
+    const confirmed = window.confirm('¿Estás seguro de que quieres eliminar esta canción? Esta acción no puede deshacerse.');
+    if (!confirmed) return;
+  
+    try {
+      // 1. Eliminar el registro de la tabla cancion
+      const { error: deleteError } = await supabase
+        .from('cancion')
+        .delete()
+        .match({ id: song.id });  // Usar match en lugar de eq
+  
+      if (deleteError) {
+        console.error('Error al eliminar registro de la tabla:', deleteError);
+        // Verificar específicamente si es un error de permisos
+        if (deleteError.code === 'PGRST301') {
+          throw new Error('No tienes permisos suficientes para eliminar registros');
+        }
+        throw deleteError;
+      }
+  
+      // 2. Si la eliminación del registro fue exitosa, procedemos con los archivos
+      // Obtener los paths correctos de los archivos
+      const audioPath = song.archivo_audio.split('/').pop();
+      const coverPath = song.caratula ? song.caratula.split('/').pop() : null;
+  
+      // 3. Eliminar el archivo de audio
+      if (audioPath) {
+        const { error: audioError } = await supabase
+          .storage
+          .from('canciones')
+          .remove([audioPath]);
+  
+        if (audioError) {
+          console.error('Error al eliminar archivo de audio:', audioError);
+        }
+      }
+  
+      // 4. Eliminar la carátula si existe
+      if (coverPath) {
+        const { error: coverError } = await supabase
+          .storage
+          .from('caratulas')
+          .remove([coverPath]);
+  
+        if (coverError) {
+          console.error('Error al eliminar carátula:', coverError);
+        }
+      }
+  
+      // 5. Actualizar la lista de canciones en el estado
+      setPendingSongs(prev => prev.filter(s => s.id !== song.id));
+      setApprovedSongs(prev => prev.filter(s => s.id !== song.id));
+      
+      // 6. Actualizar el localStorage
+      const savedApprovedSongs = JSON.parse(localStorage.getItem('approvedSongs') || '[]');
+      const updatedApprovedSongs = savedApprovedSongs.filter((s: SongItem) => s.id !== song.id);
+      localStorage.setItem('approvedSongs', JSON.stringify(updatedApprovedSongs));
+  
+    } catch (error) {
+      console.error('Error al eliminar la canción:', error);
+      alert(error instanceof Error ? error.message : 'No se pudo eliminar la canción');
+    }
+  };
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -483,12 +564,21 @@ export default function SongsModeration() {
                     <button
                       onClick={() => handleApprove(song)}
                       className="p-2 text-sm bg-green-500 text-white rounded hover:bg-green-600"
+                      title="Aprobar"
                     >
                       <FiCheck className="w-4 h-4" />
                     </button>
                     <button
                       onClick={() => handleReject(song)}
+                      className="p-2 text-sm bg-yellow-500 text-white rounded hover:bg-yellow-600"
+                      title="Sancionar"
+                    >
+                      <FiAlertCircle className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => handleDeleteDirect(song)}
                       className="p-2 text-sm bg-red-500 text-white rounded hover:bg-red-600"
+                      title="Eliminar"
                     >
                       <FiTrash2 className="w-4 h-4" />
                     </button>
