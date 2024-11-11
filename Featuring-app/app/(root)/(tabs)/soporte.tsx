@@ -80,7 +80,7 @@ function NuevoTicket() {
   }
 
   return (
-    <ScrollView className="flex-1 bg-white">
+    <ScrollView className="flex-1 bg-white mb-14">
       <View className="p-4">
         <View className="space-y-4">
           <View>
@@ -272,7 +272,7 @@ export default function Soporte() {
     <View className="flex-1 bg-white">
       <View className="p-4">
         <Text className="text-2xl font-JakartaBold mb-2">Soporte Técnico</Text>
-        <Text className="text-gray-600 mb-6">
+        <Text className="text-gray-600">
           ¿Tienes algún problema o sugerencia? Envíanos un ticket y te ayudaremos lo antes posible.
         </Text>
       </View>

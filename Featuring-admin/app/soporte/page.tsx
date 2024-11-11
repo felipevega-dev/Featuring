@@ -20,6 +20,14 @@ import {
 } from '@/components/ui/select'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog"
+import { Textarea } from "@/components/ui/textarea"
 
 interface SupportTicket {
   id: string
@@ -42,6 +50,9 @@ export default function SoportePage() {
   const [loading, setLoading] = useState(true)
   const [selectedStatus, setSelectedStatus] = useState<string>('all')
   const [selectedType, setSelectedType] = useState<string>('all')
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [selectedTicket, setSelectedTicket] = useState<SupportTicket | null>(null)
+  const [response, setResponse] = useState('')
 
   useEffect(() => {
     fetchTickets()
@@ -113,18 +124,50 @@ export default function SoportePage() {
     }
   }
 
-  const handleResponse = async (ticketId: string, response: string) => {
+  const handleOpenDialog = (ticket: SupportTicket) => {
+    setSelectedTicket(ticket)
+    setResponse(ticket.respuesta || '')
+    setIsDialogOpen(true)
+  }
+
+  const handleResponse = async () => {
+    if (!selectedTicket || !response.trim()) return
+
     try {
-      const { error } = await supabaseAdmin
+      // Primero obtenemos el usuario actual (admin)
+      const { data: { user } } = await supabaseAdmin.auth.getUser()
+      if (!user) throw new Error('No se encontró el usuario administrador')
+
+      // Actualizamos el ticket
+      const { error: ticketError } = await supabaseAdmin
         .from('support_tickets')
         .update({ 
           respuesta: response,
           estado: 'resuelto',
+          admin_id: user.id,
           updated_at: new Date().toISOString()
         })
-        .eq('id', ticketId)
+        .eq('id', selectedTicket.id)
 
-      if (error) throw error
+      if (ticketError) throw ticketError
+
+      // Enviamos la notificación incluyendo el usuario_origen_id
+      const { error: notificationError } = await supabaseAdmin
+        .from('notificacion')
+        .insert({
+          usuario_id: selectedTicket.usuario_id,
+          usuario_origen_id: user.id, // ID del admin que responde
+          tipo_notificacion: 'respuesta_soporte',
+          contenido_id: selectedTicket.id,
+          mensaje: 'Tu ticket de soporte ha sido respondido',
+          leido: false
+        })
+
+      if (notificationError) throw notificationError
+
+      setIsDialogOpen(false)
+      setSelectedTicket(null)
+      setResponse('')
       fetchTickets()
     } catch (error) {
       console.error('Error updating ticket response:', error)
@@ -279,13 +322,7 @@ export default function SoportePage() {
                     </Select>
                     <Button
                       variant="outline"
-                      onClick={() => {
-                        // Aquí podríamos abrir un modal para responder
-                        const response = prompt('Ingrese la respuesta:')
-                        if (response) {
-                          handleResponse(ticket.id, response)
-                        }
-                      }}
+                      onClick={() => handleOpenDialog(ticket)}
                     >
                       Responder
                     </Button>
@@ -296,6 +333,49 @@ export default function SoportePage() {
           ))
         )}
       </div>
+
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Responder Ticket</DialogTitle>
+          </DialogHeader>
+          
+          {selectedTicket && (
+            <div className="space-y-4">
+              <div>
+                <h4 className="text-sm font-medium mb-2">Ticket</h4>
+                <p className="text-sm">{selectedTicket.titulo}</p>
+                <p className="text-sm text-gray-500 mt-1">{selectedTicket.descripcion}</p>
+              </div>
+
+              <div>
+                <h4 className="text-sm font-medium mb-2">Tu Respuesta</h4>
+                <Textarea
+                  value={response}
+                  onChange={(e) => setResponse(e.target.value)}
+                  placeholder="Escribe tu respuesta aquí..."
+                  className="min-h-[100px]"
+                />
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsDialogOpen(false)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleResponse}
+              disabled={!response.trim()}
+            >
+              Enviar Respuesta
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
