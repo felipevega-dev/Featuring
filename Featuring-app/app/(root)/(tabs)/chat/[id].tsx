@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { SafeAreaView, KeyboardAvoidingView, Platform, StatusBar } from "react-native";
+import { SafeAreaView, KeyboardAvoidingView, Platform, StatusBar, Alert } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import { useChat } from '@/hooks/useChat';
 import { ChatHeader } from '@/components/chat/ChatHeader';
@@ -11,6 +11,8 @@ import Constants from 'expo-constants';
 import * as ImagePicker from 'expo-image-picker';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import { Message } from '@/types/chat';
+import { OptionsModal } from '@/components/chat/OptionsModal';
+import { useRouter } from "expo-router";
 
 export default function ChatDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -26,8 +28,11 @@ export default function ChatDetail() {
   const [modalVisible, setModalVisible] = useState(false);
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [selectedMedia, setSelectedMedia] = useState<Message | null>(null);
+  const [isBlocked, setIsBlocked] = useState(false);
 
   const supabaseUrl = Constants.expoConfig?.extra?.supabaseUrl;
+
+  const router = useRouter();
 
   // Obtener información del usuario actual y del otro usuario
   useEffect(() => {
@@ -119,6 +124,94 @@ export default function ChatDetail() {
     // Aquí iría la lógica de grabación de audio
   };
 
+  const handleBlockUser = async () => {
+    try {
+      if (!currentUserId) {
+        throw new Error("Usuario no autenticado");
+      }
+
+      Alert.alert(
+        isBlocked ? "Desbloquear usuario" : "Bloquear usuario",
+        isBlocked 
+          ? "¿Estás seguro de que quieres desbloquear a este usuario?"
+          : "¿Estás seguro de que quieres bloquear a este usuario? No podrás recibir mensajes ni interactuar con él.",
+        [
+          { text: "Cancelar", style: "cancel" },
+          {
+            text: isBlocked ? "Desbloquear" : "Bloquear",
+            style: "destructive",
+            onPress: async () => {
+              if (isBlocked) {
+                await supabase
+                  .from("bloqueo")
+                  .delete()
+                  .match({
+                    usuario_id: currentUserId,
+                    bloqueado_id: id,
+                  });
+              } else {
+                await supabase
+                  .from("bloqueo")
+                  .insert({
+                    usuario_id: currentUserId,
+                    bloqueado_id: id,
+                  });
+              }
+
+              setIsBlocked(!isBlocked);
+              setModalVisible(false);
+              Alert.alert(
+                isBlocked ? "Usuario desbloqueado" : "Usuario bloqueado",
+                isBlocked ? "Ahora podrás volver a interactuar con este usuario." : "Ya no recibirás mensajes de este usuario."
+              );
+              if (!isBlocked) {
+                router.push("/chat");
+              }
+            }
+          }
+        ]
+      );
+    } catch (error) {
+      console.error("Error al modificar bloqueo:", error);
+      Alert.alert("Error", "No se pudo completar la acción.");
+    }
+  };
+
+  const handleCancelConnection = async () => {
+    try {
+      if (!currentUserId) {
+        throw new Error("Usuario no autenticado");
+      }
+
+      Alert.alert(
+        "Cancelar conexión",
+        "¿Estás seguro de que quieres cancelar la conexión con este usuario?",
+        [
+          { text: "No", style: "cancel" },
+          {
+            text: "Sí, cancelar",
+            style: "destructive",
+            onPress: async () => {
+              const { error } = await supabase
+                .from("conexion")
+                .delete()
+                .or(`and(usuario1_id.eq.${currentUserId},usuario2_id.eq.${id}),and(usuario1_id.eq.${id},usuario2_id.eq.${currentUserId})`);
+
+              if (error) throw error;
+
+              setModalVisible(false);
+              Alert.alert("Conexión cancelada", "Has cancelado la conexión con este usuario.");
+              router.push("/chat");
+            }
+          }
+        ]
+      );
+    } catch (error) {
+      console.error("Error al cancelar la conexión:", error);
+      Alert.alert("Error", "No se pudo cancelar la conexión.");
+    }
+  };
+
   if (isLoading) {
     return null; // O un componente de carga
   }
@@ -160,6 +253,16 @@ export default function ChatDetail() {
         onClose={() => setIsFullScreen(false)}
         mediaType={selectedMedia?.tipo_contenido as 'imagen' | 'video_chat'}
         mediaUrl={selectedMedia?.url_contenido || ''}
+      />
+      
+      <OptionsModal
+        isVisible={modalVisible}
+        onClose={() => setModalVisible(false)}
+        onBlockUser={handleBlockUser}
+        onCancelConnection={handleCancelConnection}
+        isBlocked={isBlocked}
+        contentId={id}
+        currentUserId={currentUserId || ''}
       />
     </SafeAreaView>
   );
