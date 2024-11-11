@@ -19,6 +19,7 @@ import { icons } from "@/constants";
 import DropDownPicker from "react-native-dropdown-picker";
 import { FontAwesome } from "@expo/vector-icons";
 import Constants from "expo-constants";
+import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 
 // Ignorar la advertencia específica
 LogBox.ignoreLogs(["VirtualizedLists should never be nested"]);
@@ -208,8 +209,7 @@ const EditarPerfil = () => {
 
   const cambiarFoto = async () => {
     try {
-      const { status } =
-        await ImagePicker.requestMediaLibraryPermissionsAsync();
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== "granted") {
         Alert.alert("Se necesita permiso para acceder a la galería");
         return;
@@ -223,33 +223,75 @@ const EditarPerfil = () => {
       });
 
       if (!result.canceled && result.assets && result.assets[0].uri) {
-        const uri = result.assets[0].uri;
-
         const {
           data: { user },
         } = await supabase.auth.getUser();
         if (!user) throw new Error("No se encontró el usuario");
 
-        const fileName = `${Date.now()}.jpg`;
+        // Optimizar la imagen antes de subirla
+        const manipResult = await manipulateAsync(
+          result.assets[0].uri,
+          [
+            { resize: { width: 800, height: 800 } }
+          ],
+          {
+            compress: 0.7,
+            format: SaveFormat.JPEG
+          }
+        );
+
+        // Usar un nombre de archivo consistente para cada usuario
+        const fileName = `profile.jpg`;
         const filePath = `${user.id}/${fileName}`;
 
-        const { error } = await supabase.storage
-          .from('fotoperfil')
-          .upload(filePath, {
-            uri,
-            name: fileName,
-            type: 'image/jpeg',
-          });
-
-        if (error) {
-          console.error('Error uploading image:', error);
-          Alert.alert("Error", "No se pudo subir la imagen de perfil");
-          return;
+        // Si existe una foto anterior, eliminarla primero
+        if (fotoPerfil) {
+          const { error: deleteError } = await supabase.storage
+            .from('fotoperfil')
+            .remove([fotoPerfil]);
+          
+          if (deleteError) {
+            console.error('Error deleting old profile image:', deleteError);
+          }
         }
 
-        // Guardar solo el path en la base de datos
+        // Crear FormData para la subida
+        const formData = new FormData();
+        formData.append('file', {
+          uri: manipResult.uri,
+          name: fileName,
+          type: 'image/jpeg'
+        } as any);
+
+        // Subir la nueva imagen
+        const response = await fetch(
+          `${supabaseUrl}/storage/v1/object/fotoperfil/${filePath}`,
+          {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+            },
+            body: formData
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error('Error al subir la imagen');
+        }
+
+        // Guardar el path en el estado y en la base de datos
         setFotoPerfil(filePath);
-        console.log('Image path saved:', filePath);
+        
+        const { error: updateError } = await supabase
+          .from("perfil")
+          .update({ foto_perfil: filePath })
+          .eq("usuario_id", user.id);
+
+        if (updateError) {
+          throw updateError;
+        }
+
+        console.log('Nueva imagen de perfil guardada:', filePath);
       }
     } catch (error) {
       console.error("Error al cambiar la foto de perfil:", error);

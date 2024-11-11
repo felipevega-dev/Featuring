@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, Image, Alert, useWindowDimensions } from 
 import { Ionicons } from '@expo/vector-icons';
 import { PreguntasState, PreguntasAction } from '@/types/preguntas';
 import * as ImagePicker from 'expo-image-picker';
+import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 
 interface SlideFotoPerfilProps {
   state: PreguntasState;
@@ -24,17 +25,33 @@ export function SlideFotoPerfil({ state, dispatch, onValidationComplete }: Slide
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         aspect: [1, 1],
-        quality: 0.8,
+        quality: 1,
       });
 
       if (!result.canceled) {
-        const uri = result.assets[0].uri;
-        setLocalImageUri(uri);
-        dispatch({ type: 'SET_PROFILE_IMAGE', payload: uri });
+        const originalUri = result.assets[0].uri;
+        
+        const manipResult = await manipulateAsync(
+          originalUri,
+          [
+            { resize: { width: 800, height: 800 } }
+          ],
+          {
+            compress: 0.7,
+            format: SaveFormat.JPEG
+          }
+        );
+
+        const optimizedUri = manipResult.uri;
+        setLocalImageUri(optimizedUri);
+        dispatch({ type: 'SET_PROFILE_IMAGE', payload: optimizedUri });
       }
     } catch (error) {
       console.error('Error in handlePickImage:', error);
-      Alert.alert("Error", "No se pudo seleccionar la imagen de perfil");
+      Alert.alert(
+        "Error", 
+        "No se pudo procesar la imagen de perfil. Por favor, intenta con otra imagen."
+      );
     }
   };
 
