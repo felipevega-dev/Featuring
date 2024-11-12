@@ -45,7 +45,6 @@ interface Perfil {
     mostrar_ubicacion: boolean;
     mostrar_redes_sociales: boolean;
     mostrar_valoraciones: boolean;
-    permitir_comentarios_general: boolean;
   };
 }
 
@@ -181,8 +180,7 @@ export default function PublicProfile() {
             mostrar_edad,
             mostrar_ubicacion,
             mostrar_redes_sociales,
-            mostrar_valoraciones,
-            permitir_comentarios_general
+            mostrar_valoraciones
           )
         `)
         .eq("usuario_id", id)

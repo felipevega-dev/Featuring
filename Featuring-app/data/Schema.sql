@@ -303,8 +303,6 @@ CREATE TABLE preferencias_usuario (
     mostrar_ubicacion boolean default true,
     mostrar_redes_sociales boolean default true,
     mostrar_valoraciones boolean default true,
-    -- Privacidad del contenido
-    permitir_comentarios_general boolean default true,
     -- Notificaciones
     notificaciones_mensajes boolean default true,
     notificaciones_match boolean default true,

@@ -21,8 +21,10 @@ import { BadgesSection } from '@/components/profile/BadgesSection';
 import { TooltipBadge } from '@/components/TooltipBadge';
 import { TooltipTitle } from '@/components/TooltipTitle';
 import { PrivacySettings } from '@/lib/privacy';
+import { RealtimeChannel } from "@supabase/supabase-js";
 
 interface Perfil {
+  usuario_id: string;
   username: string;
   full_name: string;
   foto_perfil: string | null;
@@ -35,6 +37,7 @@ interface Perfil {
   redes_sociales: { nombre: string; url: string }[];
   nacionalidad: string;
   promedio_valoraciones: number;
+  seguidores_count?: number;
   total_valoraciones: number;
   insignias: any[];
   tituloActivo: any | null;
@@ -76,10 +79,49 @@ export default function Profile() {
   const [ratings, setRatings] = useState<Rating[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [viewMode, setViewMode] = useState<'private' | 'public'>('private');
+  const [seguidoresCount, setSeguidoresCount] = useState(0);
+  const [subscription, setSubscription] = useState<RealtimeChannel | null>(null);
 
   useEffect(() => {
     fetchPerfil();
   }, [refreshProfile]);
+
+  useEffect(() => {
+    if (perfil?.usuario_id) {
+      fetchSeguidores(perfil.usuario_id);
+    }
+  }, [perfil?.usuario_id]);
+
+  useEffect(() => {
+    if (perfil?.usuario_id) {
+      // Suscribirse a cambios en la tabla seguidor
+      const channel = supabase
+        .channel(`seguidor-changes-${perfil?.usuario_id}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'seguidor',
+            filter: `usuario_id.eq.${perfil?.usuario_id}`
+          },
+          () => {
+            // Actualizar el contador cuando haya cambios
+            fetchSeguidores(perfil.usuario_id);
+          }
+        )
+        .subscribe();
+
+      setSubscription(channel);
+
+      // Limpieza al desmontar
+      return () => {
+        if (channel) {
+          channel.unsubscribe();
+        }
+      };
+    }
+  }, [perfil?.usuario_id]);
 
   const fetchPerfil = async () => {
     try {
@@ -109,8 +151,7 @@ export default function Profile() {
             mostrar_edad,
             mostrar_ubicacion,
             mostrar_redes_sociales,
-            mostrar_valoraciones,
-            permitir_comentarios_general
+            mostrar_valoraciones
           )
         `)
         .eq("usuario_id", user.id)
@@ -200,6 +241,22 @@ export default function Profile() {
     }
   };
 
+  const fetchSeguidores = async (userId: string) => {
+    if (!userId) return;
+    
+    try {
+      const { count, error } = await supabase
+        .from('seguidor')
+        .select('*', { count: 'exact' })
+        .eq('usuario_id', userId);
+
+      if (error) throw error;
+      setSeguidoresCount(count || 0);
+    } catch (error) {
+      console.error('Error al obtener seguidores:', error);
+    }
+  };
+
   const handleRedSocialPress = (url: string) => {
     Linking.openURL(url).catch((err) =>
       console.error("Error al abrir el enlace:", err)
@@ -253,9 +310,21 @@ export default function Profile() {
     }
   };
 
-  const onRefresh = React.useCallback(() => {
-    setRefreshing(true);
-    fetchPerfil().finally(() => setRefreshing(false));
+  const onRefresh = React.useCallback(async () => {
+    try {
+      setRefreshing(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      await Promise.all([
+        fetchPerfil(),
+        fetchSeguidores(user.id)
+      ]);
+    } catch (error) {
+      console.error('Error al refrescar:', error);
+    } finally {
+      setRefreshing(false);
+    }
   }, []);
 
   const handleShowRatings = () => {
@@ -365,7 +434,6 @@ export default function Profile() {
             {/* Contenido */}
             <View className="p-6">
               {viewMode === 'private' ? (
-                // Vista Privada (mantener todo el contenido actual)
                 <View>
                   <TouchableOpacity
                     onPress={() => router.push("/editar_perfil")}
@@ -415,6 +483,16 @@ export default function Profile() {
                           descripcion={perfil.insignias[perfil.insignias.length - 1].descripcion}
                         />
                       )}
+                    </View>
+                    <View className="flex-row items-center mt-2">
+                      <View className="items-center px-4">
+                        <Text className="text-lg font-bold text-secondary-500">
+                          {seguidoresCount}
+                        </Text>
+                        <Text className="text-sm text-gray-600">
+                          Seguidores
+                        </Text>
+                      </View>
                     </View>
                     
                     {perfil.tituloActivo && (
@@ -556,6 +634,17 @@ export default function Profile() {
                           descripcion={perfil.insignias[perfil.insignias.length - 1].descripcion}
                         />
                       )}
+                    </View>
+
+                    <View className="flex-row items-center mt-2">
+                      <View className="items-center px-4">
+                        <Text className="text-lg font-bold text-secondary-500">
+                          {seguidoresCount}
+                        </Text>
+                        <Text className="text-sm text-gray-600">
+                          Seguidores
+                        </Text>
+                      </View>
                     </View>
 
                     {perfil.tituloActivo && (

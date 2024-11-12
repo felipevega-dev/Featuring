@@ -5,7 +5,6 @@ export interface PrivacySettings {
   mostrar_ubicacion: boolean;
   mostrar_redes_sociales: boolean;
   mostrar_valoraciones: boolean;
-  permitir_comentarios_general: boolean;
 }
 
 export const getPrivacySettings = async (userId: string): Promise<PrivacySettings> => {
@@ -15,8 +14,7 @@ export const getPrivacySettings = async (userId: string): Promise<PrivacySetting
       mostrar_edad,
       mostrar_ubicacion,
       mostrar_redes_sociales,
-      mostrar_valoraciones,
-      permitir_comentarios_general
+      mostrar_valoraciones
     `)
     .eq('usuario_id', userId)
     .single();
@@ -30,8 +28,7 @@ export const getPrivacySettings = async (userId: string): Promise<PrivacySetting
     mostrar_edad: true,
     mostrar_ubicacion: true,
     mostrar_redes_sociales: true,
-    mostrar_valoraciones: true,
-    permitir_comentarios_general: true
+    mostrar_valoraciones: true
   };
 };
 
