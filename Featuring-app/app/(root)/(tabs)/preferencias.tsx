@@ -16,6 +16,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { habilidadesMusicales, generosMusicales } from "@/constants/musicData";
 import { hispanicCountryCodes } from "@/utils/countryCodes";
 import BlockedUsersList from '@/components/BlockedUsersList';
+import { getPrivacySettings, updatePrivacySettings, PrivacySettings } from '@/lib/privacy';
+import { getMatchSettings, updateMatchSettings, MatchSettings } from '@/lib/match';
 
 
 interface PreferenciasUsuario {
@@ -24,9 +26,6 @@ interface PreferenciasUsuario {
   mostrar_ubicacion: boolean;
   mostrar_redes_sociales: boolean;
   mostrar_valoraciones: boolean;
-  
-  // Privacidad del contenido
-  permitir_comentarios_general: boolean;
   
   // Notificaciones
   notificaciones_mensajes: boolean;
@@ -71,6 +70,20 @@ export default function Preferencias() {
     nacionalidades: false
   });
   const [showBlockedUsers, setShowBlockedUsers] = useState(false);
+  const [privacySettings, setPrivacySettings] = useState<PrivacySettings>({
+    mostrar_edad: true,
+    mostrar_ubicacion: true,
+    mostrar_redes_sociales: true,
+    mostrar_valoraciones: true
+  });
+  const [matchSettings, setMatchSettings] = useState<MatchSettings>({
+    match_filtrar_edad: false,
+    match_filtrar_sexo: false,
+    match_rango_edad: [18, 99],
+    match_sexo_preferido: 'todos',
+    match_filtrar_nacionalidad: false,
+    match_nacionalidades: []
+  });
 
   const opciones: OpcionSexo[] = [
     { valor: 'M', label: 'Masculino' },
@@ -88,6 +101,14 @@ export default function Preferencias() {
       setIsLoadingData(false);
     }
   }, [generosMusicales, habilidadesMusicales]);
+
+  useEffect(() => {
+    loadPrivacySettings();
+  }, []);
+
+  useEffect(() => {
+    loadMatchSettings();
+  }, []);
 
   const toggleSection = (section: 'generos' | 'habilidades' | 'nacionalidades') => {
     setExpandedSections(prev => ({
@@ -161,7 +182,92 @@ export default function Preferencias() {
     }
   };
 
-  if (isLoading || isLoadingData) {
+  const loadPrivacySettings = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const settings = await getPrivacySettings(user.id);
+      setPrivacySettings(settings);
+    } catch (error) {
+      console.error('Error al cargar configuración:', error);
+      Alert.alert('Error', 'No se pudo cargar la configuración de privacidad');
+    }
+  };
+
+  const handlePrivacyToggle = async (setting: keyof PrivacySettings) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const newSettings = {
+        ...privacySettings,
+        [setting]: !privacySettings[setting]
+      };
+
+      await updatePrivacySettings(user.id, { [setting]: !privacySettings[setting] });
+      setPrivacySettings(newSettings);
+    } catch (error) {
+      console.error('Error al actualizar configuración:', error);
+      Alert.alert('Error', 'No se pudo actualizar la configuración');
+    }
+  };
+
+  const handleMatchToggle = async (setting: keyof MatchSettings, value?: any) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      let updateData = {};
+      
+      if (setting === 'match_rango_edad') {
+        updateData = { match_rango_edad: value };
+      } else if (setting === 'match_sexo_preferido') {
+        updateData = { match_sexo_preferido: value };
+      } else {
+        updateData = { [setting]: !matchSettings[setting] };
+      }
+
+      // Actualizar el estado local inmediatamente para una UI más fluida
+      setMatchSettings(prev => ({
+        ...prev,
+        ...updateData
+      }));
+
+      // Luego actualizar en la base de datos
+      await updateMatchSettings(user.id, updateData);
+
+    } catch (error) {
+      // Si hay error, revertir el cambio local
+      setMatchSettings(prev => ({
+        ...prev,
+        ...matchSettings
+      }));
+      console.error('Error al actualizar configuración:', error);
+      Alert.alert('Error', 'No se pudo actualizar la configuración');
+    }
+  };
+
+  const handleRangoEdadChange = async (value: number, index: number) => {
+    const newRangoEdad = [...matchSettings.match_rango_edad];
+    newRangoEdad[index] = value;
+    await handleMatchToggle('match_rango_edad', newRangoEdad);
+  };
+
+  const loadMatchSettings = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const settings = await getMatchSettings(user.id);
+      setMatchSettings(settings);
+    } catch (error) {
+      console.error('Error al cargar configuración de match:', error);
+      Alert.alert('Error', 'No se pudo cargar la configuración de match');
+    }
+  };
+
+  if (isLoadingData) {
     return (
       <View className="flex-1 justify-center items-center bg-gray-100">
         <ActivityIndicator size="large" color="#6D29D2" />
@@ -181,11 +287,10 @@ export default function Preferencias() {
         {/* Cada sección ahora tiene mejores clases responsivas */}
         <View className="bg-white rounded-lg p-4">
           <Text className="text-lg font-bold mb-4 text-primary-600">
-            Privacidad del Perfil
+            Privacidad del perfil
           </Text>
           
           <View className="space-y-4">
-            {/* Cada elemento de configuración tiene mejor estructura */}
             <View className="flex-row justify-between items-start space-x-4">
               <View className="flex-1 flex-shrink">
                 <Text className="text-base font-medium break-words">Mostrar Edad</Text>
@@ -194,10 +299,8 @@ export default function Preferencias() {
                 </Text>
               </View>
               <Switch
-                value={preferencias?.mostrar_edad}
-                onValueChange={(value) => 
-                  actualizarPreferencia("mostrar_edad", value)
-                }
+                value={privacySettings.mostrar_edad}
+                onValueChange={() => handlePrivacyToggle('mostrar_edad')}
               />
             </View>
 
@@ -209,10 +312,8 @@ export default function Preferencias() {
                 </Text>
               </View>
               <Switch
-                value={preferencias?.mostrar_ubicacion}
-                onValueChange={(value) => 
-                  actualizarPreferencia("mostrar_ubicacion", value)
-                }
+                value={privacySettings.mostrar_ubicacion}
+                onValueChange={() => handlePrivacyToggle('mostrar_ubicacion')}
               />
             </View>
 
@@ -224,10 +325,8 @@ export default function Preferencias() {
                 </Text>
               </View>
               <Switch
-                value={preferencias?.mostrar_redes_sociales}
-                onValueChange={(value) => 
-                  actualizarPreferencia("mostrar_redes_sociales", value)
-                }
+                value={privacySettings.mostrar_redes_sociales}
+                onValueChange={() => handlePrivacyToggle('mostrar_redes_sociales')}
               />
             </View>
 
@@ -239,10 +338,8 @@ export default function Preferencias() {
                 </Text>
               </View>
               <Switch
-                value={preferencias?.mostrar_valoraciones}
-                onValueChange={(value) => 
-                  actualizarPreferencia("mostrar_valoraciones", value)
-                }
+                value={privacySettings.mostrar_valoraciones}
+                onValueChange={() => handlePrivacyToggle('mostrar_valoraciones')}
               />
             </View>
           </View>
@@ -281,28 +378,26 @@ export default function Preferencias() {
                   </Text>
                 </View>
                 <Switch
-                  value={preferencias?.match_filtrar_sexo}
-                  onValueChange={(value) => 
-                    actualizarPreferencia("match_filtrar_sexo", value)
-                  }
+                  value={matchSettings.match_filtrar_sexo}
+                  onValueChange={() => handleMatchToggle('match_filtrar_sexo')}
                 />
               </View>
               
-              {preferencias?.match_filtrar_sexo && (
+              {matchSettings.match_filtrar_sexo && (
                 <View className="mt-4 bg-gray-50 rounded-lg p-2">
                   <View className="flex-row flex-wrap gap-2">
                     {opciones.map((opcion) => (
                       <TouchableOpacity
                         key={opcion.valor}
                         className={`flex-1 min-w-[45%] p-3 rounded-lg ${
-                          preferencias?.match_sexo_preferido === opcion.valor
+                          matchSettings.match_sexo_preferido === opcion.valor
                             ? 'bg-primary-500'
                             : 'bg-white border border-gray-200'
                         }`}
-                        onPress={() => actualizarPreferencia('match_sexo_preferido', opcion.valor)}
+                        onPress={() => handleMatchToggle('match_sexo_preferido', opcion.valor)}
                       >
                         <Text className={`text-center font-medium ${
-                          preferencias?.match_sexo_preferido === opcion.valor
+                          matchSettings.match_sexo_preferido === opcion.valor
                             ? 'text-white'
                             : 'text-gray-600'
                         }`}>
@@ -325,14 +420,12 @@ export default function Preferencias() {
                   </Text>
                 </View>
                 <Switch
-                  value={preferencias?.match_filtrar_edad}
-                  onValueChange={(value) => 
-                    actualizarPreferencia("match_filtrar_edad", value)
-                  }
+                  value={matchSettings.match_filtrar_edad}
+                  onValueChange={(value) => handleMatchToggle('match_filtrar_edad', value)}
                 />
               </View>
               
-              {preferencias?.match_filtrar_edad && (
+              {matchSettings.match_filtrar_edad && (
                 <View className="mt-4 bg-gray-50 rounded-lg p-4">
                   <View className="space-y-6">
                     {/* Edad Mínima */}
@@ -447,14 +540,12 @@ export default function Preferencias() {
                   </Text>
                 </View>
                 <Switch
-                  value={preferencias?.match_filtrar_nacionalidad}
-                  onValueChange={(value) => 
-                    actualizarPreferencia("match_filtrar_nacionalidad", value)
-                  }
+                  value={matchSettings.match_filtrar_nacionalidad}
+                  onValueChange={(value) => handleMatchToggle('match_filtrar_nacionalidad', value)}
                 />
               </TouchableOpacity>
 
-              {preferencias?.match_filtrar_nacionalidad && (
+              {matchSettings.match_filtrar_nacionalidad && (
                 <View className="mt-4 bg-gray-50 rounded-lg p-4">
                   <View className="flex-row flex-wrap gap-2">
                     {nacionalidadesDisponibles.map((nacionalidad: string) => (

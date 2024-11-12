@@ -16,23 +16,27 @@ export const useUnreadMessages = () => {
   return context;
 };
 
-export const UnreadMessagesProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const UnreadMessagesProvider = ({ children }: { children: React.ReactNode }) => {
   const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
 
   const updateUnreadMessagesCount = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      const { count, error } = await supabase
-        .from('mensaje')
-        .select('*', { count: 'exact', head: true })
-        .eq('receptor_id', user.id)
-        .eq('leido', false);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { count, error } = await supabase
+          .from('mensaje')
+          .select('*', { count: 'exact' })
+          .eq('receptor_id', user.id)
+          .eq('leido', false);
 
-      if (error) {
-        console.error('Error fetching unread messages:', error);
-      } else {
-        setUnreadMessagesCount(count || 0);
+        if (error) {
+          console.error('Error al obtener mensajes no leídos:', error);
+        } else {
+          setUnreadMessagesCount(count || 0);
+        }
       }
+    } catch (error) {
+      console.error('Error en updateUnreadMessagesCount:', error);
     }
   };
 

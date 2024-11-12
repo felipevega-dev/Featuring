@@ -339,24 +339,28 @@ export default function Reportes() {
                 </Text>
               )
             )}
-
             {activeTab === 'sanciones' && (
-              sanciones.length > 0 ? (
-                sanciones.map((sancion) => (
-                  <SanctionCard
-                    key={sancion.id}
-                    tipo={sancion.tipo_sancion}
-                    motivo={sancion.motivo}
-                    duracion={sancion.duracion_dias}
-                    fecha={new Date(sancion.created_at).toLocaleDateString()}
-                    getSanctionColor={getSanctionColor}
-                  />
-                ))
-              ) : (
-                <Text className="text-center text-gray-500">
-                  No tienes sanciones registradas
+              <>
+                <Text className="text-center text-red-500 mb-4">
+                  ⚠️ Advertencia: La acumulación de 3 o más sanciones resultará en la suspensión temporal  o permanente de la cuenta.
                 </Text>
-              )
+                {sanciones.length > 0 ? (
+                  sanciones.map((sancion) => (
+                    <SanctionCard
+                      key={sancion.id}
+                      tipo={sancion.tipo_sancion}
+                      motivo={sancion.motivo}
+                      duracion={sancion.duracion_dias}
+                      fecha={new Date(sancion.created_at).toLocaleDateString()}
+                      getSanctionColor={getSanctionColor}
+                    />
+                  ))
+                ) : (
+                  <Text className="text-center text-gray-500">
+                    No tienes sanciones registradas
+                  </Text>
+                )}
+              </>
             )}
           </View>
         )}

@@ -1,9 +1,16 @@
 import React, { useEffect, useState, useMemo, useRef } from "react";
-import { View, Text, FlatList, TouchableOpacity, Alert, RefreshControl, Modal } from "react-native";
+import {
+  View,
+  Text,
+  FlatList,
+  TouchableOpacity,
+  Alert,
+  RefreshControl,
+  Modal,
+} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams } from "expo-router";
 import SongCard from "@/components/SongCard";
-import { getSongs } from "@/app/(api)/comunidad";
 import { supabase } from "@/lib/supabase";
 import { Database } from "@/types/db_types";
 import UploadSongModal from "@/components/UploadSongModal";
@@ -11,7 +18,7 @@ import UserSongsModal from "@/components/UserSongsModal";
 import SearchBar from "@/components/SearchBar";
 import GlobalAudioPlayer from "@/components/GlobalAudioPlayer";
 import { AudioPlayerProvider } from "@/contexts/AudioPlayerContext";
-import { generosMusicales } from '@/constants/musicData';
+import { generosMusicales } from "@/constants/musicData";
 
 type CancionDB = Database["public"]["Tables"]["cancion"]["Row"];
 type PerfilDB = Database["public"]["Tables"]["perfil"]["Row"];
@@ -20,7 +27,6 @@ interface Perfil {
   usuario_id: string;
   username: string;
   foto_perfil: string | null;
-  // Añade otras propiedades necesarias
 }
 
 interface Cancion extends Omit<CancionDB, "perfil"> {
@@ -39,74 +45,88 @@ const Comunidad = () => {
   const [sortedGenres, setSortedGenres] = useState<string[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const songListRef = useRef<FlatList>(null);
-  const { scrollToId, showComments } = useLocalSearchParams<{ 
+  const { scrollToId, showComments } = useLocalSearchParams<{
     scrollToId: string;
     showComments: string;
   }>();
-  const [activeTab, setActiveTab] = useState<'canciones' | 'videos'>('canciones');
+  const [activeTab, setActiveTab] = useState<"canciones" | "videos">(
+    "canciones"
+  );
   const [showingFollowedOnly, setShowingFollowedOnly] = useState(false);
   const [sortModalVisible, setSortModalVisible] = useState(false);
-  const [currentSort, setCurrentSort] = useState<'newest' | 'oldest' | 'likes' | 'comments'>('newest');
+  const [currentSort, setCurrentSort] = useState<
+    "newest" | "oldest" | "likes" | "comments"
+  >("newest");
 
   const sortOptions = [
-    { value: 'newest', label: 'Más recientes', icon: 'time-outline' },
-    { value: 'oldest', label: 'Más antiguas', icon: 'calendar-outline' },
-    { value: 'likes', label: 'Más likes', icon: 'heart-outline' },
-    { value: 'comments', label: 'Más comentados', icon: 'chatbubble-outline' }
+    { value: "newest", label: "Más recientes", icon: "time-outline" },
+    { value: "oldest", label: "Más antiguas", icon: "calendar-outline" },
+    { value: "likes", label: "Más likes", icon: "heart-outline" },
+    { value: "comments", label: "Más comentados", icon: "chatbubble-outline" },
   ];
 
-  const handleSort = (sortType: 'newest' | 'oldest' | 'likes' | 'comments') => {
+  const handleSort = (sortType: "newest" | "oldest" | "likes" | "comments") => {
     setCurrentSort(sortType);
     let sortedSongs = [...allCanciones];
 
     switch (sortType) {
-      case 'newest':
-        sortedSongs.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      case "newest":
+        sortedSongs.sort(
+          (a, b) =>
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        );
         break;
-      case 'oldest':
-        sortedSongs.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+      case "oldest":
+        sortedSongs.sort(
+          (a, b) =>
+            new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+        );
         break;
-      case 'likes':
+      case "likes":
         // Obtener conteo de likes para cada canción
         const getLikesCount = async (cancionId: number) => {
           const { count } = await supabase
-            .from('likes_cancion')
-            .select('*', { count: 'exact' })
-            .eq('cancion_id', cancionId);
+            .from("likes_cancion")
+            .select("*", { count: "exact" })
+            .eq("cancion_id", cancionId);
           return count || 0;
         };
 
         // Ordenar por número de likes
-        Promise.all(sortedSongs.map(async song => ({
-          ...song,
-          likesCount: await getLikesCount(song.id)
-        }))).then(songsWithLikes => {
+        Promise.all(
+          sortedSongs.map(async (song) => ({
+            ...song,
+            likesCount: await getLikesCount(song.id),
+          }))
+        ).then((songsWithLikes) => {
           songsWithLikes.sort((a, b) => b.likesCount - a.likesCount);
           setFilteredCanciones(songsWithLikes);
         });
         break;
-      case 'comments':
+      case "comments":
         // Obtener conteo de comentarios para cada canción
         const getCommentsCount = async (cancionId: number) => {
           const { count } = await supabase
-            .from('comentario_cancion')
-            .select('*', { count: 'exact' })
-            .eq('cancion_id', cancionId);
+            .from("comentario_cancion")
+            .select("*", { count: "exact" })
+            .eq("cancion_id", cancionId);
           return count || 0;
         };
 
         // Ordenar por número de comentarios
-        Promise.all(sortedSongs.map(async song => ({
-          ...song,
-          commentsCount: await getCommentsCount(song.id)
-        }))).then(songsWithComments => {
+        Promise.all(
+          sortedSongs.map(async (song) => ({
+            ...song,
+            commentsCount: await getCommentsCount(song.id),
+          }))
+        ).then((songsWithComments) => {
           songsWithComments.sort((a, b) => b.commentsCount - a.commentsCount);
           setFilteredCanciones(songsWithComments);
         });
         break;
     }
 
-    if (sortType === 'newest' || sortType === 'oldest') {
+    if (sortType === "newest" || sortType === "oldest") {
       setFilteredCanciones(sortedSongs);
     }
     setSortModalVisible(false);
@@ -120,7 +140,7 @@ const Comunidad = () => {
   useEffect(() => {
     if (scrollToId && allCanciones.length > 0) {
       const songIndex = allCanciones.findIndex(
-        cancion => cancion.id.toString() === scrollToId
+        (cancion) => cancion.id.toString() === scrollToId
       );
 
       if (songIndex !== -1 && songListRef.current) {
@@ -128,10 +148,10 @@ const Comunidad = () => {
           songListRef.current?.scrollToIndex({
             index: songIndex,
             animated: true,
-            viewPosition: 0
+            viewPosition: 0,
           });
 
-          if (showComments === 'true') {
+          if (showComments === "true") {
             handleCommentPress(allCanciones[songIndex].id);
           }
         }, 100);
@@ -155,14 +175,14 @@ const Comunidad = () => {
   const fetchFollowedUsers = async () => {
     try {
       const { data, error } = await supabase
-        .from('seguidor')
-        .select('usuario_id')
-        .eq('seguidor_id', currentUserId);
+        .from("seguidor")
+        .select("usuario_id")
+        .eq("seguidor_id", currentUserId);
 
       if (error) throw error;
-      return data.map(seguidor => seguidor.usuario_id);
+      return data.map((seguidor) => seguidor.usuario_id);
     } catch (error) {
-      console.error('Error al obtener usuarios seguidos:', error);
+      console.error("Error al obtener usuarios seguidos:", error);
       return [];
     }
   };
@@ -172,7 +192,8 @@ const Comunidad = () => {
       setIsLoading(true);
       let query = supabase
         .from("cancion")
-        .select(`
+        .select(
+          `
           id,
           titulo,
           caratula,
@@ -185,7 +206,7 @@ const Comunidad = () => {
             username,
             foto_perfil
           ),
-          likes:likes_cancion(count),
+          likes_count:likes_cancion(count),
           comentarios:comentario_cancion(count),
           colaboracion:colaboracion!cancion_id (
             estado,
@@ -200,14 +221,15 @@ const Comunidad = () => {
               foto_perfil
             )
           )
-        `)
-        .eq('colaboracion.estado', 'aceptada')
-        .order('created_at', { ascending: false });
+        `
+        )
+        .eq("colaboracion.estado", "aceptada")
+        .order("created_at", { ascending: false });
 
       if (showingFollowedOnly) {
         const followedUsers = await fetchFollowedUsers();
         if (followedUsers.length > 0) {
-          query = query.in('usuario_id', followedUsers);
+          query = query.in("usuario_id", followedUsers);
         } else {
           setAllCanciones([]);
           setFilteredCanciones([]);
@@ -221,46 +243,43 @@ const Comunidad = () => {
       if (error) throw error;
 
       const cancionesFormateadas = data?.map((cancion) => ({
-        id: cancion.id,
-        titulo: cancion.titulo,
-        caratula: cancion.caratula,
-        genero: cancion.genero,
-        created_at: cancion.created_at,
-        archivo_audio: cancion.archivo_audio,
-        contenido: cancion.contenido,
-        usuario_id: cancion.usuario_id,
-        perfil: cancion.perfil,
-        likes_count: cancion.likes?.[0]?.count || 0,
-        colaboracion: cancion.colaboracion?.[0] || null,
-        isLiked: false // Se actualizará en la siguiente consulta
+        ...cancion,
+        likes_count: cancion.likes_count?.[0]?.count || 0,
+        isLiked: false, // Se actualizará en la siguiente consulta
       }));
 
       // Obtener los likes del usuario actual en una sola consulta
       const { data: userLikes } = await supabase
         .from("likes_cancion")
-        .select('cancion_id')
-        .eq('usuario_id', currentUserId);
+        .select("cancion_id")
+        .eq("usuario_id", currentUserId);
 
       // Crear un Set para búsqueda rápida
-      const likedSongIds = new Set(userLikes?.map(like => like.cancion_id));
+      const likedSongIds = new Set(userLikes?.map((like) => like.cancion_id));
 
       // Actualizar isLiked para cada canción
-      const cancionesConLikes = cancionesFormateadas?.map(cancion => ({
+      const cancionesConLikes = cancionesFormateadas?.map((cancion) => ({
         ...cancion,
-        isLiked: likedSongIds.has(cancion.id)
+        isLiked: likedSongIds.has(cancion.id),
       }));
 
       setAllCanciones(cancionesConLikes || []);
       setFilteredCanciones(cancionesConLikes || []);
 
       // Calcular géneros una sola vez
-      const genreCount = cancionesConLikes?.reduce((acc, cancion) => {
-        acc[cancion.genero] = (acc[cancion.genero] || 0) + 1;
-        return acc;
-      }, {} as Record<string, number>) || {};
+      const genreCount =
+        cancionesConLikes?.reduce(
+          (acc, cancion) => {
+            acc[cancion.genero] = (acc[cancion.genero] || 0) + 1;
+            return acc;
+          },
+          {} as Record<string, number>
+        ) || {};
 
       setSortedGenres(
-        generosMusicales.sort((a, b) => (genreCount[b] || 0) - (genreCount[a] || 0))
+        generosMusicales.sort(
+          (a, b) => (genreCount[b] || 0) - (genreCount[a] || 0)
+        )
       );
     } catch (err) {
       setError("Error al cargar las canciones");
@@ -290,9 +309,9 @@ const Comunidad = () => {
           .delete()
           .eq("contenido_id", cancionId)
           .in("tipo_notificacion", [
-            'solicitud_colaboracion',
-            'colaboracion_aceptada',
-            'colaboracion_rechazada'
+            "solicitud_colaboracion",
+            "colaboracion_aceptada",
+            "colaboracion_rechazada",
           ]);
 
         if (notificacionesError) throw notificacionesError;
@@ -344,9 +363,13 @@ const Comunidad = () => {
           throw deleteCancionError;
         }
 
-        setAllCanciones(prev => prev.filter(cancion => cancion.id !== cancionId));
-        setFilteredCanciones(prev => prev.filter(cancion => cancion.id !== cancionId));
-        
+        setAllCanciones((prev) =>
+          prev.filter((cancion) => cancion.id !== cancionId)
+        );
+        setFilteredCanciones((prev) =>
+          prev.filter((cancion) => cancion.id !== cancionId)
+        );
+
         Alert.alert("Éxito", "La canción ha sido eliminada completamente");
       }
     } catch (error) {
@@ -367,11 +390,11 @@ const Comunidad = () => {
     let filtered = allCanciones;
 
     if (selectedGenre) {
-      filtered = filtered.filter(cancion => cancion.genero === selectedGenre);
+      filtered = filtered.filter((cancion) => cancion.genero === selectedGenre);
     }
 
     if (searchTerm) {
-      filtered = filtered.filter(cancion => 
+      filtered = filtered.filter((cancion) =>
         cancion.titulo.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
@@ -386,12 +409,14 @@ const Comunidad = () => {
       onDeleteSong={handleDeleteSong}
       onUpdateSong={handleUpdateSong}
       onCommentPress={() => handleCommentPress(item.id)}
-      initialShowComments={showComments === 'true' && item.id.toString() === scrollToId}
+      initialShowComments={
+        showComments === "true" && item.id.toString() === scrollToId
+      }
     />
   );
 
   const handleCommentPress = (songId: number) => {
-    const cancion = allCanciones.find(cancion => cancion.id === songId);
+    const cancion = allCanciones.find((cancion) => cancion.id === songId);
     if (cancion) {
       handleSongSelect(cancion);
     }
@@ -434,30 +459,31 @@ const Comunidad = () => {
               onPress={() => setSortModalVisible(true)}
               className="bg-white rounded-md mx-2 px-3 h-8 flex-row items-center justify-center"
             >
-              <Ionicons 
-                name={sortOptions.find(opt => opt.value === currentSort)?.icon || 'funnel'} 
-                size={20} 
-                color="#00BFA5" 
+              <Ionicons
+                name={
+                  sortOptions.find((opt) => opt.value === currentSort)
+                    ?.icon as any
+                }
+                size={20}
+                color="#00BFA5"
               />
-              <Text className="ml-1 text-sm text-secondary-500">
-                Ordenar
-              </Text>
+              <Text className="ml-1 text-sm text-secondary-500">Ordenar</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               onPress={() => setShowingFollowedOnly(!showingFollowedOnly)}
               className={`bg-white rounded-md mx-2 px-3 h-8 flex-row items-center justify-center ${
-                showingFollowedOnly ? 'bg-secondary-500' : 'bg-white'
+                showingFollowedOnly ? "bg-secondary-500" : "bg-white"
               }`}
             >
-              <Ionicons 
-                name="people" 
-                size={20} 
-                color={showingFollowedOnly ? "#FFFFFF" : "#00BFA5"} 
+              <Ionicons
+                name="people"
+                size={20}
+                color={showingFollowedOnly ? "#FFFFFF" : "#00BFA5"}
               />
-              <Text 
+              <Text
                 className={`ml-1 text-sm ${
-                  showingFollowedOnly ? 'text-white' : 'text-secondary-500'
+                  showingFollowedOnly ? "text-white" : "text-secondary-500"
                 }`}
               >
                 Seguidos
@@ -494,12 +520,20 @@ const Comunidad = () => {
               {sortOptions.map((option) => (
                 <TouchableOpacity
                   key={option.value}
-                  onPress={() => handleSort(option.value)}
+                  onPress={() =>
+                    handleSort(
+                      option.value as "newest" | "oldest" | "likes" | "comments"
+                    )
+                  }
                   className={`flex-row items-center p-3 ${
-                    currentSort === option.value ? 'bg-primary-100' : ''
+                    currentSort === option.value ? "bg-primary-100" : ""
                   }`}
                 >
-                  <Ionicons name={option.icon} size={24} color="#6D29D2" />
+                  <Ionicons
+                    name={option.icon as any}
+                    size={24}
+                    color="#6D29D2"
+                  />
                   <Text className="ml-3 text-primary-700">{option.label}</Text>
                 </TouchableOpacity>
               ))}
@@ -529,11 +563,11 @@ const Comunidad = () => {
               />
             }
             onScrollToIndexFailed={(info) => {
-              const wait = new Promise(resolve => setTimeout(resolve, 100));
+              const wait = new Promise((resolve) => setTimeout(resolve, 100));
               wait.then(() => {
                 songListRef.current?.scrollToIndex({
                   index: info.index,
-                  animated: true
+                  animated: true,
                 });
               });
             }}

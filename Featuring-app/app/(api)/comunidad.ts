@@ -23,18 +23,29 @@ interface CancionConRelaciones extends Cancion {
 export async function getSongs(): Promise<CancionConRelaciones[]> {
   const { data, error } = await supabase
     .from("cancion")
-    .select(
-      `
+    .select(`
       *,
       perfil!usuario_id (*),
-      likes: likes_cancion (count),
+      likes_count:likes_cancion(count),
       comentarios: comentario_cancion (
         *,
         perfil!usuario_id (*),
         likes: likes_comentario_cancion (*)
+      ),
+      colaboracion:colaboracion!cancion_id (
+        estado,
+        usuario_id,
+        usuario_id2,
+        perfil:usuario_id (
+          username,
+          foto_perfil
+        ),
+        perfil2:usuario_id2 (
+          username,
+          foto_perfil
+        )
       )
-    `
-    )
+    `)
     .order("created_at", { ascending: false });
 
   if (error) {
@@ -44,8 +55,8 @@ export async function getSongs(): Promise<CancionConRelaciones[]> {
 
   return data.map((cancion) => ({
     ...cancion,
-    likes_count: cancion.likes[0]?.count || 0,
-    comentarios: cancion.comentarios.map((comentario) => ({
+    likes_count: cancion.likes_count?.[0]?.count || 0,
+    comentarios: cancion.comentarios.map((comentario: any) => ({
       ...comentario,
       likes_count: comentario.likes?.length || 0,
     })),

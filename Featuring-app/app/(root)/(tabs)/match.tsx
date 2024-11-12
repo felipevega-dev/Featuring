@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from "react";
+import React, { useRef, useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -6,14 +6,10 @@ import {
   Animated,
   TouchableOpacity,
   PanResponder,
-  GestureResponderEvent,
-  PanResponderGestureState,
-  ActivityIndicator,
-  Alert,
-  Modal,
-  ScrollView,
   Linking,
   Dimensions,
+  ActivityIndicator,
+  Alert,
 } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { FontAwesome, Ionicons } from "@expo/vector-icons";
@@ -26,6 +22,7 @@ import Constants from "expo-constants";
 import { sendPushNotification } from '@/utils/pushNotifications';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { ReportButton } from '@/components/reports/ReportButton';
+import { useFocusEffect } from 'expo-router';
 
 const SWIPE_THRESHOLD = 120;
 
@@ -97,10 +94,6 @@ const Card: React.FC<CardProps> = ({
     outputRange: [0.2, 0],
     extrapolate: 'clamp',
   });
-
-  const handleProfilePress = () => {
-    router.push(`/public-profile/${card.usuario_id}`);
-  };
 
   const panResponder = PanResponder.create({
     onStartShouldSetPanResponder: (evt, gestureState) => {
@@ -378,7 +371,7 @@ const Card: React.FC<CardProps> = ({
   );
 };
 
-const Match = () => {
+export default function Match() {
   const { update } = useLocalSearchParams();
   const [cards, setCards] = useState<CardProps["card"][]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -394,7 +387,16 @@ const Match = () => {
   const [shownCards, setShownCards] = useState<Set<string>>(new Set());
   const [userLocation, setUserLocation] =
     useState<Location.LocationObject | null>(null);
-  const [subscription, setSubscription] = useState<RealtimeChannel | null>(null);
+  const [subscriptions, setSubscriptions] = useState<RealtimeChannel[]>([]);
+
+  // Este efecto se ejecutará cada vez que la pantalla reciba el foco
+  useFocusEffect(
+    useCallback(() => {
+      if (currentUserId && userLocation) {
+        fetchUsers();
+      }
+    }, [currentUserId, userLocation])
+  );
 
   useEffect(() => {
     getCurrentUser();
@@ -409,8 +411,8 @@ const Match = () => {
 
   useEffect(() => {
     if (currentUserId) {
-      // Suscribirse a cambios en la tabla conexion
-      const channel = supabase
+      // Suscripción a cambios en conexiones
+      const conexionChannel = supabase
         .channel(`conexion-changes-${currentUserId}`)
         .on(
           'postgres_changes',
@@ -422,19 +424,35 @@ const Match = () => {
           },
           (payload) => {
             console.log('Cambio en conexiones:', payload);
-            // Actualizar la lista de usuarios cuando hay cambios
             fetchUsers();
           }
         )
         .subscribe();
 
-      setSubscription(channel);
+      // Suscripción a cambios en preferencias
+      const preferencesChannel = supabase
+        .channel(`preferencias-changes-${currentUserId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'preferencias_usuario',
+            filter: `usuario_id.eq.${currentUserId}`
+          },
+          (payload) => {
+            console.log('Cambio en preferencias:', payload);
+            fetchUsers();
+          }
+        )
+        .subscribe();
+
+      setSubscriptions([conexionChannel, preferencesChannel]);
 
       // Limpieza al desmontar
       return () => {
-        if (channel) {
-          channel.unsubscribe();
-        }
+        conexionChannel.unsubscribe();
+        preferencesChannel.unsubscribe();
       };
     }
   }, [currentUserId]);
@@ -492,9 +510,21 @@ const Match = () => {
     try {
       setIsLoading(true);
 
+      // Obtener las preferencias del usuario actual
       const { data: userPreferences, error: preferencesError } = await supabase
-        .from("perfil")
-        .select("preferencias_genero, preferencias_habilidad, preferencias_distancia")
+        .from("preferencias_usuario")
+        .select(`
+          preferencias_genero,
+          preferencias_habilidad,
+          preferencias_distancia,
+          sin_limite_distancia,
+          match_filtrar_edad,
+          match_rango_edad,
+          match_filtrar_sexo,
+          match_sexo_preferido,
+          match_filtrar_nacionalidad,
+          match_nacionalidades
+        `)
         .eq("usuario_id", currentUserId)
         .single();
 
@@ -532,6 +562,7 @@ const Match = () => {
           ubicacion,
           perfil_habilidad (habilidad),
           perfil_genero (genero),
+          nacionalidad,
           latitud,
           longitud,
           mensaje,
@@ -555,19 +586,97 @@ const Match = () => {
             : undefined,
         }))
         .filter(profile => {
-          if (userPreferences.preferencias_distancia !== null && 
+          // Filtro de distancia
+          if (!userPreferences.sin_limite_distancia && 
               profile.distance && 
+              userPreferences.preferencias_distancia !== null && 
               profile.distance > userPreferences.preferencias_distancia) {
+            console.log('Filtrado por distancia:', {
+              distancia: profile.distance,
+              limite: userPreferences.preferencias_distancia
+            });
             return false;
           }
-          if (userPreferences.preferencias_genero && userPreferences.preferencias_genero.length > 0 &&
-              !profile.perfil_genero.some(g => userPreferences.preferencias_genero.includes(g.genero))) {
+
+          // Filtro de nacionalidad
+          if (userPreferences.match_filtrar_nacionalidad && 
+              userPreferences.match_nacionalidades && 
+              userPreferences.match_nacionalidades.length > 0) {
+            console.log('Filtrado por nacionalidad:', {
+              nacionalidadPerfil: profile.nacionalidad || 'No especificada',
+              nacionalidadesPreferidas: userPreferences.match_nacionalidades
+            });
+            if (!userPreferences.match_nacionalidades.includes(profile.nacionalidad)) {
+              return false;
+            }
+          }
+
+          // Filtro de géneros musicales
+          if (userPreferences.preferencias_genero && 
+              userPreferences.preferencias_genero.length > 0) {
+            console.log('Filtrado por géneros:', {
+              generosPreferidos: userPreferences.preferencias_genero,
+              generosPerfil: profile.perfil_genero.map(g => g.genero)
+            });
+            
+            // Verificar si hay al menos un género en común
+            const tieneGeneroEnComun = profile.perfil_genero.some(g => 
+              userPreferences.preferencias_genero.includes(g.genero)
+            );
+            
+            if (!tieneGeneroEnComun) {
+              return false;
+            }
+          }
+
+          // Filtro de habilidades musicales
+          if (userPreferences.preferencias_habilidad && 
+              userPreferences.preferencias_habilidad.length > 0) {
+            console.log('Filtrado por habilidades:', {
+              habilidadesPreferidas: userPreferences.preferencias_habilidad,
+              habilidadesPerfil: profile.perfil_habilidad.map(h => h.habilidad)
+            });
+            
+            // Verificar si hay al menos una habilidad en común
+            const tieneHabilidadEnComun = profile.perfil_habilidad.some(h => 
+              userPreferences.preferencias_habilidad.includes(h.habilidad)
+            );
+            
+            if (!tieneHabilidadEnComun) {
+              return false;
+            }
+          }
+
+          // Nuevo filtro de edad
+          if (userPreferences.match_filtrar_edad && 
+              userPreferences.match_rango_edad && 
+              (profile.edad < userPreferences.match_rango_edad[0] || 
+               profile.edad > userPreferences.match_rango_edad[1])) {
             return false;
           }
-          if (userPreferences.preferencias_habilidad && userPreferences.preferencias_habilidad.length > 0 &&
-              !profile.perfil_habilidad.some(h => userPreferences.preferencias_habilidad.includes(h.habilidad))) {
-            return false;
+
+          // Corregir el filtro de sexo
+          if (userPreferences.match_filtrar_sexo) {
+            // Si es 'todos', no aplicar filtro
+            if (userPreferences.match_sexo_preferido === 'todos') {
+              return true;
+            }
+            
+            // Mapear la preferencia al valor correcto en la base de datos
+            const sexoMap = {
+              'F': 'Femenino',
+              'M': 'Masculino',
+              'O': 'Otro'
+            };
+            
+            const sexoBuscado = sexoMap[userPreferences.match_sexo_preferido as keyof typeof sexoMap];
+            
+            // Comparar el sexo del perfil con la preferencia mapeada
+            if (profile.sexo !== sexoBuscado) {
+              return false;
+            }
           }
+
           return true;
         });
 
@@ -613,10 +722,8 @@ const Match = () => {
           if (newConnection) {
             await updateConnectionStatus(newConnection.id, true);
           }
-          console.log("¡Es un match!");
           return true;
         } else {
-          console.log("La conexión ya existe");
         }
         return false;
       }
@@ -913,5 +1020,3 @@ const Match = () => {
     </GestureHandlerRootView>
   );
 };
-
-export default Match;

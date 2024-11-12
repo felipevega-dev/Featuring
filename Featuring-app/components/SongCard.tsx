@@ -273,11 +273,13 @@ const SongCard: React.FC<SongCardProps> = ({
 
   const fetchLikesAndComments = async () => {
     try {
+      // Obtener likes
       const { data: likesData } = await supabase
         .from("likes_cancion")
         .select("*")
         .eq("cancion_id", cancion.id);
 
+      // Obtener comentarios con sus likes
       const { data: comentariosData } = await supabase
         .from("comentario_cancion")
         .select(`
@@ -355,83 +357,83 @@ const SongCard: React.FC<SongCardProps> = ({
 
     setIsLiked(!!data);
   };
-//funcion que maneja likes de la canción
-const handleLike = async () => {
-  if (isLiked) {
-    await supabase
-      .from("likes_cancion")
-      .delete()
-      .eq("cancion_id", cancion.id)
-      .eq("usuario_id", currentUserId);
-    
-    // Actualizar el estado local inmediatamente
-    setLikes(likes.filter((like) => like.usuario_id !== currentUserId));
-    setIsLiked(false);
-  } else {
-    try {
-      // Obtener el username del usuario que da like
-      const { data: userData, error: userError } = await supabase
-        .from('perfil')
-        .select('username')
-        .eq('usuario_id', currentUserId)
-        .single();
 
-      if (userError) throw userError;
-
-      // Obtener el token de push del usuario que recibe el like
-      const { data: songOwnerData, error: ownerError } = await supabase
-        .from('perfil')
-        .select('push_token')
-        .eq('usuario_id', cancion.usuario_id)
-        .single();
-
-      if (ownerError) throw ownerError;
-
-      const { data } = await supabase
+  const handleLike = async () => {
+    if (isLiked) {
+      await supabase
         .from("likes_cancion")
-        .insert({ cancion_id: cancion.id, usuario_id: currentUserId })
-        .select()
-        .single();
+        .delete()
+        .eq("cancion_id", cancion.id)
+        .eq("usuario_id", currentUserId);
+      
+      // Actualizar el estado local inmediatamente
+      setLikes(likes.filter((like) => like.usuario_id !== currentUserId));
+      setIsLiked(false);
+    } else {
+      try {
+        // Obtener el username del usuario que da like
+        const { data: userData, error: userError } = await supabase
+          .from('perfil')
+          .select('username')
+          .eq('usuario_id', currentUserId)
+          .single();
 
-      if (data) {
-        // Actualizar el estado local inmediatamente
-        setLikes([...likes, data]);
-        setIsLiked(true);
-        
-        // Si el usuario que da like no es el dueño de la canción
-        if (currentUserId !== cancion.usuario_id) {
-          // Enviar notificación push si el usuario tiene token
-          if (songOwnerData?.push_token) {
-            await sendPushNotification(
-              songOwnerData.push_token,
-              '¡Nuevo Like!',
-              `A ${userData.username} le ha gustado tu canción "${cancion.titulo}"`
-            );
-          }
+        if (userError) throw userError;
 
-          // Crear notificación en la base de datos
-          const { error: notificationError } = await supabase
-            .from('notificacion')
-            .insert({
-              usuario_id: cancion.usuario_id,
-              tipo_notificacion: 'like_cancion',
-              leido: false,
-              usuario_origen_id: currentUserId,
-              contenido_id: cancion.id,
-              mensaje: `Le ha dado me gusta a tu canción "${cancion.titulo}"`
-            });
+        // Obtener el token de push del usuario que recibe el like
+        const { data: songOwnerData, error: ownerError } = await supabase
+          .from('perfil')
+          .select('push_token')
+          .eq('usuario_id', cancion.usuario_id)
+          .single();
 
-          if (notificationError) {
-            console.error('Error al crear notificación de like:', notificationError);
+        if (ownerError) throw ownerError;
+
+        const { data } = await supabase
+          .from("likes_cancion")
+          .insert({ cancion_id: cancion.id, usuario_id: currentUserId })
+          .select()
+          .single();
+
+        if (data) {
+          // Actualizar el estado local inmediatamente
+          setLikes([...likes, data]);
+          setIsLiked(true);
+          
+          // Si el usuario que da like no es el dueño de la canción
+          if (currentUserId !== cancion.usuario_id) {
+            // Enviar notificación push si el usuario tiene token
+            if (songOwnerData?.push_token) {
+              await sendPushNotification(
+                songOwnerData.push_token,
+                '¡Nuevo Like!',
+                `A ${userData.username} le ha gustado tu canción "${cancion.titulo}"`
+              );
+            }
+
+            // Crear notificación en la base de datos
+            const { error: notificationError } = await supabase
+              .from('notificacion')
+              .insert({
+                usuario_id: cancion.usuario_id,
+                tipo_notificacion: 'like_cancion',
+                leido: false,
+                usuario_origen_id: currentUserId,
+                contenido_id: cancion.id,
+                mensaje: `Le ha dado me gusta a tu canción "${cancion.titulo}"`
+              });
+
+            if (notificationError) {
+              console.error('Error al crear notificación de like:', notificationError);
+            }
           }
         }
+      } catch (error) {
+        console.error('Error al dar like:', error);
       }
-    } catch (error) {
-      console.error('Error al dar like:', error);
     }
-  }
-};
-//funcion que maneja los comentarios de las canciones
+  };
+
   const handleComment = async () => {
     if (nuevoComentario.trim()) {
       // Validar comentario
@@ -532,7 +534,7 @@ const handleLike = async () => {
       }
     }
   };
-//función que manej likes de comentarios de las canciones publicadas
+
   const handleCommentLike = async (comentarioId: number) => {
     const comentario = comentarios.find((c) => c.id === comentarioId);
     if (!comentario) return;

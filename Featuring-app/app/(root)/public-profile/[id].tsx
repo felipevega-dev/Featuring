@@ -40,6 +40,12 @@ interface Perfil {
   promedio_valoraciones: number;
   total_valoraciones: number;
   seguidores_count?: number;
+  preferencias?: {
+    mostrar_edad: boolean;
+    mostrar_ubicacion: boolean;
+    mostrar_redes_sociales: boolean;
+    mostrar_valoraciones: boolean;
+  };
 }
 
 interface Cancion {
@@ -169,7 +175,13 @@ export default function PublicProfile() {
           promedio_valoraciones,
           perfil_genero (genero),
           perfil_habilidad (habilidad),
-          red_social (nombre, url)
+          red_social (nombre, url),
+          preferencias:preferencias_usuario!preferencias_usuario_usuario_id_fkey (
+            mostrar_edad,
+            mostrar_ubicacion,
+            mostrar_redes_sociales,
+            mostrar_valoraciones
+          )
         `)
         .eq("usuario_id", id)
         .single();
@@ -229,7 +241,8 @@ export default function PublicProfile() {
           promedio_valoraciones: promedioValoraciones,
           total_valoraciones: totalValoraciones,
           insignias: insigniaActiva ? [insigniaActiva.insignia] : [],
-          tituloActivo: tituloActivo?.titulo || null
+          tituloActivo: tituloActivo?.titulo || null,
+          preferencias: data.preferencias
         };
         setPerfil(perfilData);
       }
@@ -600,32 +613,38 @@ export default function PublicProfile() {
                 </View>
               </View>
 
-              <TouchableOpacity onPress={handleShowRatings}>
-                <View className="items-center mt-2">
-                  <View className="flex-row">
-                    {[1, 2, 3, 4, 5].map((star) => (
-                      <Ionicons
-                        key={star}
-                        name="star"
-                        size={16}
-                        color={star <= Math.round(perfil.promedio_valoraciones) ? "#FFD700" : "#E5E7EB"}
-                      />
-                    ))}
-                    <Text className="text-gray-600 ml-2">
-                      ({perfil.promedio_valoraciones.toFixed(1)})
+              {perfil.preferencias?.mostrar_redes_sociales ? (
+                <TouchableOpacity onPress={handleShowRatings}>
+                  <View className="items-center mt-2">
+                    <View className="flex-row">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <Ionicons
+                          key={star}
+                          name="star"
+                          size={16}
+                          color={star <= Math.round(perfil.promedio_valoraciones) ? "#FFD700" : "#E5E7EB"}
+                        />
+                      ))}
+                      <Text className="text-gray-600 ml-2">
+                        ({perfil.promedio_valoraciones.toFixed(1)})
+                      </Text>
+                    </View>
+                    <Text className="text-xs text-gray-500 mt-1">
+                      {perfil.total_valoraciones} valoraciones como colaborador
                     </Text>
                   </View>
-                  <Text className="text-xs text-gray-500 mt-1">
-                    {perfil.total_valoraciones} valoraciones como colaborador
-                  </Text>
-                </View>
-              </TouchableOpacity>
+                </TouchableOpacity>
+              ) : null}
             </View>
 
             <ProfileSection icon={icons.usuarioperfil} title="Información Personal">
-              <ProfileItem label="Ubicación" value={perfil.ubicacion} />
+              <ProfileItem label="Ubicación" 
+                value={perfil.preferencias?.mostrar_ubicacion ? perfil.ubicacion : "Ocultada por el usuario"} 
+              />
               <ProfileItem label="Género" value={perfil.sexo} />
-              <ProfileItem label="Edad" value={perfil.edad.toString()} />
+              {perfil.preferencias?.mostrar_edad ? (
+                <ProfileItem label="Edad" value={perfil.edad.toString()} />
+              ) : null}
               <ProfileItem label="Nacionalidad" value={perfil.nacionalidad} />
             </ProfileSection>
 
@@ -655,27 +674,29 @@ export default function PublicProfile() {
               </View>
             </ProfileSection>
 
-            <ProfileSection icon={icons.link} title="Redes Sociales">
-              <View className="flex-row flex-wrap">
-                {perfil.redes_sociales && perfil.redes_sociales.length > 0 ? (
-                  perfil.redes_sociales.map((red, index) => (
-                    <TouchableOpacity
-                      key={index}
-                      onPress={() => handleRedSocialPress(red.url)}
-                      className="m-2"
-                    >
-                      <FontAwesome
-                        name={getRedSocialIcon(red.nombre)}
-                        size={30}
-                        color="#5416A0"
-                      />
-                    </TouchableOpacity>
-                  ))
-                ) : (
-                  <Text className="text-gray-500">No hay redes sociales agregadas</Text>
-                )}
-              </View>
-            </ProfileSection>
+            {perfil.preferencias?.mostrar_redes_sociales ? (
+              <ProfileSection icon={icons.link} title="Redes Sociales">
+                <View className="flex-row flex-wrap">
+                  {perfil.redes_sociales && perfil.redes_sociales.length > 0 ? (
+                    perfil.redes_sociales.map((red, index) => (
+                      <TouchableOpacity
+                        key={index}
+                        onPress={() => handleRedSocialPress(red.url)}
+                        className="m-2"
+                      >
+                        <FontAwesome
+                          name={getRedSocialIcon(red.nombre)}
+                          size={30}
+                          color="#5416A0"
+                        />
+                      </TouchableOpacity>
+                    ))
+                  ) : (
+                    <Text className="text-gray-500">No hay redes sociales agregadas</Text>
+                  )}
+                </View>
+              </ProfileSection>
+            ) : null}
           </View>
 
           <View className="flex-row justify-around mb-4">

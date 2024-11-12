@@ -102,6 +102,20 @@ export default function Chat() {
         setIsLoading(true);
       }
       
+      // First, get all blocked users (both blocked by and blocking the current user)
+      const { data: blockedUsers, error: blockedError } = await supabase
+        .from("bloqueo")
+        .select("usuario_id, bloqueado_id")
+        .or(`usuario_id.eq.${currentUserId},bloqueado_id.eq.${currentUserId}`);
+
+      if (blockedError) throw blockedError;
+
+      // Create a set of blocked user IDs (both ways)
+      const blockedUserIds = new Set(
+        blockedUsers?.flatMap(block => [block.usuario_id, block.bloqueado_id])
+        .filter(id => id !== currentUserId)
+      );
+
       const { data: connections, error: connectionsError } = await supabase
         .from("conexion")
         .select("*")
@@ -115,8 +129,16 @@ export default function Chat() {
         return;
       }
 
+      // Filter out connections with blocked users
+      const filteredConnections = connections.filter(connection => {
+        const otherUserId = connection.usuario1_id === currentUserId
+          ? connection.usuario2_id
+          : connection.usuario1_id;
+        return !blockedUserIds.has(otherUserId);
+      });
+
       const uniqueUserIds = new Set<string>();
-      const uniqueConnections = connections.filter((connection) => {
+      const uniqueConnections = filteredConnections.filter((connection) => {
         const otherUserId =
           connection.usuario1_id === currentUserId
             ? connection.usuario2_id
