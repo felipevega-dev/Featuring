@@ -95,10 +95,6 @@ const Card: React.FC<CardProps> = ({
     extrapolate: 'clamp',
   });
 
-  const handleProfilePress = () => {
-    router.push(`/public-profile/${card.usuario_id}`);
-  };
-
   const panResponder = PanResponder.create({
     onStartShouldSetPanResponder: (evt, gestureState) => {
       const { locationX } = evt.nativeEvent;
@@ -521,10 +517,13 @@ export default function Match() {
           preferencias_genero,
           preferencias_habilidad,
           preferencias_distancia,
+          sin_limite_distancia,
           match_filtrar_edad,
           match_rango_edad,
           match_filtrar_sexo,
-          match_sexo_preferido
+          match_sexo_preferido,
+          match_filtrar_nacionalidad,
+          match_nacionalidades
         `)
         .eq("usuario_id", currentUserId)
         .single();
@@ -563,6 +562,7 @@ export default function Match() {
           ubicacion,
           perfil_habilidad (habilidad),
           perfil_genero (genero),
+          nacionalidad,
           latitud,
           longitud,
           mensaje,
@@ -586,11 +586,29 @@ export default function Match() {
             : undefined,
         }))
         .filter(profile => {
-          // Filtro de distancia existente
-          if (userPreferences.preferencias_distancia !== null && 
+          // Filtro de distancia
+          if (!userPreferences.sin_limite_distancia && 
               profile.distance && 
+              userPreferences.preferencias_distancia !== null && 
               profile.distance > userPreferences.preferencias_distancia) {
+            console.log('Filtrado por distancia:', {
+              distancia: profile.distance,
+              limite: userPreferences.preferencias_distancia
+            });
             return false;
+          }
+
+          // Filtro de nacionalidad
+          if (userPreferences.match_filtrar_nacionalidad && 
+              userPreferences.match_nacionalidades && 
+              userPreferences.match_nacionalidades.length > 0) {
+            console.log('Filtrado por nacionalidad:', {
+              nacionalidadPerfil: profile.nacionalidad || 'No especificada',
+              nacionalidadesPreferidas: userPreferences.match_nacionalidades
+            });
+            if (!userPreferences.match_nacionalidades.includes(profile.nacionalidad)) {
+              return false;
+            }
           }
 
           // Filtro de géneros existente
@@ -631,7 +649,7 @@ export default function Match() {
               'O': 'Otro'
             };
             
-            const sexoBuscado = sexoMap[userPreferences.match_sexo_preferido];
+            const sexoBuscado = sexoMap[userPreferences.match_sexo_preferido as keyof typeof sexoMap];
             
             // Comparar el sexo del perfil con la preferencia mapeada
             if (profile.sexo !== sexoBuscado) {
