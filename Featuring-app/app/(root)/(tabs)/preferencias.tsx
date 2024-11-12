@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { habilidadesMusicales, generosMusicales } from "@/constants/musicData";
 import { hispanicCountryCodes } from "@/utils/countryCodes";
 import BlockedUsersList from '@/components/BlockedUsersList';
+import { getPrivacySettings, updatePrivacySettings, PrivacySettings } from '@/lib/privacy';
 
 
 interface PreferenciasUsuario {
@@ -71,6 +72,13 @@ export default function Preferencias() {
     nacionalidades: false
   });
   const [showBlockedUsers, setShowBlockedUsers] = useState(false);
+  const [privacySettings, setPrivacySettings] = useState<PrivacySettings>({
+    mostrar_edad: true,
+    mostrar_ubicacion: true,
+    mostrar_redes_sociales: true,
+    mostrar_valoraciones: true,
+    permitir_comentarios_general: true
+  });
 
   const opciones: OpcionSexo[] = [
     { valor: 'M', label: 'Masculino' },
@@ -88,6 +96,10 @@ export default function Preferencias() {
       setIsLoadingData(false);
     }
   }, [generosMusicales, habilidadesMusicales]);
+
+  useEffect(() => {
+    loadPrivacySettings();
+  }, []);
 
   const toggleSection = (section: 'generos' | 'habilidades' | 'nacionalidades') => {
     setExpandedSections(prev => ({
@@ -161,6 +173,40 @@ export default function Preferencias() {
     }
   };
 
+  const loadPrivacySettings = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const settings = await getPrivacySettings(user.id);
+      setPrivacySettings(settings);
+    } catch (error) {
+      console.error('Error al cargar configuración:', error);
+      Alert.alert('Error', 'No se pudo cargar la configuración de privacidad');
+    }
+  };
+
+  const handlePrivacyToggle = async (setting: keyof PrivacySettings) => {
+    try {
+      setIsLoading(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const newSettings = {
+        ...privacySettings,
+        [setting]: !privacySettings[setting]
+      };
+
+      await updatePrivacySettings(user.id, { [setting]: !privacySettings[setting] });
+      setPrivacySettings(newSettings);
+    } catch (error) {
+      console.error('Error al actualizar configuración:', error);
+      Alert.alert('Error', 'No se pudo actualizar la configuración');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   if (isLoading || isLoadingData) {
     return (
       <View className="flex-1 justify-center items-center bg-gray-100">
@@ -181,11 +227,10 @@ export default function Preferencias() {
         {/* Cada sección ahora tiene mejores clases responsivas */}
         <View className="bg-white rounded-lg p-4">
           <Text className="text-lg font-bold mb-4 text-primary-600">
-            Privacidad del Perfil
+            Privacidad del perfil
           </Text>
           
           <View className="space-y-4">
-            {/* Cada elemento de configuración tiene mejor estructura */}
             <View className="flex-row justify-between items-start space-x-4">
               <View className="flex-1 flex-shrink">
                 <Text className="text-base font-medium break-words">Mostrar Edad</Text>
@@ -194,10 +239,9 @@ export default function Preferencias() {
                 </Text>
               </View>
               <Switch
-                value={preferencias?.mostrar_edad}
-                onValueChange={(value) => 
-                  actualizarPreferencia("mostrar_edad", value)
-                }
+                value={privacySettings.mostrar_edad}
+                onValueChange={() => handlePrivacyToggle('mostrar_edad')}
+                disabled={isLoading}
               />
             </View>
 
@@ -209,10 +253,9 @@ export default function Preferencias() {
                 </Text>
               </View>
               <Switch
-                value={preferencias?.mostrar_ubicacion}
-                onValueChange={(value) => 
-                  actualizarPreferencia("mostrar_ubicacion", value)
-                }
+                value={privacySettings.mostrar_ubicacion}
+                onValueChange={() => handlePrivacyToggle('mostrar_ubicacion')}
+                disabled={isLoading}
               />
             </View>
 
@@ -224,10 +267,9 @@ export default function Preferencias() {
                 </Text>
               </View>
               <Switch
-                value={preferencias?.mostrar_redes_sociales}
-                onValueChange={(value) => 
-                  actualizarPreferencia("mostrar_redes_sociales", value)
-                }
+                value={privacySettings.mostrar_redes_sociales}
+                onValueChange={() => handlePrivacyToggle('mostrar_redes_sociales')}
+                disabled={isLoading}
               />
             </View>
 
@@ -239,10 +281,23 @@ export default function Preferencias() {
                 </Text>
               </View>
               <Switch
-                value={preferencias?.mostrar_valoraciones}
-                onValueChange={(value) => 
-                  actualizarPreferencia("mostrar_valoraciones", value)
-                }
+                value={privacySettings.mostrar_valoraciones}
+                onValueChange={() => handlePrivacyToggle('mostrar_valoraciones')}
+                disabled={isLoading}
+              />
+            </View>
+
+            <View className="flex-row justify-between items-start space-x-4">
+              <View className="flex-1 flex-shrink">
+                <Text className="text-base font-medium break-words">Permitir Comentarios</Text>
+                <Text className="text-sm text-gray-500 break-words">
+                  Otros usuarios podrán comentar en tu contenido
+                </Text>
+              </View>
+              <Switch
+                value={privacySettings.permitir_comentarios_general}
+                onValueChange={() => handlePrivacyToggle('permitir_comentarios_general')}
+                disabled={isLoading}
               />
             </View>
           </View>
