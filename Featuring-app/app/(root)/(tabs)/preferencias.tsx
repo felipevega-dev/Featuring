@@ -197,7 +197,6 @@ export default function Preferencias() {
 
   const handlePrivacyToggle = async (setting: keyof PrivacySettings) => {
     try {
-      setIsLoading(true);
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
@@ -211,14 +210,11 @@ export default function Preferencias() {
     } catch (error) {
       console.error('Error al actualizar configuración:', error);
       Alert.alert('Error', 'No se pudo actualizar la configuración');
-    } finally {
-      setIsLoading(false);
     }
   };
 
   const handleMatchToggle = async (setting: keyof MatchSettings, value?: any) => {
     try {
-      setIsLoading(true);
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
@@ -232,16 +228,23 @@ export default function Preferencias() {
         updateData = { [setting]: !matchSettings[setting] };
       }
 
-      await updateMatchSettings(user.id, updateData);
+      // Actualizar el estado local inmediatamente para una UI más fluida
       setMatchSettings(prev => ({
         ...prev,
         ...updateData
       }));
+
+      // Luego actualizar en la base de datos
+      await updateMatchSettings(user.id, updateData);
+
     } catch (error) {
+      // Si hay error, revertir el cambio local
+      setMatchSettings(prev => ({
+        ...prev,
+        ...matchSettings
+      }));
       console.error('Error al actualizar configuración:', error);
       Alert.alert('Error', 'No se pudo actualizar la configuración');
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -264,7 +267,7 @@ export default function Preferencias() {
     }
   };
 
-  if (isLoading || isLoadingData) {
+  if (isLoadingData) {
     return (
       <View className="flex-1 justify-center items-center bg-gray-100">
         <ActivityIndicator size="large" color="#6D29D2" />
@@ -298,7 +301,6 @@ export default function Preferencias() {
               <Switch
                 value={privacySettings.mostrar_edad}
                 onValueChange={() => handlePrivacyToggle('mostrar_edad')}
-                disabled={isLoading}
               />
             </View>
 
@@ -312,7 +314,6 @@ export default function Preferencias() {
               <Switch
                 value={privacySettings.mostrar_ubicacion}
                 onValueChange={() => handlePrivacyToggle('mostrar_ubicacion')}
-                disabled={isLoading}
               />
             </View>
 
@@ -326,7 +327,6 @@ export default function Preferencias() {
               <Switch
                 value={privacySettings.mostrar_redes_sociales}
                 onValueChange={() => handlePrivacyToggle('mostrar_redes_sociales')}
-                disabled={isLoading}
               />
             </View>
 
@@ -340,7 +340,6 @@ export default function Preferencias() {
               <Switch
                 value={privacySettings.mostrar_valoraciones}
                 onValueChange={() => handlePrivacyToggle('mostrar_valoraciones')}
-                disabled={isLoading}
               />
             </View>
           </View>
@@ -380,7 +379,7 @@ export default function Preferencias() {
                 </View>
                 <Switch
                   value={matchSettings.match_filtrar_sexo}
-                  onValueChange={(value) => handleMatchToggle('match_filtrar_sexo', value)}
+                  onValueChange={() => handleMatchToggle('match_filtrar_sexo')}
                 />
               </View>
               
