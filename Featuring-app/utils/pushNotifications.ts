@@ -1,6 +1,6 @@
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
-import { Platform } from 'react-native';
+import { Platform, AppState } from 'react-native';
 import { supabase } from '@/lib/supabase';
 
 // Configurar el comportamiento de las notificaciones

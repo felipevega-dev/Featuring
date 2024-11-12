@@ -34,6 +34,14 @@ export const useChat = (currentUserId: string | null, otherId: string) => {
         .limit(20);
 
       if (error) throw error;
+
+      await supabase
+        .from("mensaje")
+        .update({ leido: true })
+        .eq('receptor_id', currentUserId)
+        .eq('emisor_id', otherId)
+        .eq('leido', false);
+
       setMessages(data || []);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Error desconocido';
