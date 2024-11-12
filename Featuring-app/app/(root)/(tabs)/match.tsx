@@ -611,20 +611,40 @@ export default function Match() {
             }
           }
 
-          // Filtro de géneros existente
+          // Filtro de géneros musicales
           if (userPreferences.preferencias_genero && 
-              userPreferences.preferencias_genero.length > 0 &&
-              !profile.perfil_genero.some(g => 
-                userPreferences.preferencias_genero.includes(g.genero))) {
-            return false;
+              userPreferences.preferencias_genero.length > 0) {
+            console.log('Filtrado por géneros:', {
+              generosPreferidos: userPreferences.preferencias_genero,
+              generosPerfil: profile.perfil_genero.map(g => g.genero)
+            });
+            
+            // Verificar si hay al menos un género en común
+            const tieneGeneroEnComun = profile.perfil_genero.some(g => 
+              userPreferences.preferencias_genero.includes(g.genero)
+            );
+            
+            if (!tieneGeneroEnComun) {
+              return false;
+            }
           }
 
-          // Filtro de habilidades existente
+          // Filtro de habilidades musicales
           if (userPreferences.preferencias_habilidad && 
-              userPreferences.preferencias_habilidad.length > 0 &&
-              !profile.perfil_habilidad.some(h => 
-                userPreferences.preferencias_habilidad.includes(h.habilidad))) {
-            return false;
+              userPreferences.preferencias_habilidad.length > 0) {
+            console.log('Filtrado por habilidades:', {
+              habilidadesPreferidas: userPreferences.preferencias_habilidad,
+              habilidadesPerfil: profile.perfil_habilidad.map(h => h.habilidad)
+            });
+            
+            // Verificar si hay al menos una habilidad en común
+            const tieneHabilidadEnComun = profile.perfil_habilidad.some(h => 
+              userPreferences.preferencias_habilidad.includes(h.habilidad)
+            );
+            
+            if (!tieneHabilidadEnComun) {
+              return false;
+            }
           }
 
           // Nuevo filtro de edad
