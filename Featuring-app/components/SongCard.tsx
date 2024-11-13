@@ -21,6 +21,7 @@ import { RealtimeChannel } from '@supabase/supabase-js';
 import Constants from "expo-constants";
 import { sendPushNotification } from '@/utils/pushNotifications';
 import { validateContent } from '@/utils/contentFilter';
+import CommentSection from './CommentSection';
 
 interface Perfil {
   usuario_id: string;
@@ -228,7 +229,6 @@ const SongCard: React.FC<SongCardProps> = ({
     const subscription = supabase
       .channel(`public:comentario_cancion:cancion_id=eq.${cancion.id}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'comentario_cancion', filter: `cancion_id=eq.${cancion.id}` }, (payload) => {
-        console.log('Cambio en comentarios:', payload);
         fetchLikesAndComments();
       })
       .subscribe();
@@ -444,6 +444,19 @@ const SongCard: React.FC<SongCardProps> = ({
       }
 
       try {
+        // Verificar comentarios previos del usuario en esta canción hoy
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const { data: previousComments, error: previousCommentsError } = await supabase
+          .from('comentario_cancion')
+          .select('id')
+          .eq('cancion_id', cancion.id)
+          .eq('usuario_id', currentUserId)
+          .gte('created_at', today.toISOString());
+
+        if (previousCommentsError) throw previousCommentsError;
+
         // Obtener el username del usuario que comenta
         const { data: userData, error: userError } = await supabase
           .from('perfil')
@@ -462,6 +475,7 @@ const SongCard: React.FC<SongCardProps> = ({
 
         if (ownerError) throw ownerError;
 
+        // Insertar el comentario
         const { data, error } = await supabase
           .from("comentario_cancion")
           .insert({
@@ -469,8 +483,7 @@ const SongCard: React.FC<SongCardProps> = ({
             usuario_id: currentUserId,
             contenido: nuevoComentario.trim(),
           })
-          .select(
-            `
+          .select(`
             id,
             usuario_id,
             cancion_id,
@@ -481,8 +494,7 @@ const SongCard: React.FC<SongCardProps> = ({
               username,
               foto_perfil
             )
-          `
-          )
+          `)
           .single();
 
         if (error) throw error;
@@ -499,29 +511,52 @@ const SongCard: React.FC<SongCardProps> = ({
 
           // Si el usuario que comenta no es el dueño de la canción
           if (currentUserId !== cancion.usuario_id) {
-            // Enviar notificación push si el usuario tiene token
-            if (songOwnerData?.push_token) {
-              await sendPushNotification(
-                songOwnerData.push_token,
-                '¡Nuevo Comentario!',
-                `${userData.username} ha comentado en tu canción "${cancion.titulo}"`
-              );
-            }
-
-            // Crear notificación en la base de datos
-            const { error: notificationError } = await supabase
+            // Verificar si ya existe una notificación de comentarios de este usuario hoy
+            const { data: existingNotification, error: notificationError } = await supabase
               .from('notificacion')
-              .insert({
-                usuario_id: cancion.usuario_id,
-                tipo_notificacion: 'comentario_cancion',
-                leido: false,
-                usuario_origen_id: currentUserId,
-                contenido_id: cancion.id,
-                mensaje: `Ha comentado en tu canción "${cancion.titulo}": "${nuevoComentario.slice(0, 50)}${nuevoComentario.length > 50 ? '...' : ''}"`
-              });
+              .select('id, mensaje')
+              .eq('usuario_id', cancion.usuario_id)
+              .eq('usuario_origen_id', currentUserId)
+              .eq('tipo_notificacion', 'comentario_cancion')
+              .eq('contenido_id', cancion.id)
+              .gte('created_at', today.toISOString())
+              .single();
 
-            if (notificationError) {
-              console.error('Error al crear notificación de comentario:', notificationError);
+            if (!notificationError || notificationError.code === 'PGRST116') {
+              let mensaje;
+              if (existingNotification) {
+                // Actualizar la notificación existente
+                const commentCount = previousComments.length + 1;
+                mensaje = `Ha comentado en tu canción "${cancion.titulo}": "${nuevoComentario.slice(0, 30)}${nuevoComentario.length > 30 ? '...' : ''}" y ${commentCount - 1} comentarios más`;
+                
+                await supabase
+                  .from('notificacion')
+                  .update({ mensaje })
+                  .eq('id', existingNotification.id);
+              } else {
+                // Crear nueva notificación solo si es el primer comentario del día
+                mensaje = `Ha comentado en tu canción "${cancion.titulo}": "${nuevoComentario.slice(0, 50)}${nuevoComentario.length > 50 ? '...' : ''}"`;
+                
+                await supabase
+                  .from('notificacion')
+                  .insert({
+                    usuario_id: cancion.usuario_id,
+                    tipo_notificacion: 'comentario_cancion',
+                    leido: false,
+                    usuario_origen_id: currentUserId,
+                    contenido_id: cancion.id,
+                    mensaje
+                  });
+
+                // Enviar notificación push solo para el primer comentario del día
+                if (songOwnerData?.push_token) {
+                  await sendPushNotification(
+                    songOwnerData.push_token,
+                    '¡Nuevo Comentario!',
+                    `${userData.username} ha comentado en tu canción "${cancion.titulo}"`
+                  );
+                }
+              }
             }
           }
         }
@@ -1340,91 +1375,18 @@ const SongCard: React.FC<SongCardProps> = ({
         </TouchableOpacity>
       </Modal>
 
-      {/* Modal para comentarios */}
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={commentsModalVisible}
-        onRequestClose={handleCloseCommentsModal}
-      >
-        <View className="flex-1 justify-end bg-black/20">
-          <View className="bg-white rounded-t-3xl p-4 h-3/4 shadow-lg">
-            <View className="flex-row justify-between items-center mb-4">
-              <TouchableOpacity onPress={toggleSortOptions}>
-                <Image
-                  source={icons.shuffle}
-                  className="w-6 h-6"
-                  style={{ tintColor: "#00BFA5" }}
-                />
-              </TouchableOpacity>
-              <View className="flex-row items-center">
-                <Text className="text-secondary-500 font-JakartaBold mr-2">
-                  {comentarios.length}
-                </Text>
-                <Text className="font-JakartaBold text-lg">Comentarios</Text>
-              </View>
-              <TouchableOpacity onPress={handleCloseCommentsModal}>
-                <Text className="text-secondary-500 font-JakartaBold">
-                  Cerrar
-                </Text>
-              </TouchableOpacity>
-            </View>
-            {showSortOptions && (
-              <View className="flex-row justify-center mb-4">
-                <TouchableOpacity
-                  onPress={() => sortComments("newest")}
-                  className="mr-4"
-                >
-                  <Text
-                    className={`text-sm ${
-                      commentSortOrder === "newest"
-                        ? "text-secondary-500 font-bold"
-                        : "text-gray-500"
-                    }`}
-                  >
-                    Más nuevos
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => sortComments("oldest")}>
-                  <Text
-                    className={`text-sm ${
-                      commentSortOrder === "oldest"
-                        ? "text-secondary-500 font-bold"
-                        : "text-gray-500"
-                    }`}
-                  >
-                    Más antiguos
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            )}
-            <ScrollView className="mb-4">
-              {comentarios.map((comentario) => (
-                <React.Fragment key={comentario.id}>
-                  {renderComment({ item: comentario })}
-                </React.Fragment>
-              ))}
-            </ScrollView>
-            {!respondingTo && (
-              <View className="mt-2">
-                <TextInput
-                  className="border border-general-300 rounded-full px-4 py-2 mb-2"
-                  value={nuevoComentario}
-                  onChangeText={setNuevoComentario}
-                  placeholder="Añade un comentario..."
-                  placeholderTextColor="#858585"
-                />
-                <TouchableOpacity
-                  onPress={handleComment}
-                  className="bg-primary-500 rounded-full py-2 items-center"
-                >
-                  <Text className="text-white font-JakartaBold">Enviar</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-          </View>
-        </View>
-      </Modal>
+      {/* Modal comentarios*/}
+      <CommentSection
+        songId={cancion.id}
+        currentUserId={currentUserId}
+        isVisible={commentsModalVisible}
+        onClose={handleCloseCommentsModal}
+        cancion={{
+          id: cancion.id,
+          titulo: cancion.titulo,
+          usuario_id: cancion.usuario_id
+        }}
+      />
 
       {/* Modal para opciones de canción */}
       <Modal

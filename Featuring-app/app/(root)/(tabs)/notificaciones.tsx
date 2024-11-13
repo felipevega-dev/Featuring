@@ -6,6 +6,8 @@ import {
   RefreshControl,
   ActivityIndicator,
   Image,
+  TouchableOpacity,
+  Alert
 } from 'react-native';
 import { supabase } from '@/lib/supabase';
 import CollaborationNotification from '@/components/CollaborationNotification';
@@ -106,6 +108,41 @@ export default function NotificacionesScreen() {
     fetchNotificaciones();
   };
 
+  const handleMarkAllAsRead = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Verificar si hay notificaciones sin leer
+      const { count } = await supabase
+        .from('notificacion')
+        .select('*', { count: 'exact' })
+        .eq('usuario_id', user.id)
+        .eq('leido', false);
+
+      if (!count) {
+        Alert.alert('Info', 'No hay notificaciones pendientes por leer');
+        return;
+      }
+
+      // Actualizar todas las notificaciones como leídas
+      const { error } = await supabase
+        .from('notificacion')
+        .update({ leido: true })
+        .eq('usuario_id', user.id)
+        .eq('leido', false);
+
+      if (error) throw error;
+
+      // Actualizar la lista de notificaciones
+      fetchNotificaciones();
+      Alert.alert('Éxito', 'Todas las notificaciones han sido marcadas como leídas');
+    } catch (error) {
+      console.error('Error al marcar notificaciones como leídas:', error);
+      Alert.alert('Error', 'No se pudieron marcar las notificaciones como leídas');
+    }
+  };
+
   const renderNotificacion = ({ item }: { item: Notificacion }) => {
     if (!currentUserId) return null;
 
@@ -158,9 +195,19 @@ export default function NotificacionesScreen() {
   return (
     <View className="flex-1 bg-gray-100">
       <View className="bg-primary-500 py-4 px-4">
-        <Text className="text-xl font-bold text-white text-center">
-          Notificaciones
-        </Text>
+        <View className="flex-row justify-between items-center">
+          <Text className="text-xl font-bold text-white">
+            Notificaciones
+          </Text>
+          <TouchableOpacity
+            onPress={handleMarkAllAsRead}
+            className="bg-secondary-500 px-3 py-1 rounded-full"
+          >
+            <Text className="text-white font-JakartaMedium text-sm">
+              Marcar todo como leído
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <FlatList
