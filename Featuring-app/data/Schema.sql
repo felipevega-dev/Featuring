@@ -115,21 +115,6 @@ CREATE TABLE comentario_cancion (
     CONSTRAINT fk_cancion_comentario FOREIGN KEY (cancion_id) REFERENCES cancion (id) ON DELETE CASCADE
 );
 
--- Tabla etiqueta
-CREATE TABLE etiqueta (
-    id BIGSERIAL PRIMARY KEY,
-    nombre TEXT NOT NULL UNIQUE
-);
-
--- Renombrar publicacion_etiqueta a cancion_etiqueta
-CREATE TABLE cancion_etiqueta (
-    cancion_id BIGINT NOT NULL,
-    etiqueta_id BIGINT NOT NULL,
-    PRIMARY KEY (cancion_id, etiqueta_id),
-    CONSTRAINT fk_cancion_etiqueta FOREIGN KEY (cancion_id) REFERENCES cancion (id) ON DELETE CASCADE,
-    CONSTRAINT fk_etiqueta_cancion FOREIGN KEY (etiqueta_id) REFERENCES etiqueta (id) ON DELETE CASCADE
-);
-
 -- Actualizar la tabla likes_comentario_cancion
 CREATE TABLE likes_comentario_cancion (
     id BIGSERIAL PRIMARY KEY,
@@ -300,6 +285,8 @@ CREATE TABLE preferencias_usuario (
     mostrar_ubicacion boolean default true,
     mostrar_redes_sociales boolean default true,
     mostrar_valoraciones boolean default true,
+    -- Privacidad del contenido
+    permitir_comentarios_general boolean default true,
     -- Notificaciones
     notificaciones_mensajes boolean default true,
     notificaciones_match boolean default true,
@@ -607,17 +594,3 @@ CREATE INDEX IF NOT EXISTS idx_mensaje_url_contenido ON mensaje(url_contenido) W
 -- Índice para mejorar el rendimiento de las consultas de almacenamiento
 CREATE INDEX IF NOT EXISTS idx_storage_objects_metadata_size 
 ON storage.objects(((metadata->>'size')::BIGINT) DESC);
-
-CREATE INDEX IF NOT EXISTS idx_perfil_username_trgm 
-ON perfil USING gin (username gin_trgm_ops);
-
-CREATE INDEX IF NOT EXISTS idx_mensaje_contenido_trgm 
-ON mensaje USING gin (contenido gin_trgm_ops);
-
--- Índice compuesto para optimizar consultas de likes
-CREATE INDEX idx_likes_cancion_compound 
-ON likes_cancion (cancion_id, usuario_id, created_at DESC);
-
--- Índice para ordenar por fecha
-CREATE INDEX idx_likes_cancion_fecha 
-ON likes_cancion (created_at DESC);
