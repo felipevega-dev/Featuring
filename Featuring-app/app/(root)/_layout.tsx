@@ -82,10 +82,6 @@ export default function RootLayout() {
           name="(edit)/editar_perfil"
           options={{ headerShown: false, presentation: "modal" }}
         />
-        <Stack.Screen
-          name="(edit)/preferencias"
-          options={{ headerShown: false, presentation: "modal" }}
-        />
       </Stack>
 
       {userId && (
