@@ -12,6 +12,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       ...config.extra,
       supabaseUrl: process.env.SUPABASE_URL,
       supabaseAnonKey: process.env.SUPABASE_ANON_KEY,
+      exchangeRateApiKey: process.env.EXCHANGE_RATE_API_KEY,
     },
   };
 };

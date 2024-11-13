@@ -23,12 +23,13 @@ export const UnreadMessagesProvider = ({ children }: { children: React.ReactNode
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
+        // Modificamos la consulta para contar solo mensajes no leídos
         const { count, error } = await supabase
           .from('mensaje')
           .select('*', { count: 'exact' })
           .eq('receptor_id', user.id)
-          .eq('leido', false);
-
+          .eq('leido', false); // Agregamos esta condición
+  
         if (error) {
           console.error('Error al obtener mensajes no leídos:', error);
         } else {

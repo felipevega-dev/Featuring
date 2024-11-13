@@ -31,7 +31,8 @@ SELECT
     COUNT(*) as unread_count
 FROM mensaje
 WHERE leido = false
-GROUP BY receptor_id;
+GROUP BY receptor_id
+WITH DATA;
 
 -- Vista para estadísticas de contenido
 CREATE MATERIALIZED VIEW content_statistics AS

@@ -59,138 +59,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Trigger para likes en canciones
-CREATE OR REPLACE FUNCTION handle_song_like()
-RETURNS TRIGGER AS $$
-BEGIN
-  INSERT INTO notificacion (
-    usuario_id,
-    usuario_origen_id,
-    tipo_notificacion,
-    contenido_id,
-    mensaje,
-    leido
-  )
-  VALUES (
-    (SELECT usuario_id FROM cancion WHERE id = NEW.cancion_id),
-    NEW.usuario_id,
-    'like_cancion',
-    NEW.cancion_id,
-    (SELECT username || ' le dio like a tu canción' 
-     FROM perfil 
-     WHERE usuario_id = NEW.usuario_id),
-    false
-  );
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
--- Trigger para comentarios en canciones
-CREATE OR REPLACE FUNCTION handle_song_comment()
-RETURNS TRIGGER AS $$
-BEGIN
-  INSERT INTO notificacion (
-    usuario_id,
-    usuario_origen_id,
-    tipo_notificacion,
-    contenido_id,
-    mensaje,
-    leido
-  )
-  VALUES (
-    (SELECT usuario_id FROM cancion WHERE id = NEW.cancion_id),
-    NEW.usuario_id,
-    'comentario_cancion',
-    NEW.cancion_id,
-    (SELECT username || ' comentó en tu canción' 
-     FROM perfil 
-     WHERE usuario_id = NEW.usuario_id),
-    false
-  );
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
--- Trigger para likes en videos
-CREATE OR REPLACE FUNCTION handle_video_like()
-RETURNS TRIGGER AS $$
-BEGIN
-  INSERT INTO notificacion (
-    usuario_id,
-    usuario_origen_id,
-    tipo_notificacion,
-    contenido_id,
-    mensaje,
-    leido
-  )
-  VALUES (
-    (SELECT usuario_id FROM video WHERE id = NEW.video_id),
-    NEW.usuario_id,
-    'like_video',
-    NEW.video_id,
-    (SELECT username || ' le dio like a tu video' 
-     FROM perfil 
-     WHERE usuario_id = NEW.usuario_id),
-    false
-  );
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
--- Trigger para comentarios en videos
-CREATE OR REPLACE FUNCTION handle_video_comment()
-RETURNS TRIGGER AS $$
-BEGIN
-  INSERT INTO notificacion (
-    usuario_id,
-    usuario_origen_id,
-    tipo_notificacion,
-    contenido_id,
-    mensaje,
-    leido
-  )
-  VALUES (
-    (SELECT usuario_id FROM video WHERE id = NEW.video_id),
-    NEW.usuario_id,
-    'comentario_video',
-    NEW.video_id,
-    (SELECT username || ' comentó en tu video' 
-     FROM perfil 
-     WHERE usuario_id = NEW.usuario_id),
-    false
-  );
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
--- Trigger para respuestas a comentarios
-CREATE OR REPLACE FUNCTION handle_comment_reply()
-RETURNS TRIGGER AS $$
-BEGIN
-  IF NEW.padre_id IS NOT NULL THEN
-    INSERT INTO notificacion (
-      usuario_id,
-      usuario_origen_id,
-      tipo_notificacion,
-      contenido_id,
-      mensaje,
-      leido
-    )
-    VALUES (
-      (SELECT usuario_id FROM comentario_cancion WHERE id = NEW.padre_id),
-      NEW.usuario_id,
-      'respuesta_comentario',
-      NEW.id,
-      (SELECT username || ' respondió a tu comentario' 
-       FROM perfil 
-       WHERE usuario_id = NEW.usuario_id),
-      false
-    );
-  END IF;
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
 -- Agregar al final de la sección de FUNCTIONS
 CREATE OR REPLACE FUNCTION create_default_preferences()
 RETURNS TRIGGER AS $$
@@ -828,6 +696,8 @@ CREATE OR REPLACE FUNCTION mark_messages_as_read(
 )
 RETURNS void
 LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
 AS $$
 BEGIN
     UPDATE mensaje
@@ -840,6 +710,18 @@ BEGIN
     PERFORM refresh_unread_messages();
 END;
 $$;
+
+-- Asegurarnos de que la vista materializada tenga los permisos correctos
+GRANT SELECT ON unread_messages_count TO authenticated;
+GRANT SELECT ON unread_messages_count TO service_role;
+
+-- Dar permisos para ejecutar la función
+GRANT EXECUTE ON FUNCTION mark_messages_as_read(UUID, UUID) TO authenticated;
+GRANT EXECUTE ON FUNCTION mark_messages_as_read(UUID, UUID) TO service_role;
+
+-- Dar permisos para ejecutar la función de refresco
+GRANT EXECUTE ON FUNCTION refresh_unread_messages() TO authenticated;
+GRANT EXECUTE ON FUNCTION refresh_unread_messages() TO service_role;
 
 -- 7. Trigger para limpiar archivos huérfanos
 CREATE OR REPLACE FUNCTION clean_orphaned_chat_files()

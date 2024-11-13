@@ -38,13 +38,18 @@ export default function NotificationItem({ notification, onNotificationRead }: N
       const redirectConfig = NOTIFICATION_REDIRECTS[notification.tipo_notificacion];
       if (!redirectConfig) return;
 
-      // 3. Obtener los parámetros y redirigir
-      const params = await redirectConfig.getParams(notification);
-      if (Object.keys(params).length > 0) {
-        router.push({
-          pathname: redirectConfig.route as any,
-          params
-        });
+      // 3. Si es una notificación de mensaje, navegar al chat
+      if (notification.tipo_notificacion === 'mensaje_nuevo') {
+        router.push(`/(root)/(tabs)/chat/${notification.usuario_origen_id}`);
+      } else {
+        // Manejar otros tipos de notificaciones como antes
+        const params = await redirectConfig.getParams(notification);
+        if (Object.keys(params).length > 0) {
+          router.push({
+            pathname: redirectConfig.route as any,
+            params
+          });
+        }
       }
 
       onNotificationRead();

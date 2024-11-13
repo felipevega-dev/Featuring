@@ -299,6 +299,13 @@ const Layout = () => {
               headerShown: false,
             }}
           />
+          <Tabs.Screen
+            name="premium"
+            options={{
+              href: null, // Esto hace que la tab no aparezca en la barra de navegación
+              headerShown: false,
+            }}
+          />
         </Tabs>
 
         {currentUserId && (
