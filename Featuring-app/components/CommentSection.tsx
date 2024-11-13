@@ -15,6 +15,9 @@ interface Comment {
     username: string | null;
     foto_perfil: string | null;
   };
+  padre_id?: number | null;
+  respuestas?: Comment[];
+  respuestas_count?: number;
 }
 
 interface CommentSectionProps {
@@ -39,6 +42,9 @@ export default function CommentSection({ songId, currentUserId, isVisible, onClo
   const [selectedCommentId, setSelectedCommentId] = useState<number | null>(null);
   const [commentOptionsVisible, setCommentOptionsVisible] = useState(false);
   const [editingComment, setEditingComment] = useState("");
+  const [showReplies, setShowReplies] = useState<{ [key: number]: boolean }>({});
+  const [respondingTo, setRespondingTo] = useState<{ id: number; username: string } | null>(null);
+  const [respuestaTexto, setRespuestaTexto] = useState('');
 
   useEffect(() => {
     if (isVisible) {
@@ -77,12 +83,24 @@ export default function CommentSection({ songId, currentUserId, isVisible, onClo
         usuario_id,
         contenido,
         created_at,
+        padre_id,
         perfil!usuario_id (
           username,
           foto_perfil
+        ),
+        respuestas:comentario_cancion!padre_id (
+          id,
+          usuario_id,
+          contenido,
+          created_at,
+          perfil:usuario_id (
+            username,
+            foto_perfil
+          )
         )
       `)
       .eq('cancion_id', songId)
+      .is('padre_id', null)
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -96,7 +114,9 @@ export default function CommentSection({ songId, currentUserId, isVisible, onClo
         perfil: {
           username: comment.perfil?.username || "Usuario desconocido",
           foto_perfil: comment.perfil?.foto_perfil
-        }
+        },
+        respuestas: comment.respuestas || [],
+        respuestas_count: comment.respuestas?.length || 0
       }));
       setComments(formattedComments);
     }
@@ -312,6 +332,164 @@ export default function CommentSection({ songId, currentUserId, isVisible, onClo
     router.push(`/public-profile/${userId}`);
   };
 
+  const handleResponderComment = async (comentario: Comment) => {
+    setRespondingTo({ id: comentario.id, username: comentario.perfil.username || '' });
+    setRespuestaTexto(`@${comentario.perfil.username} `);
+  };
+
+  const handleEnviarRespuesta = async () => {
+    if (!respuestaTexto.trim() || !respondingTo || isSendingComment) return;
+
+    try {
+      setIsSendingComment(true);
+
+      // Verificar que no sea el mismo usuario
+      const comentarioOriginal = comments.find(c => c.id === respondingTo.id);
+      if (!comentarioOriginal || comentarioOriginal.usuario_id === currentUserId) {
+        setIsSendingComment(false);
+        return;
+      }
+
+      // Verificar respuestas previas del usuario en este comentario hoy
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const { data: previousReplies, error: previousRepliesError } = await supabase
+        .from('comentario_cancion')
+        .select('id')
+        .eq('padre_id', respondingTo.id)
+        .eq('usuario_id', currentUserId)
+        .gte('created_at', today.toISOString());
+
+      if (previousRepliesError) throw previousRepliesError;
+
+      // Obtener datos del usuario que responde
+      const { data: userData, error: userError } = await supabase
+        .from('perfil')
+        .select('username, foto_perfil')
+        .eq('usuario_id', currentUserId)
+        .single();
+
+      if (userError) throw userError;
+
+      // Obtener token de push del dueño del comentario
+      const { data: commentOwnerData, error: ownerError } = await supabase
+        .from('perfil')
+        .select('push_token')
+        .eq('usuario_id', comentarioOriginal.usuario_id)
+        .single();
+
+      if (ownerError) throw ownerError;
+
+      // Insertar la respuesta
+      const { data: commentData, error: commentError } = await supabase
+        .from('comentario_cancion')
+        .insert({
+          cancion_id: songId,
+          usuario_id: currentUserId,
+          contenido: respuestaTexto.trim(),
+          padre_id: respondingTo.id
+        })
+        .select(`
+          id,
+          usuario_id,
+          contenido,
+          created_at,
+          perfil:usuario_id (
+            username,
+            foto_perfil
+          )
+        `)
+        .single();
+
+      if (commentError) throw commentError;
+
+      // Verificar si ya existe una notificación de respuesta de este usuario hoy
+      const { data: existingNotification, error: notificationError } = await supabase
+        .from('notificacion')
+        .select('id, mensaje')
+        .eq('usuario_id', comentarioOriginal.usuario_id)
+        .eq('usuario_origen_id', currentUserId)
+        .eq('tipo_notificacion', 'respuesta_comentario')
+        .eq('contenido_id', respondingTo.id)
+        .gte('created_at', today.toISOString())
+        .single();
+
+      if (!notificationError || notificationError.code === 'PGRST116') {
+        let mensaje;
+        if (existingNotification) {
+          // Actualizar la notificación existente
+          const replyCount = previousReplies.length + 1;
+          mensaje = `Ha respondido a tu comentario en "${cancion.titulo}": "${respuestaTexto.slice(0, 30)}${respuestaTexto.length > 30 ? '...' : ''}" y ${replyCount - 1} respuestas más`;
+          
+          await supabase
+            .from('notificacion')
+            .update({ mensaje })
+            .eq('id', existingNotification.id);
+        } else {
+          // Crear nueva notificación solo si es la primera respuesta del día
+          mensaje = `Ha respondido a tu comentario en "${cancion.titulo}": "${respuestaTexto.slice(0, 50)}${respuestaTexto.length > 50 ? '...' : ''}"`;
+          
+          await supabase
+            .from('notificacion')
+            .insert({
+              usuario_id: comentarioOriginal.usuario_id,
+              tipo_notificacion: 'respuesta_comentario',
+              leido: false,
+              usuario_origen_id: currentUserId,
+              contenido_id: respondingTo.id,
+              mensaje
+            });
+
+          // Enviar notificación push solo para la primera respuesta del día
+          if (commentOwnerData?.push_token) {
+            await sendPushNotification(
+              commentOwnerData.push_token,
+              '¡Nueva Respuesta!',
+              `${userData.username} ha respondido a tu comentario en "${cancion.titulo}"`
+            );
+          }
+        }
+      }
+
+      // Actualizar el estado local
+      setComments(prevComments => 
+        prevComments.map(comment => 
+          comment.id === respondingTo.id
+            ? {
+                ...comment,
+                respuestas: [...(comment.respuestas || []), commentData],
+                respuestas_count: (comment.respuestas_count || 0) + 1
+              }
+            : comment
+        )
+      );
+
+      // Limpiar el estado de respuesta
+      setRespondingTo(null);
+      setRespuestaTexto('');
+      
+      // Mostrar las respuestas del comentario al que se respondió
+      setShowReplies(prev => ({
+        ...prev,
+        [respondingTo.id]: true
+      }));
+
+    } catch (error) {
+      console.error('Error al enviar respuesta:', error);
+      Alert.alert('Error', 'No se pudo enviar la respuesta');
+    } finally {
+      setIsSendingComment(false);
+    }
+  };
+
+  const toggleReplies = (commentId: number) => {
+    setShowReplies(prev => ({
+      ...prev,
+      [commentId]: !prev[commentId]
+    }));
+  };
+
   const renderComment = ({ item }: { item: Comment }) => (
     <View className="bg-white p-4 rounded-lg mb-3 shadow">
       <View className="flex-row justify-between items-start mb-2">
@@ -346,8 +524,92 @@ export default function CommentSection({ songId, currentUserId, isVisible, onClo
         )}
       </View>
       <Text className="text-gray-700 ml-10">{item.contenido}</Text>
+      
+      {/* Botones de acción */}
+      <View className="flex-row items-center mt-2 ml-10">
+        <TouchableOpacity
+          onPress={() => handleResponderComment(item)}
+          className="mr-4"
+        >
+          <Text className="text-primary-500 font-JakartaMedium text-sm">
+            Responder
+          </Text>
+        </TouchableOpacity>
+        
+        {item.respuestas_count > 0 && (
+          <TouchableOpacity
+            onPress={() => toggleReplies(item.id)}
+            className="flex-row items-center"
+          >
+            <Text className="text-primary-500 font-JakartaMedium text-sm">
+              {showReplies[item.id] ? 'Ocultar' : `Ver ${item.respuestas_count} respuestas`}
+            </Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {/* Campo de respuesta */}
+      {respondingTo?.id === item.id && (
+        <View className="mt-2 ml-10">
+          <TextInput
+            value={respuestaTexto}
+            onChangeText={setRespuestaTexto}
+            placeholder="Escribe tu respuesta..."
+            className="bg-gray-100 rounded-lg px-4 py-2 mb-2"
+            multiline
+            editable={!isSendingComment}
+          />
+          <TouchableOpacity
+            onPress={handleEnviarRespuesta}
+            disabled={isSendingComment || !respuestaTexto.trim()}
+            className={`${
+              isSendingComment || !respuestaTexto.trim() 
+                ? 'bg-gray-400' 
+                : 'bg-primary-500'
+            } p-2 rounded-lg`}
+          >
+            {isSendingComment ? (
+              <ActivityIndicator color="white" size="small" />
+            ) : (
+              <Text className="text-white text-center font-JakartaMedium">
+                Enviar respuesta
+              </Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Respuestas */}
+      {showReplies[item.id] && item.respuestas && item.respuestas.length > 0 && (
+        <View className="ml-10 mt-2">
+          {item.respuestas.map((respuesta) => (
+            <View key={respuesta.id} className="bg-gray-50 p-3 rounded-lg mb-2">
+              <View className="flex-row items-center">
+                <Image
+                  source={{
+                    uri: respuesta.perfil.foto_perfil
+                      ? `${supabaseUrl}/storage/v1/object/public/fotoperfil/${respuesta.perfil.foto_perfil}`
+                      : 'https://via.placeholder.com/40'
+                  }}
+                  className="w-6 h-6 rounded-full mr-2"
+                />
+                <Text className="font-JakartaBold text-primary-600">
+                  {respuesta.perfil.username}
+                </Text>
+              </View>
+              <Text className="mt-1 text-gray-700">{respuesta.contenido}</Text>
+            </View>
+          ))}
+        </View>
+      )}
     </View>
   );
+
+  const getTotalCommentsCount = () => {
+    return comments.reduce((total, comment) => {
+      return total + 1 + (comment.respuestas?.length || 0);
+    }, 0);
+  };
 
   return (
     <Modal
@@ -368,7 +630,7 @@ export default function CommentSection({ songId, currentUserId, isVisible, onClo
             </TouchableOpacity>
             <View className="flex-row items-center">
               <Text className="text-secondary-500 font-JakartaBold mr-2">
-                {comments.length}
+                {getTotalCommentsCount()}
               </Text>
               <Text className="font-JakartaBold text-lg">Comentarios</Text>
             </View>

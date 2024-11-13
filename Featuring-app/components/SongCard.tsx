@@ -52,8 +52,9 @@ interface Comentario {
   perfil: Perfil;
   isLiked?: boolean;
   is_edited?: boolean;
+  padre_id?: number | null;
   respuestas?: Comentario[];
-  padre_id?: number;
+  respuestas_count?: number;
 }
 
 interface ComentarioLike {
@@ -279,63 +280,70 @@ const SongCard: React.FC<SongCardProps> = ({
         .select("*")
         .eq("cancion_id", cancion.id);
 
-      // Obtener comentarios con sus likes
+      // Obtener comentarios con sus respuestas y likes
       const { data: comentariosData } = await supabase
         .from("comentario_cancion")
         .select(`
           *,
-          perfil(*),
-          respuestas:comentario_cancion!padre_id(
-            *,
-            perfil(*)
+          perfil (
+            usuario_id,
+            username,
+            foto_perfil
+          ),
+          respuestas:comentario_cancion!padre_id (
+            id,
+            usuario_id,
+            cancion_id,
+            contenido,
+            created_at,
+            perfil (
+              usuario_id,
+              username,
+              foto_perfil
+            )
           )
         `)
         .eq("cancion_id", cancion.id)
-        .is("padre_id", null)
+        .is("padre_id", null) // Solo traer comentarios principales
         .order("created_at", { ascending: false });
 
       if (likesData) setLikes(likesData);
       if (comentariosData) {
         const comentariosConLikes = await Promise.all(
           comentariosData.map(async (comentario) => {
+            // Obtener likes del comentario principal
             const { data: likesData } = await supabase
               .from("likes_comentario_cancion")
               .select("*")
               .eq("comentario_id", comentario.id);
 
-            setComentarioLikes((prev) => ({
-              ...prev,
-              [comentario.id]: likesData || [],
-            }));
-
-            // Procesar las respuestas
+            // Obtener likes de las respuestas
             const respuestasConLikes = await Promise.all(
-              (comentario.respuestas || []).map(async (respuesta: Comentario) => {
+              (comentario.respuestas || []).map(async (respuesta: any) => {
                 const { data: respuestaLikesData } = await supabase
                   .from("likes_comentario_cancion")
                   .select("*")
                   .eq("comentario_id", respuesta.id);
 
-                setComentarioLikes((prev) => ({
-                  ...prev,
-                  [respuesta.id]: respuestaLikesData || [],
-                }));
-
                 return {
                   ...respuesta,
+                  likes_count: (respuestaLikesData || []).length,
                   isLiked: (respuestaLikesData || []).some(
                     (like) => like.usuario_id === currentUserId
-                  ),
+                  )
                 };
               })
             );
 
             return {
               ...comentario,
+              likes_count: (likesData || []).length,
               isLiked: (likesData || []).some(
                 (like) => like.usuario_id === currentUserId
               ),
+              perfil: comentario.perfil[0],
               respuestas: respuestasConLikes,
+              respuestas_count: respuestasConLikes.length
             };
           })
         );
@@ -1302,6 +1310,12 @@ const SongCard: React.FC<SongCardProps> = ({
     router.setParams({ showComments: '' });
   };
 
+  const getTotalCommentsCount = () => {
+    return comentarios.reduce((total, comment) => {
+      return total + 1 + (comment.respuestas?.length || 0);
+    }, 0);
+  };
+
   return (
     <View className="bg-white rounded-lg shadow-md mb-4 p-4">
       {renderHeader()}
@@ -1341,7 +1355,7 @@ const SongCard: React.FC<SongCardProps> = ({
               </TouchableOpacity>
               <TouchableOpacity onPress={toggleCommentsModal} className="flex-row items-center mr-4">
                 <Image source={icons.comentario} className="w-5 h-5 mr-1" />
-                <Text className="text-xs">{comentarios.length}</Text>
+                <Text className="text-xs">{getTotalCommentsCount()}</Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={handlePlayPause}>
                 <Ionicons

@@ -59,34 +59,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Trigger para respuestas a comentarios
-CREATE OR REPLACE FUNCTION handle_comment_reply()
-RETURNS TRIGGER AS $$
-BEGIN
-  IF NEW.padre_id IS NOT NULL THEN
-    INSERT INTO notificacion (
-      usuario_id,
-      usuario_origen_id,
-      tipo_notificacion,
-      contenido_id,
-      mensaje,
-      leido
-    )
-    VALUES (
-      (SELECT usuario_id FROM comentario_cancion WHERE id = NEW.padre_id),
-      NEW.usuario_id,
-      'respuesta_comentario',
-      NEW.id,
-      (SELECT username || ' respondió a tu comentario' 
-       FROM perfil 
-       WHERE usuario_id = NEW.usuario_id),
-      false
-    );
-  END IF;
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
 -- Agregar al final de la sección de FUNCTIONS
 CREATE OR REPLACE FUNCTION create_default_preferences()
 RETURNS TRIGGER AS $$
