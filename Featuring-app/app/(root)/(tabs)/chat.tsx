@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
-import { View, Text, FlatList, TouchableOpacity, Image, RefreshControl } from "react-native";
+import { View, Text, FlatList, TouchableOpacity, Image, RefreshControl, TextInput } from "react-native";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "expo-router";
 import { FontAwesome } from "@expo/vector-icons";
@@ -24,6 +24,9 @@ export default function Chat() {
   const router = useRouter();
   const subscriptionRef = useRef<RealtimeChannel | null>(null);
   const supabaseUrl = Constants.expoConfig?.extra?.supabaseUrl;
+  const [searchVisible, setSearchVisible] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filteredChatList, setFilteredChatList] = useState<ChatListItem[]>([]);
 
   useEffect(() => {
     let refreshInterval: NodeJS.Timeout;
@@ -279,6 +282,29 @@ export default function Chat() {
     </View>
   );
 
+  // Función para filtrar chats
+  const filterChats = (query: string) => {
+    if (!query.trim()) {
+      setFilteredChatList(chatList);
+      return;
+    }
+
+    const filtered = chatList.filter(chat => 
+      chat.otherUserName.toLowerCase().includes(query.toLowerCase())
+    );
+    setFilteredChatList(filtered);
+  };
+
+  // Actualizar filteredChatList cuando chatList cambie
+  useEffect(() => {
+    setFilteredChatList(chatList);
+  }, [chatList]);
+
+  // Actualizar búsqueda cuando cambie el query
+  useEffect(() => {
+    filterChats(searchQuery);
+  }, [searchQuery]);
+
   if (isLoading) {
     return (
       <View className="flex-1 justify-center items-center bg-white">
@@ -290,13 +316,42 @@ export default function Chat() {
   }
 
   return (
-    <View className="flex-1 bg-white">
-      <Text className="text-2xl font-JakartaBold p-4 text-primary-700">
-        Chats
-      </Text>
+    <View className="flex-1 bg-white pt-12">
+      <View className="flex-row justify-between items-center px-4">
+        <TouchableOpacity onPress={() => router.push("/")}>
+          <FontAwesome name="home" size={26} color="#6D29D2" />
+        </TouchableOpacity>
+        <View className="flex-1 items-center justify-center">
+          <Text className="text-2xl font-JakartaBold text-primary-700">
+            Chats
+          </Text>
+          <FontAwesome name="comments-o" size={26} color="#00BFA5" />
+        </View>
+        <TouchableOpacity onPress={() => setSearchVisible(!searchVisible)}>
+          <FontAwesome 
+            name={searchVisible ? "times" : "search"} 
+            size={24} 
+            color="#6D29D2" 
+          />
+        </TouchableOpacity>
+      </View>
+
+      {/* Barra de búsqueda */}
+      {searchVisible && (
+        <View className="px-4 py-2">
+          <TextInput
+            className="bg-gray-100 rounded-full px-4 py-2 font-JakartaMedium"
+            placeholder="Buscar chat..."
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            autoFocus
+          />
+        </View>
+      )}
+
       {chatList.length > 0 ? (
         <FlatList
-          data={chatList}
+          data={filteredChatList}
           renderItem={renderChatItem}
           keyExtractor={(item) => item.id}
           refreshControl={

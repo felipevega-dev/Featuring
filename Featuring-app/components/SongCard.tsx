@@ -17,11 +17,11 @@ import * as Clipboard from "expo-clipboard";
 import { Ionicons } from "@expo/vector-icons";
 import { useAudioPlayer } from "@/contexts/AudioPlayerContext";
 import EditSongModal from "./EditSongModal";
-import { RealtimeChannel } from '@supabase/supabase-js';
+import { RealtimeChannel } from "@supabase/supabase-js";
 import Constants from "expo-constants";
-import { sendPushNotification } from '@/utils/pushNotifications';
-import { validateContent } from '@/utils/contentFilter';
-import CommentSection from './CommentSection';
+import { sendPushNotification } from "@/utils/pushNotifications";
+import { validateContent } from "@/utils/contentFilter";
+import CommentSection from "./CommentSection";
 
 interface Perfil {
   usuario_id: string;
@@ -121,12 +121,16 @@ const SongCard: React.FC<SongCardProps> = ({
     "newest"
   );
   const [showSortOptions, setShowSortOptions] = useState(false);
-  const [selectedCommentId, setSelectedCommentId] = useState<number | null>(null);
+  const [selectedCommentId, setSelectedCommentId] = useState<number | null>(
+    null
+  );
   const [commentOptionsVisible, setCommentOptionsVisible] = useState(false);
   const [showOptionsModal, setShowOptionsModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
   const [showReportConfirmation, setShowReportConfirmation] = useState(false);
-  const [selectedReportReason, setSelectedReportReason] = useState<string | null>(null);
+  const [selectedReportReason, setSelectedReportReason] = useState<
+    string | null
+  >(null);
   const {
     playSound,
     currentSong,
@@ -135,14 +139,19 @@ const SongCard: React.FC<SongCardProps> = ({
   } = useAudioPlayer();
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
   const [isImageModalVisible, setIsImageModalVisible] = useState(false);
-  const [isReportConfirmationVisible, setIsReportConfirmationVisible] = useState(false);
+  const [isReportConfirmationVisible, setIsReportConfirmationVisible] =
+    useState(false);
   const [userReportCount, setUserReportCount] = useState(0);
   const [editingComment, setEditingComment] = useState("");
-  const [respondingTo, setRespondingTo] = useState<{ id: number; username: string } | null>(null);
-  const [respuestaTexto, setRespuestaTexto] = useState('');
-  const [commentSubscription, setCommentSubscription] = useState<RealtimeChannel | null>(null);
+  const [respondingTo, setRespondingTo] = useState<{
+    id: number;
+    username: string;
+  } | null>(null);
+  const [respuestaTexto, setRespuestaTexto] = useState("");
+  const [commentSubscription, setCommentSubscription] =
+    useState<RealtimeChannel | null>(null);
   const [colaboracion, setColaboracion] = useState<Colaboracion | null>(null);
-  
+
   const supabaseUrl = Constants.expoConfig?.extra?.supabaseUrl;
   // Construir la URL pública de la foto de perfil
   const profileImageUrl = cancion.perfil?.foto_perfil
@@ -181,12 +190,12 @@ const SongCard: React.FC<SongCardProps> = ({
     const channel = supabase
       .channel(`likes-comentarios-${cancion.id}`)
       .on(
-        'postgres_changes',
+        "postgres_changes",
         {
-          event: '*',
-          schema: 'public',
-          table: 'likes_comentario_cancion',
-          filter: `comentario_id=in.(${comentarios.map(c => c.id).join(',')})`
+          event: "*",
+          schema: "public",
+          table: "likes_comentario_cancion",
+          filter: `comentario_id=in.(${comentarios.map((c) => c.id).join(",")})`,
         },
         () => {
           // Actualizar los likes de los comentarios
@@ -207,12 +216,12 @@ const SongCard: React.FC<SongCardProps> = ({
     const channel = supabase
       .channel(`likes-cancion-${cancion.id}`)
       .on(
-        'postgres_changes',
+        "postgres_changes",
         {
-          event: '*',
-          schema: 'public',
-          table: 'likes_cancion',
-          filter: `cancion_id=eq.${cancion.id}`
+          event: "*",
+          schema: "public",
+          table: "likes_cancion",
+          filter: `cancion_id=eq.${cancion.id}`,
         },
         () => {
           // Actualizar los likes cuando haya cambios
@@ -229,9 +238,18 @@ const SongCard: React.FC<SongCardProps> = ({
   const subscribeToComments = async () => {
     const subscription = supabase
       .channel(`public:comentario_cancion:cancion_id=eq.${cancion.id}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'comentario_cancion', filter: `cancion_id=eq.${cancion.id}` }, (payload) => {
-        fetchLikesAndComments();
-      })
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "comentario_cancion",
+          filter: `cancion_id=eq.${cancion.id}`,
+        },
+        (payload) => {
+          fetchLikesAndComments();
+        }
+      )
       .subscribe();
 
     setCommentSubscription(subscription);
@@ -283,7 +301,8 @@ const SongCard: React.FC<SongCardProps> = ({
       // Obtener comentarios con sus respuestas y likes
       const { data: comentariosData } = await supabase
         .from("comentario_cancion")
-        .select(`
+        .select(
+          `
           *,
           perfil (
             usuario_id,
@@ -302,7 +321,8 @@ const SongCard: React.FC<SongCardProps> = ({
               foto_perfil
             )
           )
-        `)
+        `
+        )
         .eq("cancion_id", cancion.id)
         .is("padre_id", null) // Solo traer comentarios principales
         .order("created_at", { ascending: false });
@@ -330,7 +350,7 @@ const SongCard: React.FC<SongCardProps> = ({
                   likes_count: (respuestaLikesData || []).length,
                   isLiked: (respuestaLikesData || []).some(
                     (like) => like.usuario_id === currentUserId
-                  )
+                  ),
                 };
               })
             );
@@ -343,7 +363,7 @@ const SongCard: React.FC<SongCardProps> = ({
               ),
               perfil: comentario.perfil[0],
               respuestas: respuestasConLikes,
-              respuestas_count: respuestasConLikes.length
+              respuestas_count: respuestasConLikes.length,
             };
           })
         );
@@ -373,7 +393,7 @@ const SongCard: React.FC<SongCardProps> = ({
         .delete()
         .eq("cancion_id", cancion.id)
         .eq("usuario_id", currentUserId);
-      
+
       // Actualizar el estado local inmediatamente
       setLikes(likes.filter((like) => like.usuario_id !== currentUserId));
       setIsLiked(false);
@@ -381,18 +401,18 @@ const SongCard: React.FC<SongCardProps> = ({
       try {
         // Obtener el username del usuario que da like
         const { data: userData, error: userError } = await supabase
-          .from('perfil')
-          .select('username')
-          .eq('usuario_id', currentUserId)
+          .from("perfil")
+          .select("username")
+          .eq("usuario_id", currentUserId)
           .single();
 
         if (userError) throw userError;
 
         // Obtener el token de push del usuario que recibe el like
         const { data: songOwnerData, error: ownerError } = await supabase
-          .from('perfil')
-          .select('push_token')
-          .eq('usuario_id', cancion.usuario_id)
+          .from("perfil")
+          .select("push_token")
+          .eq("usuario_id", cancion.usuario_id)
           .single();
 
         if (ownerError) throw ownerError;
@@ -407,37 +427,40 @@ const SongCard: React.FC<SongCardProps> = ({
           // Actualizar el estado local inmediatamente
           setLikes([...likes, data]);
           setIsLiked(true);
-          
+
           // Si el usuario que da like no es el dueño de la canción
           if (currentUserId !== cancion.usuario_id) {
             // Enviar notificación push si el usuario tiene token
             if (songOwnerData?.push_token) {
               await sendPushNotification(
                 songOwnerData.push_token,
-                '¡Nuevo Like!',
+                "¡Nuevo Like!",
                 `A ${userData.username} le ha gustado tu canción "${cancion.titulo}"`
               );
             }
 
             // Crear notificación en la base de datos
             const { error: notificationError } = await supabase
-              .from('notificacion')
+              .from("notificacion")
               .insert({
                 usuario_id: cancion.usuario_id,
-                tipo_notificacion: 'like_cancion',
+                tipo_notificacion: "like_cancion",
                 leido: false,
                 usuario_origen_id: currentUserId,
                 contenido_id: cancion.id,
-                mensaje: `Le ha dado me gusta a tu canción "${cancion.titulo}"`
+                mensaje: `Le ha dado me gusta a tu canción "${cancion.titulo}"`,
               });
 
             if (notificationError) {
-              console.error('Error al crear notificación de like:', notificationError);
+              console.error(
+                "Error al crear notificación de like:",
+                notificationError
+              );
             }
           }
         }
       } catch (error) {
-        console.error('Error al dar like:', error);
+        console.error("Error al dar like:", error);
       }
     }
   };
@@ -445,7 +468,7 @@ const SongCard: React.FC<SongCardProps> = ({
   const handleComment = async () => {
     if (nuevoComentario.trim()) {
       // Validar comentario
-      const commentValidation = validateContent(nuevoComentario, 'comentario');
+      const commentValidation = validateContent(nuevoComentario, "comentario");
       if (!commentValidation.isValid) {
         Alert.alert("Error", commentValidation.message);
         return;
@@ -456,29 +479,30 @@ const SongCard: React.FC<SongCardProps> = ({
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
-        const { data: previousComments, error: previousCommentsError } = await supabase
-          .from('comentario_cancion')
-          .select('id')
-          .eq('cancion_id', cancion.id)
-          .eq('usuario_id', currentUserId)
-          .gte('created_at', today.toISOString());
+        const { data: previousComments, error: previousCommentsError } =
+          await supabase
+            .from("comentario_cancion")
+            .select("id")
+            .eq("cancion_id", cancion.id)
+            .eq("usuario_id", currentUserId)
+            .gte("created_at", today.toISOString());
 
         if (previousCommentsError) throw previousCommentsError;
 
         // Obtener el username del usuario que comenta
         const { data: userData, error: userError } = await supabase
-          .from('perfil')
-          .select('username')
-          .eq('usuario_id', currentUserId)
+          .from("perfil")
+          .select("username")
+          .eq("usuario_id", currentUserId)
           .single();
 
         if (userError) throw userError;
 
         // Obtener el token de push del dueño de la canción
         const { data: songOwnerData, error: ownerError } = await supabase
-          .from('perfil')
-          .select('push_token')
-          .eq('usuario_id', cancion.usuario_id)
+          .from("perfil")
+          .select("push_token")
+          .eq("usuario_id", cancion.usuario_id)
           .single();
 
         if (ownerError) throw ownerError;
@@ -491,7 +515,8 @@ const SongCard: React.FC<SongCardProps> = ({
             usuario_id: currentUserId,
             contenido: nuevoComentario.trim(),
           })
-          .select(`
+          .select(
+            `
             id,
             usuario_id,
             cancion_id,
@@ -502,7 +527,8 @@ const SongCard: React.FC<SongCardProps> = ({
               username,
               foto_perfil
             )
-          `)
+          `
+          )
           .single();
 
         if (error) throw error;
@@ -512,7 +538,7 @@ const SongCard: React.FC<SongCardProps> = ({
             ...data,
             likes_count: 0,
             perfil: data.perfil[0] as Perfil,
-            isLiked: false
+            isLiked: false,
           };
           setComentarios([newComentario, ...comentarios]);
           setNuevoComentario("");
@@ -520,47 +546,46 @@ const SongCard: React.FC<SongCardProps> = ({
           // Si el usuario que comenta no es el dueño de la canción
           if (currentUserId !== cancion.usuario_id) {
             // Verificar si ya existe una notificación de comentarios de este usuario hoy
-            const { data: existingNotification, error: notificationError } = await supabase
-              .from('notificacion')
-              .select('id, mensaje')
-              .eq('usuario_id', cancion.usuario_id)
-              .eq('usuario_origen_id', currentUserId)
-              .eq('tipo_notificacion', 'comentario_cancion')
-              .eq('contenido_id', cancion.id)
-              .gte('created_at', today.toISOString())
-              .single();
+            const { data: existingNotification, error: notificationError } =
+              await supabase
+                .from("notificacion")
+                .select("id, mensaje")
+                .eq("usuario_id", cancion.usuario_id)
+                .eq("usuario_origen_id", currentUserId)
+                .eq("tipo_notificacion", "comentario_cancion")
+                .eq("contenido_id", cancion.id)
+                .gte("created_at", today.toISOString())
+                .single();
 
-            if (!notificationError || notificationError.code === 'PGRST116') {
+            if (!notificationError || notificationError.code === "PGRST116") {
               let mensaje;
               if (existingNotification) {
                 // Actualizar la notificación existente
                 const commentCount = previousComments.length + 1;
-                mensaje = `Ha comentado en tu canción "${cancion.titulo}": "${nuevoComentario.slice(0, 30)}${nuevoComentario.length > 30 ? '...' : ''}" y ${commentCount - 1} comentarios más`;
-                
+                mensaje = `Ha comentado en tu canción "${cancion.titulo}": "${nuevoComentario.slice(0, 30)}${nuevoComentario.length > 30 ? "..." : ""}" y ${commentCount - 1} comentarios más`;
+
                 await supabase
-                  .from('notificacion')
+                  .from("notificacion")
                   .update({ mensaje })
-                  .eq('id', existingNotification.id);
+                  .eq("id", existingNotification.id);
               } else {
                 // Crear nueva notificación solo si es el primer comentario del día
-                mensaje = `Ha comentado en tu canción "${cancion.titulo}": "${nuevoComentario.slice(0, 50)}${nuevoComentario.length > 50 ? '...' : ''}"`;
-                
-                await supabase
-                  .from('notificacion')
-                  .insert({
-                    usuario_id: cancion.usuario_id,
-                    tipo_notificacion: 'comentario_cancion',
-                    leido: false,
-                    usuario_origen_id: currentUserId,
-                    contenido_id: cancion.id,
-                    mensaje
-                  });
+                mensaje = `Ha comentado en tu canción "${cancion.titulo}": "${nuevoComentario.slice(0, 50)}${nuevoComentario.length > 50 ? "..." : ""}"`;
+
+                await supabase.from("notificacion").insert({
+                  usuario_id: cancion.usuario_id,
+                  tipo_notificacion: "comentario_cancion",
+                  leido: false,
+                  usuario_origen_id: currentUserId,
+                  contenido_id: cancion.id,
+                  mensaje,
+                });
 
                 // Enviar notificación push solo para el primer comentario del día
                 if (songOwnerData?.push_token) {
                   await sendPushNotification(
                     songOwnerData.push_token,
-                    '¡Nuevo Comentario!',
+                    "¡Nuevo Comentario!",
                     `${userData.username} ha comentado en tu canción "${cancion.titulo}"`
                   );
                 }
@@ -588,51 +613,49 @@ const SongCard: React.FC<SongCardProps> = ({
       if (newIsLiked) {
         // Obtener el username del usuario que da like
         const { data: userData, error: userError } = await supabase
-          .from('perfil')
-          .select('username')
-          .eq('usuario_id', currentUserId)
+          .from("perfil")
+          .select("username")
+          .eq("usuario_id", currentUserId)
           .single();
 
         if (userError) throw userError;
 
         // Obtener el token de push del dueño del comentario
         const { data: commentOwnerData, error: ownerError } = await supabase
-          .from('perfil')
-          .select('push_token')
-          .eq('usuario_id', comentario.usuario_id)
+          .from("perfil")
+          .select("push_token")
+          .eq("usuario_id", comentario.usuario_id)
           .single();
 
         if (ownerError) throw ownerError;
 
         // Dar like
-        await supabase
-          .from("likes_comentario_cancion")
-          .insert({ 
-            comentario_id: comentarioId,
-            usuario_id: currentUserId 
-          });
+        await supabase.from("likes_comentario_cancion").insert({
+          comentario_id: comentarioId,
+          usuario_id: currentUserId,
+        });
 
         // Actualizar el estado local inmediatamente
-        setComentarioLikes(prevLikes => ({
+        setComentarioLikes((prevLikes) => ({
           ...prevLikes,
           [comentarioId]: [
             ...(prevLikes[comentarioId] || []),
-            { 
+            {
               id: Date.now(), // ID temporal
               usuario_id: currentUserId,
               comentario_id: comentarioId,
-              created_at: new Date().toISOString()
-            }
-          ]
+              created_at: new Date().toISOString(),
+            },
+          ],
         }));
 
-        setComentarios(prevComentarios => 
-          prevComentarios.map(c => 
-            c.id === comentarioId 
+        setComentarios((prevComentarios) =>
+          prevComentarios.map((c) =>
+            c.id === comentarioId
               ? {
                   ...c,
                   isLiked: true,
-                  likes_count: (c.likes_count || 0) + 1
+                  likes_count: (c.likes_count || 0) + 1,
                 }
               : c
           )
@@ -644,25 +667,28 @@ const SongCard: React.FC<SongCardProps> = ({
           if (commentOwnerData?.push_token) {
             await sendPushNotification(
               commentOwnerData.push_token,
-              '¡Nuevo Like en tu comentario!',
+              "¡Nuevo Like en tu comentario!",
               `A ${userData.username} le gustó tu comentario en "${cancion.titulo}"`
             );
           }
 
           // Crear notificación en la base de datos
           const { error: notificationError } = await supabase
-            .from('notificacion')
+            .from("notificacion")
             .insert({
               usuario_id: comentario.usuario_id,
-              tipo_notificacion: 'like_comentario_cancion',
+              tipo_notificacion: "like_comentario_cancion",
               leido: false,
               usuario_origen_id: currentUserId,
               contenido_id: comentarioId,
-              mensaje: `Le ha dado me gusta a tu comentario en "${cancion.titulo}"`
+              mensaje: `Le ha dado me gusta a tu comentario en "${cancion.titulo}"`,
             });
 
           if (notificationError) {
-            console.error('Error al crear notificación de like en comentario:', notificationError);
+            console.error(
+              "Error al crear notificación de like en comentario:",
+              notificationError
+            );
           }
         }
       } else {
@@ -674,20 +700,20 @@ const SongCard: React.FC<SongCardProps> = ({
           .eq("usuario_id", currentUserId);
 
         // Actualizar el estado local inmediatamente
-        setComentarioLikes(prevLikes => ({
+        setComentarioLikes((prevLikes) => ({
           ...prevLikes,
           [comentarioId]: (prevLikes[comentarioId] || []).filter(
-            like => like.usuario_id !== currentUserId
-          )
+            (like) => like.usuario_id !== currentUserId
+          ),
         }));
 
-        setComentarios(prevComentarios => 
-          prevComentarios.map(c => 
-            c.id === comentarioId 
+        setComentarios((prevComentarios) =>
+          prevComentarios.map((c) =>
+            c.id === comentarioId
               ? {
                   ...c,
                   isLiked: false,
-                  likes_count: Math.max(0, (c.likes_count || 0) - 1)
+                  likes_count: Math.max(0, (c.likes_count || 0) - 1),
                 }
               : c
           )
@@ -744,7 +770,10 @@ const SongCard: React.FC<SongCardProps> = ({
   };
 
   const handleCommentOptions = (comentario: Comentario) => {
-    if (comentario.usuario_id === currentUserId || cancion.usuario_id === currentUserId) {
+    if (
+      comentario.usuario_id === currentUserId ||
+      cancion.usuario_id === currentUserId
+    ) {
       setSelectedCommentId(comentario.id);
       setEditingComment(comentario.contenido);
       setCommentOptionsVisible(true);
@@ -759,7 +788,7 @@ const SongCard: React.FC<SongCardProps> = ({
           .delete()
           .eq("id", selectedCommentId);
 
-        setComentarios(comentarios.filter(c => c.id !== selectedCommentId));
+        setComentarios(comentarios.filter((c) => c.id !== selectedCommentId));
         setCommentOptionsVisible(false);
       } catch (error) {
         console.error("Error al eliminar el comentario:", error);
@@ -852,30 +881,33 @@ const SongCard: React.FC<SongCardProps> = ({
   const checkReportEligibility = async () => {
     try {
       // Verificar si el usuario ya ha reportado este contenido
-      const { data: existingReport, error: existingReportError } = await supabase
-        .from('reporte_usuario')
-        .select('id')
-        .eq('usuario_id', currentUserId)
-        .eq('contenido_id', cancion.id)
-        .eq('tipo_contenido', 'cancion')
-        .single();
+      const { data: existingReport, error: existingReportError } =
+        await supabase
+          .from("reporte_usuario")
+          .select("id")
+          .eq("usuario_id", currentUserId)
+          .eq("contenido_id", cancion.id)
+          .eq("tipo_contenido", "cancion")
+          .single();
 
-      if (existingReportError && existingReportError.code !== 'PGRST116') {
+      if (existingReportError && existingReportError.code !== "PGRST116") {
         throw existingReportError;
       }
 
       if (existingReport) {
-        Alert.alert('Error', 'Ya has reportado este contenido anteriormente.');
+        Alert.alert("Error", "Ya has reportado este contenido anteriormente.");
         return false;
       }
 
       // Verificar el número de reportes en las últimas 12 horas
-      const twelveHoursAgo = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString();
+      const twelveHoursAgo = new Date(
+        Date.now() - 12 * 60 * 60 * 1000
+      ).toISOString();
       const { data: recentReports, error: recentReportsError } = await supabase
-        .from('reporte_usuario')
-        .select('id')
-        .eq('usuario_id', currentUserId)
-        .gte('created_at', twelveHoursAgo);
+        .from("reporte_usuario")
+        .select("id")
+        .eq("usuario_id", currentUserId)
+        .gte("created_at", twelveHoursAgo);
 
       if (recentReportsError) {
         throw recentReportsError;
@@ -885,14 +917,20 @@ const SongCard: React.FC<SongCardProps> = ({
       setUserReportCount(reportCount);
 
       if (reportCount >= 3) {
-        Alert.alert('Límite alcanzado', 'Has alcanzado el límite de 3 reportes en las últimas 12 horas.');
+        Alert.alert(
+          "Límite alcanzado",
+          "Has alcanzado el límite de 3 reportes en las últimas 12 horas."
+        );
         return false;
       }
 
       return true;
     } catch (error) {
-      console.error('Error al verificar elegibilidad para reportar:', error);
-      Alert.alert('Error', 'No se pudo verificar tu elegibilidad para reportar. Por favor, intenta de nuevo más tarde.');
+      console.error("Error al verificar elegibilidad para reportar:", error);
+      Alert.alert(
+        "Error",
+        "No se pudo verificar tu elegibilidad para reportar. Por favor, intenta de nuevo más tarde."
+      );
       return false;
     }
   };
@@ -900,14 +938,14 @@ const SongCard: React.FC<SongCardProps> = ({
   const sendReport = async () => {
     try {
       const { data: reportData, error: reportError } = await supabase
-        .from('reporte')
+        .from("reporte")
         .insert({
           usuario_reportante_id: currentUserId,
           usuario_reportado_id: cancion.usuario_id,
           contenido_id: cancion.id,
-          tipo_contenido: 'cancion',
+          tipo_contenido: "cancion",
           razon: selectedReportReason,
-          estado: 'pendiente'
+          estado: "pendiente",
         })
         .select()
         .single();
@@ -915,11 +953,11 @@ const SongCard: React.FC<SongCardProps> = ({
       if (reportError) throw reportError;
 
       const { error: userReportError } = await supabase
-        .from('reporte_usuario')
+        .from("reporte_usuario")
         .insert({
           usuario_id: currentUserId,
           contenido_id: cancion.id,
-          tipo_contenido: 'cancion'
+          tipo_contenido: "cancion",
         });
 
       if (userReportError) throw userReportError;
@@ -927,7 +965,7 @@ const SongCard: React.FC<SongCardProps> = ({
       setShowReportConfirmation(false);
       setShowReportModal(false);
       setIsReportConfirmationVisible(false);
-      
+
       // Mostrar alerta de éxito
       Alert.alert(
         "Reporte Enviado",
@@ -936,8 +974,11 @@ const SongCard: React.FC<SongCardProps> = ({
         { cancelable: false }
       );
     } catch (error) {
-      console.error('Error al enviar el reporte:', error);
-      Alert.alert('Error', 'No se pudo enviar el reporte. Por favor, intenta de nuevo.');
+      console.error("Error al enviar el reporte:", error);
+      Alert.alert(
+        "Error",
+        "No se pudo enviar el reporte. Por favor, intenta de nuevo."
+      );
     }
   };
 
@@ -950,11 +991,11 @@ const SongCard: React.FC<SongCardProps> = ({
   };
 
   const reportReasons = [
-    'Contenido inapropiado',
-    'Audio con índole sexual',
-    'Carátula obscena/perturbadora',
-    'Violación de derechos de autor',
-    'Spam o contenido engañoso'
+    "Contenido inapropiado",
+    "Audio con índole sexual",
+    "Carátula obscena/perturbadora",
+    "Violación de derechos de autor",
+    "Spam o contenido engañoso",
   ];
 
   const handleEditComment = async () => {
@@ -962,8 +1003,8 @@ const SongCard: React.FC<SongCardProps> = ({
       try {
         const { data, error } = await supabase
           .from("comentario_cancion")
-          .update({ 
-            contenido: editingComment.trim()
+          .update({
+            contenido: editingComment.trim(),
           })
           .eq("id", selectedCommentId)
           .select()
@@ -971,11 +1012,13 @@ const SongCard: React.FC<SongCardProps> = ({
 
         if (error) throw error;
 
-        setComentarios(comentarios.map(c => 
-          c.id === selectedCommentId 
-            ? { ...c, contenido: editingComment.trim() } 
-            : c
-        ));
+        setComentarios(
+          comentarios.map((c) =>
+            c.id === selectedCommentId
+              ? { ...c, contenido: editingComment.trim() }
+              : c
+          )
+        );
         setCommentOptionsVisible(false);
       } catch (error) {
         console.error("Error al editar el comentario:", error);
@@ -985,7 +1028,10 @@ const SongCard: React.FC<SongCardProps> = ({
   };
 
   const handleResponderComment = (comentario: Comentario) => {
-    setRespondingTo({ id: comentario.id, username: comentario.perfil.username });
+    setRespondingTo({
+      id: comentario.id,
+      username: comentario.perfil.username,
+    });
     setRespuestaTexto(`@${comentario.perfil.username} `);
   };
 
@@ -995,32 +1041,34 @@ const SongCard: React.FC<SongCardProps> = ({
     try {
       // Obtener el username del usuario que responde
       const { data: userData, error: userError } = await supabase
-        .from('perfil')
-        .select('username')
-        .eq('usuario_id', currentUserId)
+        .from("perfil")
+        .select("username")
+        .eq("usuario_id", currentUserId)
         .single();
 
       if (userError) throw userError;
 
       // Obtener el usuario_id y token de push del dueño del comentario
       const { data: commentData, error: commentError } = await supabase
-        .from('comentario_cancion')
-        .select(`
+        .from("comentario_cancion")
+        .select(
+          `
           usuario_id,
           perfil:usuario_id (
             push_token
           )
-        `)
-        .eq('id', respondingTo.id)
+        `
+        )
+        .eq("id", respondingTo.id)
         .single();
 
       if (commentError) throw commentError;
 
       // Obtener el token de push del dueño del comentario
       const { data: commentOwnerData, error: ownerError } = await supabase
-        .from('perfil')
-        .select('push_token')
-        .eq('usuario_id', commentData.usuario_id)
+        .from("perfil")
+        .select("push_token")
+        .eq("usuario_id", commentData.usuario_id)
         .single();
 
       if (ownerError) throw ownerError;
@@ -1031,7 +1079,7 @@ const SongCard: React.FC<SongCardProps> = ({
           cancion_id: cancion.id,
           usuario_id: currentUserId,
           contenido: respuestaTexto.trim(),
-          padre_id: respondingTo.id
+          padre_id: respondingTo.id,
         })
         .select(
           `
@@ -1056,7 +1104,7 @@ const SongCard: React.FC<SongCardProps> = ({
           ...data,
           likes_count: 0,
           perfil: data.perfil[0] as Perfil,
-          isLiked: false
+          isLiked: false,
         };
         setComentarios([newComentario, ...comentarios]);
         setRespuestaTexto("");
@@ -1068,25 +1116,28 @@ const SongCard: React.FC<SongCardProps> = ({
           if (commentOwnerData?.push_token) {
             await sendPushNotification(
               commentOwnerData.push_token,
-              '¡Nueva Respuesta!',
+              "¡Nueva Respuesta!",
               `${userData.username} ha respondido a tu comentario en "${cancion.titulo}"`
             );
           }
 
           // Crear notificación en la base de datos
           const { error: notificationError } = await supabase
-            .from('notificacion')
+            .from("notificacion")
             .insert({
               usuario_id: commentData.usuario_id,
-              tipo_notificacion: 'respuesta_comentario',
+              tipo_notificacion: "respuesta_comentario",
               leido: false,
               usuario_origen_id: currentUserId,
               contenido_id: data.id,
-              mensaje: `Ha respondido a tu comentario en "${cancion.titulo}": "${respuestaTexto.slice(0, 50)}${respuestaTexto.length > 50 ? '...' : ''}"`
+              mensaje: `Ha respondido a tu comentario en "${cancion.titulo}": "${respuestaTexto.slice(0, 50)}${respuestaTexto.length > 50 ? "..." : ""}"`,
             });
 
           if (notificationError) {
-            console.error('Error al crear notificación de respuesta:', notificationError);
+            console.error(
+              "Error al crear notificación de respuesta:",
+              notificationError
+            );
           }
         }
       }
@@ -1102,20 +1153,22 @@ const SongCard: React.FC<SongCardProps> = ({
   const fetchColaboracion = async () => {
     try {
       const { data, error } = await supabase
-        .from('colaboracion')
-        .select(`
+        .from("colaboracion")
+        .select(
+          `
           *,
           perfil:usuario_id(username, foto_perfil),
           perfil2:usuario_id2(username, foto_perfil)
-        `)
-        .eq('cancion_id', cancion.id)
+        `
+        )
+        .eq("cancion_id", cancion.id)
         .single();
 
       if (!error && data) {
         setColaboracion(data);
       }
     } catch (error) {
-      console.error('Error al cargar colaboración:', error);
+      console.error("Error al cargar colaboración:", error);
     }
   };
 
@@ -1125,8 +1178,8 @@ const SongCard: React.FC<SongCardProps> = ({
         <View className="flex-row items-center flex-1">
           {item.perfil?.foto_perfil && (
             <Image
-            source={{
-              uri: `${supabaseUrl}/storage/v1/object/public/fotoperfil/${item.perfil.foto_perfil}`
+              source={{
+                uri: `${supabaseUrl}/storage/v1/object/public/fotoperfil/${item.perfil.foto_perfil}`,
               }}
               className="w-8 h-8 rounded-full mr-2"
             />
@@ -1140,12 +1193,11 @@ const SongCard: React.FC<SongCardProps> = ({
                 {formatCommentDate(item.created_at)}
               </Text>
             </View>
-            <Text className="text-sm mt-1">
-              {item.contenido}
-            </Text>
+            <Text className="text-sm mt-1">{item.contenido}</Text>
           </View>
         </View>
-        {(item.usuario_id === currentUserId || cancion.usuario_id === currentUserId) && (
+        {(item.usuario_id === currentUserId ||
+          cancion.usuario_id === currentUserId) && (
           <TouchableOpacity
             onPress={() => handleCommentOptions(item)}
             className="ml-2"
@@ -1174,7 +1226,9 @@ const SongCard: React.FC<SongCardProps> = ({
           onPress={() => handleResponderComment(item)}
           className="ml-4"
         >
-          <Text className="text-xs text-primary-500 font-JakartaBold">Responder</Text>
+          <Text className="text-xs text-primary-500 font-JakartaBold">
+            Responder
+          </Text>
         </TouchableOpacity>
       </View>
       {respondingTo?.id === item.id && (
@@ -1190,65 +1244,69 @@ const SongCard: React.FC<SongCardProps> = ({
             onPress={handleResponderComentario}
             className="bg-primary-500 rounded-full py-2 items-center"
           >
-            <Text className="text-white font-JakartaBold">Enviar respuesta</Text>
+            <Text className="text-white font-JakartaBold">
+              Enviar respuesta
+            </Text>
           </TouchableOpacity>
         </View>
       )}
-      {item.respuestas && item.respuestas.map(respuesta => (
-        <View key={respuesta.id} className="ml-8 mt-2 border-l-2 border-general-300 pl-2">
-          <View className="flex-row justify-between items-start mb-1">
-            <View className="flex-row items-center flex-1">
-              {respuesta.perfil?.foto_perfil && (
-                <Image
-                  source={{
-                    uri: `${supabaseUrl}/storage/v1/object/public/fotoperfil/${respuesta.perfil.foto_perfil}`
-                  }}
-                  className="w-8 h-8 rounded-full mr-2"
-                />
-              )}
-              <View className="flex-1">
-                <View className="flex-row items-center">
-                  <Text className="font-JakartaBold text-sm mr-2">
-                    {respuesta.perfil?.username ||
-                      "Usuario desconocido"}
-                  </Text>
-                  <Text className="text-xs text-general-200">
-                    {formatCommentDate(respuesta.created_at)}
-                  </Text>
+      {item.respuestas &&
+        item.respuestas.map((respuesta) => (
+          <View
+            key={respuesta.id}
+            className="ml-8 mt-2 border-l-2 border-general-300 pl-2"
+          >
+            <View className="flex-row justify-between items-start mb-1">
+              <View className="flex-row items-center flex-1">
+                {respuesta.perfil?.foto_perfil && (
+                  <Image
+                    source={{
+                      uri: `${supabaseUrl}/storage/v1/object/public/fotoperfil/${respuesta.perfil.foto_perfil}`,
+                    }}
+                    className="w-8 h-8 rounded-full mr-2"
+                  />
+                )}
+                <View className="flex-1">
+                  <View className="flex-row items-center">
+                    <Text className="font-JakartaBold text-sm mr-2">
+                      {respuesta.perfil?.username || "Usuario desconocido"}
+                    </Text>
+                    <Text className="text-xs text-general-200">
+                      {formatCommentDate(respuesta.created_at)}
+                    </Text>
+                  </View>
+                  <Text className="text-sm mt-1">{respuesta.contenido}</Text>
                 </View>
-                <Text className="text-sm mt-1">
-                  {respuesta.contenido}
-                </Text>
               </View>
+              {(respuesta.usuario_id === currentUserId ||
+                cancion.usuario_id === currentUserId) && (
+                <TouchableOpacity
+                  onPress={() => handleCommentOptions(respuesta)}
+                  className="ml-2"
+                >
+                  <Image source={icons.trespuntos} className="w-5 h-5" />
+                </TouchableOpacity>
+              )}
             </View>
-            {(respuesta.usuario_id === currentUserId || cancion.usuario_id === currentUserId) && (
+            <View className="flex-row items-center mt-2 ml-10">
               <TouchableOpacity
-                onPress={() => handleCommentOptions(respuesta)}
-                className="ml-2"
+                onPress={() => handleCommentLike(respuesta.id)}
+                className="flex-row items-center"
               >
-                <Image source={icons.trespuntos} className="w-5 h-5" />
+                <Image
+                  source={respuesta.isLiked ? icons.hearto : icons.heart}
+                  className="w-4 h-4 mr-1"
+                  style={{
+                    tintColor: respuesta.isLiked ? "#6D29D2" : undefined,
+                  }}
+                />
+                <Text className="text-xs text-primary-500 font-JakartaBold">
+                  {(comentarioLikes[respuesta.id] || []).length}
+                </Text>
               </TouchableOpacity>
-            )}
+            </View>
           </View>
-          <View className="flex-row items-center mt-2 ml-10">
-            <TouchableOpacity
-              onPress={() => handleCommentLike(respuesta.id)}
-              className="flex-row items-center"
-            >
-              <Image
-                source={respuesta.isLiked ? icons.hearto : icons.heart}
-                className="w-4 h-4 mr-1"
-                style={{
-                  tintColor: respuesta.isLiked ? "#6D29D2" : undefined,
-                }}
-              />
-              <Text className="text-xs text-primary-500 font-JakartaBold">
-                {(comentarioLikes[respuesta.id] || []).length}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      ))}
+        ))}
     </View>
   );
 
@@ -1256,8 +1314,8 @@ const SongCard: React.FC<SongCardProps> = ({
     return (
       <View className="flex-row justify-between items-center mb-2">
         {/* Usuario que subió la canción */}
-        <TouchableOpacity 
-          onPress={() => router.push(`/public-profile/${cancion.usuario_id}`)} 
+        <TouchableOpacity
+          onPress={() => router.push(`/public-profile/${cancion.usuario_id}`)}
           className="flex-row items-center flex-1"
         >
           <Image
@@ -1270,11 +1328,13 @@ const SongCard: React.FC<SongCardProps> = ({
         </TouchableOpacity>
 
         {/* Colaborador (si existe) */}
-        {colaboracion && colaboracion.estado === 'aceptada' && (
+        {colaboracion && colaboracion.estado === "aceptada" && (
           <View className="flex-row items-center justify-end flex-1">
             <Text className="text-xs font-bold text-primary-500">FEAT.</Text>
-            <TouchableOpacity 
-              onPress={() => router.push(`/public-profile/${colaboracion.usuario_id2}`)}
+            <TouchableOpacity
+              onPress={() =>
+                router.push(`/public-profile/${colaboracion.usuario_id2}`)
+              }
               className="flex-row items-center ml-2"
             >
               <Text className="text-sm font-bold text-gray-700 mr-2">
@@ -1284,7 +1344,7 @@ const SongCard: React.FC<SongCardProps> = ({
                 source={{
                   uri: colaboracion.perfil2?.foto_perfil
                     ? `${supabaseUrl}/storage/v1/object/public/fotoperfil/${colaboracion.perfil2.foto_perfil}`
-                    : 'https://via.placeholder.com/30'
+                    : "https://via.placeholder.com/30",
                 }}
                 className="w-6 h-6 rounded-full"
               />
@@ -1292,10 +1352,7 @@ const SongCard: React.FC<SongCardProps> = ({
           </View>
         )}
 
-        <TouchableOpacity 
-          onPress={handleOptionsPress} 
-          className="ml-2"
-        >
+        <TouchableOpacity onPress={handleOptionsPress} className="ml-2">
           <Ionicons name="ellipsis-vertical" size={20} color="#666" />
         </TouchableOpacity>
       </View>
@@ -1306,8 +1363,8 @@ const SongCard: React.FC<SongCardProps> = ({
     setCommentsModalVisible(false);
     // Limpiar el parámetro showComments de la URL
     const currentParams = new URLSearchParams(window.location.search);
-    currentParams.delete('showComments');
-    router.setParams({ showComments: '' });
+    currentParams.delete("showComments");
+    router.setParams({ showComments: "" });
   };
 
   const getTotalCommentsCount = () => {
@@ -1324,28 +1381,42 @@ const SongCard: React.FC<SongCardProps> = ({
         <View>
           <TouchableOpacity onPress={toggleImageModal}>
             <Image
-              source={{ uri: cancion.caratula || "https://via.placeholder.com/100" }}
+              source={{
+                uri: cancion.caratula || "https://via.placeholder.com/100",
+              }}
               className="w-20 h-20 rounded-lg"
             />
           </TouchableOpacity>
         </View>
-        
+
         {/* Contenido principal */}
         <View className="flex-1 ml-4">
           {/* Título, género y descripción */}
-          <Text className="font-JakartaSemiBold text-md mb-1 text-primary-700">{cancion.titulo}</Text>
-          <Text className="text-xs mb-1 text-secondary-500">{cancion.genero}</Text>
-          <Text className="text-xs text-general-200 mb-2" numberOfLines={2}>{cancion.contenido}</Text>
-          
+          <Text className="font-JakartaSemiBold text-md mb-1 text-primary-700">
+            {cancion.titulo}
+          </Text>
+          <Text className="text-xs mb-1 text-secondary-500">
+            {cancion.genero}
+          </Text>
+          <Text className="text-xs text-general-200 mb-2" numberOfLines={2}>
+            {cancion.contenido}
+          </Text>
+
           {/* Controles, estadísticas y fecha */}
           <View className="flex-row justify-between items-center mt-2">
             {/* Fecha de creación */}
             <Text className="text-xs text-general-200">
-              {new Date(cancion.created_at).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })}
+              {new Date(cancion.created_at).toLocaleDateString("es-ES", {
+                day: "numeric",
+                month: "long",
+              })}
             </Text>
-            
+
             <View className="flex-row items-center">
-              <TouchableOpacity onPress={handleLike} className="flex-row items-center mr-4">
+              <TouchableOpacity
+                onPress={handleLike}
+                className="flex-row items-center mr-4"
+              >
                 <Image
                   source={isLiked ? icons.hearto : icons.heart}
                   className="w-5 h-5 mr-1"
@@ -1353,13 +1424,20 @@ const SongCard: React.FC<SongCardProps> = ({
                 />
                 <Text className="text-xs text-primary-500">{likes.length}</Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={toggleCommentsModal} className="flex-row items-center mr-4">
+              <TouchableOpacity
+                onPress={toggleCommentsModal}
+                className="flex-row items-center mr-4"
+              >
                 <Image source={icons.comentario} className="w-5 h-5 mr-1" />
                 <Text className="text-xs">{getTotalCommentsCount()}</Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={handlePlayPause}>
                 <Ionicons
-                  name={currentSong?.id === cancion.id && globalIsPlaying ? "pause" : "play"}
+                  name={
+                    currentSong?.id === cancion.id && globalIsPlaying
+                      ? "pause"
+                      : "play"
+                  }
                   size={20}
                   color="#6D29D2"
                 />
@@ -1382,7 +1460,9 @@ const SongCard: React.FC<SongCardProps> = ({
           onPress={toggleImageModal}
         >
           <Image
-            source={{ uri: cancion.caratula || "https://via.placeholder.com/300" }}
+            source={{
+              uri: cancion.caratula || "https://via.placeholder.com/300",
+            }}
             className="w-11/12 h-5/6"
             resizeMode="contain"
           />
@@ -1398,7 +1478,7 @@ const SongCard: React.FC<SongCardProps> = ({
         cancion={{
           id: cancion.id,
           titulo: cancion.titulo,
-          usuario_id: cancion.usuario_id
+          usuario_id: cancion.usuario_id,
         }}
       />
 
@@ -1462,14 +1542,18 @@ const SongCard: React.FC<SongCardProps> = ({
       >
         <View className="flex-1 justify-end bg-black bg-opacity-50">
           <View className="bg-white rounded-t-3xl p-4">
-            <Text className="text-xl font-JakartaBold mb-4">Reportar contenido</Text>
+            <Text className="text-xl font-JakartaBold mb-4">
+              Reportar contenido
+            </Text>
             <Text className="text-sm text-gray-600 mb-4">
-              Selecciona una razón para reportar esta canción. Un reporte injustificado o malintencionado podría resultar en una suspensión de tu cuenta.
+              Selecciona una razón para reportar esta canción. Un reporte
+              injustificado o malintencionado podría resultar en una suspensión
+              de tu cuenta.
             </Text>
             {reportReasons.map((reason, index) => (
               <TouchableOpacity
                 key={index}
-                className={`py-3 border-b border-gray-200 ${selectedReportReason === reason ? 'bg-primary-100' : ''}`}
+                className={`py-3 border-b border-gray-200 ${selectedReportReason === reason ? "bg-primary-100" : ""}`}
                 onPress={() => setSelectedReportReason(reason)}
               >
                 <Text className="font-JakartaMedium">{reason}</Text>
@@ -1480,13 +1564,17 @@ const SongCard: React.FC<SongCardProps> = ({
               onPress={handleReportConfirm}
               disabled={!selectedReportReason}
             >
-              <Text className="text-white font-JakartaBold">Enviar reporte</Text>
+              <Text className="text-white font-JakartaBold">
+                Enviar reporte
+              </Text>
             </TouchableOpacity>
             <TouchableOpacity
               className="mt-2 py-3 items-center"
               onPress={() => setShowReportModal(false)}
             >
-              <Text className="text-primary-500 font-JakartaMedium">Cancelar</Text>
+              <Text className="text-primary-500 font-JakartaMedium">
+                Cancelar
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -1503,13 +1591,14 @@ const SongCard: React.FC<SongCardProps> = ({
           <View className="bg-white rounded-lg p-4 w-5/6">
             <Text className="text-lg font-bold mb-4">Confirmar reporte</Text>
             <Text className="mb-4">
-              ¿Estás seguro que quieres enviar este reporte? 
+              ¿Estás seguro que quieres enviar este reporte?
             </Text>
             <Text className="mb-4 font-semibold text-primary-600">
               {userReportCount} de 3 reportes comunicados
             </Text>
             <Text className="mb-4 text-sm text-gray-600">
-              Recuerda que solo puedes enviar un total de 3 reportes cada 12 horas.
+              Recuerda que solo puedes enviar un total de 3 reportes cada 12
+              horas.
             </Text>
             <View className="flex-row justify-end">
               <TouchableOpacity
@@ -1547,7 +1636,9 @@ const SongCard: React.FC<SongCardProps> = ({
                 className="bg-red-500 rounded-lg p-2"
                 onPress={handleDeleteComment}
               >
-                <Text className="text-white text-center">Eliminar comentario</Text>
+                <Text className="text-white text-center">
+                  Eliminar comentario
+                </Text>
               </TouchableOpacity>
             ) : (
               <>
@@ -1561,13 +1652,17 @@ const SongCard: React.FC<SongCardProps> = ({
                   className="bg-blue-500 rounded-lg p-2 mb-2"
                   onPress={handleEditComment}
                 >
-                  <Text className="text-white text-center">Editar comentario</Text>
+                  <Text className="text-white text-center">
+                    Editar comentario
+                  </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   className="bg-red-500 rounded-lg p-2"
                   onPress={handleDeleteComment}
                 >
-                  <Text className="text-white text-center">Eliminar comentario</Text>
+                  <Text className="text-white text-center">
+                    Eliminar comentario
+                  </Text>
                 </TouchableOpacity>
               </>
             )}
