@@ -17,7 +17,7 @@ import { useRouter } from "expo-router";
 export default function ChatDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const { messages, isLoading, error, sendMessage } = useChat(currentUserId, id);
+  const { messages, isLoading, error, sendMessage, markMessagesAsRead } = useChat(currentUserId, id);
   
   // Estados para el chat
   const [newMessage, setNewMessage] = useState("");
@@ -57,6 +57,13 @@ export default function ChatDetail() {
     getCurrentUser();
     getOtherUserInfo();
   }, [id]);
+
+  // Añadir un nuevo useEffect para marcar mensajes como leídos
+  useEffect(() => {
+    if (messages.length > 0 && currentUserId) {
+      markMessagesAsRead();
+    }
+  }, [messages.length > 0, currentUserId]);
 
   // Manejadores de eventos
   const handleSendMessage = async () => {

@@ -13,6 +13,7 @@ interface Message {
   tipo_contenido: "texto" | "audio" | "imagen" | "video_chat";
   url_contenido: string | null;
   fecha_envio: string;
+  leido: boolean;
 }
 
 interface MessageListProps {

@@ -585,6 +585,9 @@ CREATE INDEX idx_support_tickets_estado ON support_tickets(estado);
 CREATE INDEX idx_support_tickets_tipo ON support_tickets(tipo);
 CREATE INDEX idx_support_tickets_created_at ON support_tickets(created_at DESC);
 
+CREATE UNIQUE INDEX IF NOT EXISTS unread_messages_count_receptor_id_idx 
+ON unread_messages_count(receptor_id);
+
 -- Índices adicionales para optimizar consultas del chat
 CREATE INDEX IF NOT EXISTS idx_mensaje_fecha_envio ON mensaje(fecha_envio DESC);
 CREATE INDEX IF NOT EXISTS idx_mensaje_tipo_contenido ON mensaje(tipo_contenido);

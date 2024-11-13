@@ -77,6 +77,31 @@ export const useChat = (currentUserId: string | null, otherId: string) => {
     }
   }, [currentUserId, otherId]);
 
+  const markMessagesAsRead = async () => {
+    try {
+      if (!currentUserId) return;
+      
+      const { error } = await supabase
+        .rpc('mark_messages_as_read', {
+          p_receptor_id: currentUserId,
+          p_emisor_id: otherId
+        });
+
+      if (error) throw error;
+
+      // Actualizar el estado local
+      setMessages(prevMessages => 
+        prevMessages.map(msg => 
+          msg.receptor_id === currentUserId && msg.emisor_id === otherId
+            ? { ...msg, leido: true }
+            : msg
+        )
+      );
+    } catch (error) {
+      console.error('Error marking messages as read:', error);
+    }
+  };
+
   useEffect(() => {
     let channel: RealtimeChannel;
     
@@ -116,6 +141,7 @@ export const useChat = (currentUserId: string | null, otherId: string) => {
     isLoading,
     error,
     sendMessage,
-    fetchMessages
+    fetchMessages,
+    markMessagesAsRead
   };
 }; 

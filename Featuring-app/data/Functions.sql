@@ -696,6 +696,8 @@ CREATE OR REPLACE FUNCTION mark_messages_as_read(
 )
 RETURNS void
 LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
 AS $$
 BEGIN
     UPDATE mensaje
@@ -708,6 +710,18 @@ BEGIN
     PERFORM refresh_unread_messages();
 END;
 $$;
+
+-- Asegurarnos de que la vista materializada tenga los permisos correctos
+GRANT SELECT ON unread_messages_count TO authenticated;
+GRANT SELECT ON unread_messages_count TO service_role;
+
+-- Dar permisos para ejecutar la función
+GRANT EXECUTE ON FUNCTION mark_messages_as_read(UUID, UUID) TO authenticated;
+GRANT EXECUTE ON FUNCTION mark_messages_as_read(UUID, UUID) TO service_role;
+
+-- Dar permisos para ejecutar la función de refresco
+GRANT EXECUTE ON FUNCTION refresh_unread_messages() TO authenticated;
+GRANT EXECUTE ON FUNCTION refresh_unread_messages() TO service_role;
 
 -- 7. Trigger para limpiar archivos huérfanos
 CREATE OR REPLACE FUNCTION clean_orphaned_chat_files()

@@ -5,6 +5,7 @@ import Constants from 'expo-constants';
 import { Ionicons } from '@expo/vector-icons';
 import { icons } from "@/constants/index";
 import { router } from "expo-router";
+import { sendPushNotification } from '@/utils/pushNotifications';
 
 interface Comment {
   id: number;
@@ -93,7 +94,7 @@ export default function CommentSection({ songId, currentUserId, isVisible, onClo
           usuario_id,
           contenido,
           created_at,
-          perfil:usuario_id (
+          perfil!usuario_id (
             username,
             foto_perfil
           )
@@ -105,18 +106,27 @@ export default function CommentSection({ songId, currentUserId, isVisible, onClo
 
     if (error) {
       console.error('Error al cargar comentarios:', error);
-    } else {
-      const formattedComments: Comment[] = data.map(comment => ({
+    } else if (data) {
+      const formattedComments: Comment[] = data.map((comment: any) => ({
         id: comment.id,
         usuario_id: comment.usuario_id,
         contenido: comment.contenido,
         created_at: comment.created_at,
         perfil: {
           username: comment.perfil?.username || "Usuario desconocido",
-          foto_perfil: comment.perfil?.foto_perfil
+          foto_perfil: comment.perfil?.foto_perfil,
         },
-        respuestas: comment.respuestas || [],
-        respuestas_count: comment.respuestas?.length || 0
+        respuestas: comment.respuestas?.map((respuesta: any) => ({
+          id: respuesta.id,
+          usuario_id: respuesta.usuario_id,
+          contenido: respuesta.contenido,
+          created_at: respuesta.created_at,
+          perfil: {
+            username: respuesta.perfil?.username || "Usuario desconocido",
+            foto_perfil: respuesta.perfil?.foto_perfil,
+          },
+        })) || [],
+        respuestas_count: comment.respuestas?.length || 0,
       }));
       setComments(formattedComments);
     }
@@ -395,7 +405,7 @@ export default function CommentSection({ songId, currentUserId, isVisible, onClo
           usuario_id,
           contenido,
           created_at,
-          perfil:usuario_id (
+          perfil!usuario_id (
             username,
             foto_perfil
           )
@@ -403,6 +413,36 @@ export default function CommentSection({ songId, currentUserId, isVisible, onClo
         .single();
 
       if (commentError) throw commentError;
+
+      if (commentData) {
+        const perfilData = Array.isArray(commentData.perfil) 
+          ? commentData.perfil[0] 
+          : commentData.perfil;
+
+        setComments((prevComments) =>
+          prevComments.map((comment) =>
+            comment.id === respondingTo.id
+              ? {
+                  ...comment,
+                  respuestas: [
+                    ...(comment.respuestas || []),
+                    {
+                      id: commentData.id,
+                      usuario_id: commentData.usuario_id,
+                      contenido: commentData.contenido,
+                      created_at: commentData.created_at,
+                      perfil: {
+                        username: perfilData?.username || "Usuario desconocido",
+                        foto_perfil: perfilData?.foto_perfil,
+                      },
+                    },
+                  ],
+                  respuestas_count: (comment.respuestas_count || 0) + 1,
+                }
+              : comment
+          )
+        );
+      }
 
       // Verificar si ya existe una notificación de respuesta de este usuario hoy
       const { data: existingNotification, error: notificationError } = await supabase
@@ -451,19 +491,6 @@ export default function CommentSection({ songId, currentUserId, isVisible, onClo
           }
         }
       }
-
-      // Actualizar el estado local
-      setComments(prevComments => 
-        prevComments.map(comment => 
-          comment.id === respondingTo.id
-            ? {
-                ...comment,
-                respuestas: [...(comment.respuestas || []), commentData],
-                respuestas_count: (comment.respuestas_count || 0) + 1
-              }
-            : comment
-        )
-      );
 
       // Limpiar el estado de respuesta
       setRespondingTo(null);
@@ -523,7 +550,9 @@ export default function CommentSection({ songId, currentUserId, isVisible, onClo
           </TouchableOpacity>
         )}
       </View>
-      <Text className="text-gray-700 ml-10">{item.contenido}</Text>
+      <View>
+        <Text className="text-gray-700 ml-10">{item.contenido}</Text>
+      </View>
       
       {/* Botones de acción */}
       <View className="flex-row items-center mt-2 ml-10">
@@ -536,13 +565,15 @@ export default function CommentSection({ songId, currentUserId, isVisible, onClo
           </Text>
         </TouchableOpacity>
         
-        {item.respuestas_count > 0 && (
+        {item.respuestas_count && item.respuestas_count > 0 && (
           <TouchableOpacity
             onPress={() => toggleReplies(item.id)}
             className="flex-row items-center"
           >
             <Text className="text-primary-500 font-JakartaMedium text-sm">
-              {showReplies[item.id] ? 'Ocultar' : `Ver ${item.respuestas_count} respuestas`}
+              {showReplies[item.id]
+                ? "Ocultar"
+                : `Ver ${item.respuestas_count} respuestas`}
             </Text>
           </TouchableOpacity>
         )}
