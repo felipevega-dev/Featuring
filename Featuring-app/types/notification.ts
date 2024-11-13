@@ -16,7 +16,8 @@ export type NotificationType =
   | 'respuesta_comentario_video'
   | 'nuevo_seguidor'
   | 'sancion_administrativa'
-  | 'reporte_validado';
+  | 'reporte_validado'
+  | 'mensaje_nuevo';
 
 export interface NotificationRedirect {
   route: string;
@@ -143,5 +144,11 @@ export const NOTIFICATION_REDIRECTS: Record<NotificationType, NotificationRedire
   reporte_validado: {
     route: '/(root)/(tabs)/reportes',
     getParams: () => ({})
+  },
+  mensaje_nuevo: {
+    route: '/(root)/(tabs)/chat/[id]',
+    getParams: (notification) => ({ 
+      id: notification.usuario_origen_id 
+    })
   }
 }; 

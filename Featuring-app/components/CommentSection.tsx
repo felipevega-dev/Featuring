@@ -48,6 +48,8 @@ export default function CommentSection({ songId, currentUserId, isVisible, onClo
   const [respuestaTexto, setRespuestaTexto] = useState('');
   const [selectedReplyId, setSelectedReplyId] = useState<number | null>(null);
   const [replyOptionsVisible, setReplyOptionsVisible] = useState(false);
+  const [commentLikes, setCommentLikes] = useState<{ [key: number]: number }>({});
+  const [likedComments, setLikedComments] = useState<{ [key: number]: boolean }>({});
 
   useEffect(() => {
     if (isVisible) {
@@ -122,6 +124,26 @@ export default function CommentSection({ songId, currentUserId, isVisible, onClo
         respuestas_count: comment.respuestas?.length || 0
       }));
       setComments(formattedComments);
+
+      // Obtener los likes de los comentarios
+      const { data: likesData } = await supabase
+        .from('likes_comentario_cancion')
+        .select('*')
+        .in('comentario_id', data.map(c => c.id));
+
+      // Contar likes por comentario
+      const likesCount: { [key: number]: number } = {};
+      const userLikes: { [key: number]: boolean } = {};
+
+      likesData?.forEach(like => {
+        likesCount[like.comentario_id] = (likesCount[like.comentario_id] || 0) + 1;
+        if (like.usuario_id === currentUserId) {
+          userLikes[like.comentario_id] = true;
+        }
+      });
+
+      setCommentLikes(likesCount);
+      setLikedComments(userLikes);
     }
   };
 
@@ -553,6 +575,85 @@ export default function CommentSection({ songId, currentUserId, isVisible, onClo
     }
   };
 
+  const handleLikeComment = async (commentId: number) => {
+    try {
+      const isLiked = likedComments[commentId];
+
+      if (isLiked) {
+        // Quitar like
+        await supabase
+          .from('likes_comentario_cancion')
+          .delete()
+          .eq('comentario_id', commentId)
+          .eq('usuario_id', currentUserId);
+
+        setCommentLikes(prev => ({
+          ...prev,
+          [commentId]: (prev[commentId] || 1) - 1
+        }));
+        setLikedComments(prev => ({
+          ...prev,
+          [commentId]: false
+        }));
+      } else {
+        // Dar like
+        await supabase
+          .from('likes_comentario_cancion')
+          .insert({
+            comentario_id: commentId,
+            usuario_id: currentUserId
+          });
+
+        setCommentLikes(prev => ({
+          ...prev,
+          [commentId]: (prev[commentId] || 0) + 1
+        }));
+        setLikedComments(prev => ({
+          ...prev,
+          [commentId]: true
+        }));
+
+        // Enviar notificación si no es tu propio comentario
+        const comment = comments.find(c => c.id === commentId);
+        if (comment && comment.usuario_id !== currentUserId) {
+          const { data: userData } = await supabase
+            .from('perfil')
+            .select('username')
+            .eq('usuario_id', currentUserId)
+            .single();
+
+          const { data: commentOwnerData } = await supabase
+            .from('perfil')
+            .select('push_token')
+            .eq('usuario_id', comment.usuario_id)
+            .single();
+
+          // Crear notificación
+          await supabase.from('notificacion').insert({
+            usuario_id: comment.usuario_id,
+            tipo_notificacion: 'like_comentario',
+            leido: false,
+            usuario_origen_id: currentUserId,
+            contenido_id: commentId,
+            mensaje: `Le ha gustado tu comentario en "${cancion.titulo}"`
+          });
+
+          // Enviar push notification
+          if (commentOwnerData?.push_token) {
+            await sendPushNotification(
+              commentOwnerData.push_token,
+              '¡Nuevo Like en tu comentario!',
+              `A ${userData?.username} le gustó tu comentario en "${cancion.titulo}"`
+            );
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error al manejar like:', error);
+      Alert.alert('Error', 'No se pudo procesar tu like');
+    }
+  };
+
   const renderComment = ({ item }: { item: Comment }) => (
     <View className="bg-white p-4 rounded-lg mb-3 shadow">
       <View className="flex-row justify-between items-start mb-2">
@@ -591,13 +692,29 @@ export default function CommentSection({ songId, currentUserId, isVisible, onClo
       {/* Botones de acción */}
       <View className="flex-row items-center mt-2 ml-10">
         <TouchableOpacity
-          onPress={() => handleResponderComment(item)}
-          className="mr-4"
+          onPress={() => handleLikeComment(item.id)}
+          className="flex-row items-center mr-4"
         >
-          <Text className="text-primary-500 font-JakartaMedium text-sm">
-            Responder
+          <Image
+            source={likedComments[item.id] ? icons.hearto : icons.heart}
+            className="w-4 h-4 mr-1"
+            style={{ tintColor: likedComments[item.id] ? "#6D29D2" : undefined }}
+          />
+          <Text className="text-xs text-primary-500 font-JakartaBold">
+            {commentLikes[item.id] || 0}
           </Text>
         </TouchableOpacity>
+
+        {item.usuario_id !== currentUserId && (
+          <TouchableOpacity
+            onPress={() => handleResponderComment(item)}
+            className="mr-4"
+          >
+            <Text className="text-primary-500 font-JakartaMedium text-sm">
+              Responder
+            </Text>
+          </TouchableOpacity>
+        )}
         
         {item.respuestas_count > 0 && (
           <TouchableOpacity

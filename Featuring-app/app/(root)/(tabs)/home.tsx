@@ -1,10 +1,18 @@
-import React, { useState, useEffect } from "react";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { View, Text, Image, ScrollView, TouchableOpacity } from "react-native";
+import React, { useState, useEffect, useRef } from "react";
+import { View, Text, Image, ScrollView, TouchableOpacity, Animated as RNAnimated, RefreshControl } from "react-native";
 import { icons } from "@/constants";
 import { supabase } from "@/lib/supabase";
 import Constants from "expo-constants";
 import { router } from "expo-router";
+import { LinearGradient } from 'expo-linear-gradient';
+import Animated, { 
+  FadeInDown, 
+  SlideInRight,
+  useAnimatedScrollHandler,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring
+} from 'react-native-reanimated';
 
 interface ProyectoDestacado {
   id: number;
@@ -19,14 +27,97 @@ interface ProyectoDestacado {
   };
 }
 
+interface UserPremiumInfo {
+  is_premium: boolean;
+  premium_until: string | null;
+}
+
 const Home = () => {
   const [proyectosDestacados, setProyectosDestacados] = useState<ProyectoDestacado[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isPremium, setIsPremium] = useState(false);
+  const [showBanner, setShowBanner] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const scrollY = useSharedValue(0);
+  const bannerOpacity = useSharedValue(0);
+  const contentHeight = useSharedValue(0);
+  const scrollViewHeight = useSharedValue(0);
   const supabaseUrl = Constants.expoConfig?.extra?.supabaseUrl;
 
   useEffect(() => {
     fetchProyectosDestacados();
+    checkPremiumStatus();
   }, []);
+
+  const checkPremiumStatus = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: premiumInfo, error } = await supabase
+        .from('perfil')
+        .select('is_premium, premium_until')
+        .eq('usuario_id', user.id)
+        .single();
+
+      if (error) throw error;
+
+      const isPremiumActive = premiumInfo?.is_premium && 
+        new Date(premiumInfo.premium_until) > new Date();
+      
+      setIsPremium(isPremiumActive);
+    } catch (error) {
+      console.error('Error checking premium status:', error);
+    }
+  };
+
+  const onRefresh = React.useCallback(async () => {
+    setRefreshing(true);
+    await Promise.all([
+      fetchProyectosDestacados(),
+      checkPremiumStatus()
+    ]);
+    setRefreshing(false);
+  }, []);
+
+  const scrollHandler = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      scrollY.value = event.contentOffset.y;
+      
+      // Calcular si estamos cerca del final
+      const scrollPosition = event.contentOffset.y;
+      const visibleHeight = scrollViewHeight.value;
+      const totalHeight = contentHeight.value;
+      
+      // Mostrar banner cuando estemos en el último 30% del contenido
+      if (totalHeight > 0 && visibleHeight > 0) {
+        const scrollPercentage = (scrollPosition + visibleHeight) / totalHeight;
+        if (scrollPercentage > 0.7 && bannerOpacity.value === 0) {
+          bannerOpacity.value = withSpring(1, {
+            damping: 20,
+            stiffness: 90
+          });
+        } else if (scrollPercentage <= 0.7 && bannerOpacity.value === 1) {
+          bannerOpacity.value = withSpring(0, {
+            damping: 20,
+            stiffness: 90
+          });
+        }
+      }
+    },
+  });
+
+  const bannerAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: bannerOpacity.value,
+    transform: [
+      { 
+        translateY: withSpring(bannerOpacity.value === 0 ? 100 : 0, {
+          damping: 20,
+          stiffness: 90
+        })
+      }
+    ],
+  }));
 
   const fetchProyectosDestacados = async () => {
     try {
@@ -73,7 +164,7 @@ const Home = () => {
             }
           }))
           .sort((a, b) => b.likes_count - a.likes_count) // Ordenar de mayor a menor
-          .slice(0, 5); // Tomar solo los 5 primeros
+          .slice(0, 6); // Tomar solo los 5 primeros
 
         setProyectosDestacados(proyectosFormateados.map(proyecto => ({
           ...proyecto,
@@ -145,7 +236,7 @@ const Home = () => {
           
           <View className="flex-row items-center">
             <Image
-              source={icons.features}
+              source={icons.star}
               className="w-4 h-4 mr-1"
               style={{ tintColor: "#00BFA5" }}
             />
@@ -158,41 +249,193 @@ const Home = () => {
     </TouchableOpacity>
   );
 
-  return (
-    <View className="flex-1 bg-primary-100 ">
-      <View className="bg-primary-500 shadow-md py-4 px-6">
-        <View className="flex flex-row justify-center items-center mb-2">
-          <Text className="text-white text-3xl font-bold mr-2">
-            Destacados
-          </Text>
-          <Image
-            source={icons.features}
-            className="w-8 h-8"
-            style={{ tintColor: "#00BFA5" }}
-          />
-        </View>
-        <Text className="text-secondary-400 text-xl font-semibold text-center">
-          Popular en Featuring
+  const HeroSection = () => (
+    <LinearGradient
+      colors={['#6D29D2', '#4A148C']}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      className="px-6 py-6 rounded-b-3xl"
+    >
+      <View>
+        <Text className="text-white text-4xl font-JakartaBold mb-2">
+          ¡Bienvenido a Featuring!
         </Text>
+        <Text className="text-secondary-200 text-lg font-JakartaMedium mb-6">
+          Donde la música conecta personas
+        </Text>
+
+        <View className="flex-row justify-between mb-2">
+          <View className="items-center bg-white/10 px-4 py-2 rounded-xl">
+            <Text className="text-white text-xl font-JakartaBold">1K+</Text>
+            <Text className="text-secondary-200 text-sm">Artistas</Text>
+          </View>
+          <View className="items-center bg-white/10 px-4 py-2 rounded-xl">
+            <Text className="text-white text-xl font-JakartaBold">5K+</Text>
+            <Text className="text-secondary-200 text-sm">Proyectos</Text>
+          </View>
+          <View className="items-center bg-white/10 px-4 py-2 rounded-xl">
+            <Text className="text-white text-xl font-JakartaBold">10K+</Text>
+            <Text className="text-secondary-200 text-sm">Colaboraciones</Text>
+          </View>
+        </View>
+      </View>
+    </LinearGradient>
+  );
+
+  const PremiumBenefits = () => (
+    <View className="px-4 py-6">
+      <Animated.View 
+        entering={FadeInDown.delay(200)}
+        className="flex-row items-center mb-4"
+      >
+        <Text className="text-2xl font-JakartaBold text-primary-700 mr-2">
+          Premium
+        </Text>
+        <Image
+          source={icons.dollar}
+          className="w-6 h-6"
+          style={{ tintColor: "#FFD700" }}
+        />
+      </Animated.View>
+      
+      <View className="space-y-3">
+        {[
+          {
+            icon: icons.features,
+            title: "Colaboraciones ilimitadas",
+            desc: "Sin límites para crear"
+          },
+          {
+            icon: icons.chat,
+            title: "Chat prioritario",
+            desc: "Conexión directa con artistas"
+          },
+          {
+            icon: icons.hearto,
+            title: "Sin anuncios",
+            desc: "Experiencia sin interrupciones"
+          }
+        ].map((benefit, index) => (
+          <Animated.View 
+            key={benefit.title}
+            entering={SlideInRight.delay(200 + index * 100)}
+            className="flex-row items-center bg-white p-4 rounded-xl shadow-sm"
+          >
+            <View className="bg-primary-100 p-2 rounded-full">
+              <Image
+                source={benefit.icon}
+                className="w-5 h-5"
+                style={{ tintColor: "#6D29D2" }}
+              />
+            </View>
+            <View className="ml-3 flex-1">
+              <Text className="font-JakartaBold text-primary-700">
+                {benefit.title}
+              </Text>
+              <Text className="text-primary-500 text-sm">
+                {benefit.desc}
+              </Text>
+            </View>
+          </Animated.View>
+        ))}
       </View>
 
-      <ScrollView className="flex-1 px-3 py-3">
-        {isLoading ? (
-          <Text className="text-center text-primary-500 mt-4">
-            Cargando proyectos destacados...
+      <Animated.View entering={FadeInDown.delay(500)}>
+        <TouchableOpacity 
+          className="bg-primary-500 mt-4 py-3 rounded-xl active:opacity-90"
+          onPress={() => router.push("/premium")}
+        >
+          <Text className="text-white text-center font-JakartaBold">
+            Obtener Premium
           </Text>
-        ) : proyectosDestacados.length > 0 ? (
-          <View className="flex-row flex-wrap justify-between">
-            {proyectosDestacados.map((proyecto) => (
-              <ProyectoDestacadoCard key={proyecto.id} proyecto={proyecto} />
-            ))}
+        </TouchableOpacity>
+      </Animated.View>
+    </View>
+  );
+
+  const PremiumBanner = () => !isPremium && (
+    <Animated.View 
+      style={[
+        { 
+          position: 'absolute', 
+          bottom: 20, 
+          left: 16, 
+          right: 16,
+          opacity: 0 // Inicialmente oculto
+        },
+        bannerAnimatedStyle
+      ]}
+    >
+      <LinearGradient
+        colors={['#6D29D2', '#4A148C']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        className="rounded-xl p-4 shadow-lg"
+      >
+        <View className="flex-row items-center justify-between">
+          <View className="flex-1">
+            <Text className="text-white font-JakartaBold text-base">
+              Desbloquea todo el potencial
+            </Text>
+            <Text className="text-secondary-200 text-sm">
+              Únete a Featuring Premium
+            </Text>
           </View>
-        ) : (
-          <Text className="text-center text-primary-500 mt-4">
-            No hay proyectos destacados disponibles
+          <TouchableOpacity 
+            className="bg-white px-4 py-2 rounded-lg"
+            onPress={() => router.push("/premium")}
+          >
+            <Text className="text-primary-700 font-JakartaBold">
+              Upgrade
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </LinearGradient>
+    </Animated.View>
+  );
+
+  return (
+    <View className="flex-1 bg-primary-50">
+      <Animated.ScrollView 
+        className="flex-1"
+        onScroll={scrollHandler}
+        scrollEventThrottle={16}
+        contentContainerStyle={{ paddingBottom: !isPremium ? 80 : 20 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#6D29D2"
+            colors={['#6D29D2']}
+          />
+        }
+        onLayout={(event) => {
+          scrollViewHeight.value = event.nativeEvent.layout.height;
+        }}
+        onContentSizeChange={(width, height) => {
+          contentHeight.value = height;
+        }}
+      >
+        <HeroSection />
+        <PremiumBenefits />
+        <View className="px-4 py-4">
+          <Text className="text-2xl font-JakartaBold text-primary-700 mb-4">
+            Proyectos Destacados
           </Text>
-        )}
-      </ScrollView>
+          {isLoading ? (
+            <Text className="text-center text-primary-500 mt-4">
+              Cargando proyectos destacados...
+            </Text>
+          ) : (
+            <View className="flex-row flex-wrap justify-between mb-14">
+              {proyectosDestacados.map((proyecto) => (
+                <ProyectoDestacadoCard key={proyecto.id} proyecto={proyecto} />
+              ))}
+            </View>
+          )}
+        </View>
+      </Animated.ScrollView>
+      <PremiumBanner />
     </View>
   );
 };
