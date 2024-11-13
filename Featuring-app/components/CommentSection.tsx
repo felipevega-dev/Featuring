@@ -5,6 +5,7 @@ import Constants from 'expo-constants';
 import { Ionicons } from '@expo/vector-icons';
 import { icons } from "@/constants/index";
 import { router } from "expo-router";
+import { sendPushNotification } from '@/utils/pushNotifications';
 
 interface Comment {
   id: number;
@@ -45,6 +46,8 @@ export default function CommentSection({ songId, currentUserId, isVisible, onClo
   const [showReplies, setShowReplies] = useState<{ [key: number]: boolean }>({});
   const [respondingTo, setRespondingTo] = useState<{ id: number; username: string } | null>(null);
   const [respuestaTexto, setRespuestaTexto] = useState('');
+  const [selectedReplyId, setSelectedReplyId] = useState<number | null>(null);
+  const [replyOptionsVisible, setReplyOptionsVisible] = useState(false);
 
   useEffect(() => {
     if (isVisible) {
@@ -284,6 +287,13 @@ export default function CommentSection({ songId, currentUserId, isVisible, onClo
           return;
         }
 
+        // Primero eliminar todas las respuestas asociadas
+        await supabase
+          .from("comentario_cancion")
+          .delete()
+          .eq("padre_id", selectedCommentId);
+
+        // Luego eliminar el comentario principal
         await supabase
           .from("comentario_cancion")
           .delete()
@@ -490,6 +500,59 @@ export default function CommentSection({ songId, currentUserId, isVisible, onClo
     }));
   };
 
+  const handleReplyOptions = (respuesta: Comment) => {
+    if (respuesta.usuario_id === currentUserId) {
+      setSelectedReplyId(respuesta.id);
+      setReplyOptionsVisible(true);
+    }
+  };
+
+  const handleDeleteReply = async () => {
+    if (selectedReplyId) {
+      try {
+        const parentComment = comments.find(comment => 
+          comment.respuestas?.some(respuesta => respuesta.id === selectedReplyId)
+        );
+
+        if (!parentComment) {
+          Alert.alert("Error", "No se encontró el comentario padre");
+          return;
+        }
+
+        const selectedReply = parentComment.respuestas?.find(r => r.id === selectedReplyId);
+
+        if (!selectedReply || selectedReply.usuario_id !== currentUserId) {
+          Alert.alert("Error", "No tienes permiso para eliminar esta respuesta");
+          return;
+        }
+
+        await supabase
+          .from("comentario_cancion")
+          .delete()
+          .eq("id", selectedReplyId);
+
+        // Actualizar el estado local
+        setComments(prevComments => 
+          prevComments.map(comment => 
+            comment.id === parentComment.id
+              ? {
+                  ...comment,
+                  respuestas: comment.respuestas?.filter(r => r.id !== selectedReplyId) || [],
+                  respuestas_count: (comment.respuestas_count || 1) - 1
+                }
+              : comment
+          )
+        );
+
+        setReplyOptionsVisible(false);
+        Alert.alert("Éxito", "Respuesta eliminada correctamente");
+      } catch (error) {
+        console.error("Error al eliminar la respuesta:", error);
+        Alert.alert("Error", "No se pudo eliminar la respuesta");
+      }
+    }
+  };
+
   const renderComment = ({ item }: { item: Comment }) => (
     <View className="bg-white p-4 rounded-lg mb-3 shadow">
       <View className="flex-row justify-between items-start mb-2">
@@ -584,18 +647,28 @@ export default function CommentSection({ songId, currentUserId, isVisible, onClo
         <View className="ml-10 mt-2">
           {item.respuestas.map((respuesta) => (
             <View key={respuesta.id} className="bg-gray-50 p-3 rounded-lg mb-2">
-              <View className="flex-row items-center">
-                <Image
-                  source={{
-                    uri: respuesta.perfil.foto_perfil
-                      ? `${supabaseUrl}/storage/v1/object/public/fotoperfil/${respuesta.perfil.foto_perfil}`
-                      : 'https://via.placeholder.com/40'
-                  }}
-                  className="w-6 h-6 rounded-full mr-2"
-                />
-                <Text className="font-JakartaBold text-primary-600">
-                  {respuesta.perfil.username}
-                </Text>
+              <View className="flex-row justify-between items-center">
+                <View className="flex-row items-center flex-1">
+                  <Image
+                    source={{
+                      uri: respuesta.perfil.foto_perfil
+                        ? `${supabaseUrl}/storage/v1/object/public/fotoperfil/${respuesta.perfil.foto_perfil}`
+                        : 'https://via.placeholder.com/40'
+                    }}
+                    className="w-6 h-6 rounded-full mr-2"
+                  />
+                  <Text className="font-JakartaBold text-primary-600">
+                    {respuesta.perfil.username}
+                  </Text>
+                </View>
+                {respuesta.usuario_id === currentUserId && (
+                  <TouchableOpacity
+                    onPress={() => handleReplyOptions(respuesta)}
+                    className="ml-2"
+                  >
+                    <Image source={icons.trespuntos} className="w-5 h-5" />
+                  </TouchableOpacity>
+                )}
               </View>
               <Text className="mt-1 text-gray-700">{respuesta.contenido}</Text>
             </View>
@@ -765,6 +838,31 @@ export default function CommentSection({ songId, currentUserId, isVisible, onClo
                 </Text>
               </TouchableOpacity>
             )}
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Modal para opciones de respuesta */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={replyOptionsVisible}
+        onRequestClose={() => setReplyOptionsVisible(false)}
+      >
+        <TouchableOpacity
+          className="flex-1 justify-center items-center bg-black bg-opacity-50"
+          activeOpacity={1}
+          onPress={() => setReplyOptionsVisible(false)}
+        >
+          <View className="bg-white rounded-lg p-4 w-3/4">
+            <TouchableOpacity
+              className="bg-red-500 rounded-lg p-2"
+              onPress={handleDeleteReply}
+            >
+              <Text className="text-white text-center font-JakartaBold">
+                Eliminar respuesta
+              </Text>
+            </TouchableOpacity>
           </View>
         </TouchableOpacity>
       </Modal>
