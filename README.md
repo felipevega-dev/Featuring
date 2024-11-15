@@ -35,9 +35,8 @@ Featuring es una aplicación móvil diseñada para conectar a apasionados de la 
    cd Featuring
    ```
 
-2. **Instala las dependencias:**
+2. **Navega a la carpeta del proyecto:**
    ```bash
-   Navega a la carpeta del proyecto
    cd Fase2\Evidencias Proyecto\App\
    ```
 3. **Instala las dependencias:**
