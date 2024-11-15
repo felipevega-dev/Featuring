@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   TouchableOpacity,
@@ -11,7 +11,7 @@ import {
 import { icons, images } from "@/constants";
 import InputField from "@/components/InputField";
 import CustomButton from "@/components/CustomButton";
-import { Link, router } from "expo-router";
+import { Link, useLocalSearchParams, useRouter } from "expo-router";
 import { ReactNativeModal } from "react-native-modal";
 import { supabase } from "@/lib/supabase";
 import OAuth from "@/components/OAuth";
@@ -21,12 +21,12 @@ const PASSWORD_MIN_LENGTH = 8;
 const PASSWORD_MAX_LENGTH = 14;
 
 export default function SignUp() {
+  const router = useRouter();
   const { height } = useWindowDimensions();
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [showLegalModal, setShowLegalModal] = useState(false);
-  const [formData, setFormData] = useState<any>(null);
 
   const [form, setForm] = useState({
     nombreCompleto: "",
@@ -132,6 +132,8 @@ export default function SignUp() {
     setShowLegalModal(false);
     
     try {
+      console.log("Iniciando registro con email:", form.email);
+
       const { data: existingUser } = await supabase
         .from('perfil')
         .select('email')
@@ -139,6 +141,7 @@ export default function SignUp() {
         .single();
 
       if (existingUser) {
+        console.log("Usuario existente encontrado:", existingUser);
         Alert.alert(
           "Usuario Existente",
           "Ya existe una cuenta registrada con este correo electrónico."
@@ -146,20 +149,7 @@ export default function SignUp() {
         return;
       }
 
-      const { data: existingUsername } = await supabase
-        .from('perfil')
-        .select('username')
-        .eq('username', form.nombreCompleto)
-        .single();
-
-      if (existingUsername) {
-        Alert.alert(
-          "Nombre de Usuario No Disponible",
-          "Este nombre de usuario ya está en uso. Por favor, elige otro."
-        );
-        return;
-      }
-
+      console.log("Intentando registrar usuario...");
       const { data, error } = await supabase.auth.signUp({
         email: form.email,
         password: form.password,
@@ -167,41 +157,49 @@ export default function SignUp() {
           data: {
             full_name: form.nombreCompleto,
           },
+          emailRedirectTo: undefined,
         },
       });
 
       if (error) {
+        console.error("Error detallado del registro:", {
+          message: error.message,
+          status: error.status,
+          name: error.name,
+          details: error
+        });
+        
         if (error.message.includes('User already registered')) {
           Alert.alert(
             "Usuario Existente",
             "Ya existe una cuenta registrada con este correo electrónico."
           );
-        } else if (error.message.includes('Password')) {
-          Alert.alert(
-            "Error en la Contraseña",
-            "La contraseña no cumple con los requisitos de seguridad."
-          );
-        } else if (error.message.includes('Email')) {
-          Alert.alert(
-            "Error en el Correo",
-            "Por favor, verifica que el correo electrónico sea válido."
-          );
         } else {
-          Alert.alert(
-            "Error",
-            "Ocurrió un error durante el registro. Por favor, intenta de nuevo."
-          );
+          throw error;
         }
         return;
       }
 
+      console.log("Respuesta del registro:", data);
+
       if (data.user) {
-        setShowSuccessModal(true);
+        console.log("Usuario creado exitosamente:", data.user.id);
+        router.replace({
+          pathname: "/(auth)/verify-email",
+          params: { 
+            email: form.email
+          }
+        });
       } else {
         throw new Error("No se pudo crear el usuario");
       }
     } catch (err: any) {
-      console.error("Error en el registro:", err);
+      console.error("Error completo:", err);
+      console.error("Tipo de error:", err.constructor.name);
+      console.error("Mensaje de error:", err.message);
+      if (err.status) console.error("Status:", err.status);
+      if (err.statusText) console.error("StatusText:", err.statusText);
+      
       Alert.alert(
         "Error",
         err.message || "Ocurrió un error durante el registro. Por favor, intenta de nuevo."
