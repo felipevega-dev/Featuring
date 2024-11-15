@@ -27,7 +27,6 @@ export async function registerForPushNotificationsAsync() {
       }
 
       if (finalStatus !== 'granted') {
-        console.log('Failed to get push token for push notification!');
         return;
       }
 
@@ -37,7 +36,6 @@ export async function registerForPushNotificationsAsync() {
       });
       
       token = tokenData.data;
-      console.log('Push Token obtenido:', token);
 
       // Guardar el token en la base de datos
       const { data: { user }, error: userError } = await supabase.auth.getUser();
@@ -48,7 +46,6 @@ export async function registerForPushNotificationsAsync() {
       }
 
       if (user) {
-        console.log('Guardando token para usuario:', user.id);
         const { error: updateError } = await supabase
           .from('perfil')
           .update({ push_token: token })
@@ -58,8 +55,6 @@ export async function registerForPushNotificationsAsync() {
           console.error('Error al guardar push token:', updateError);
           return;
         }
-
-        console.log('Push token guardado exitosamente');
       }
 
       // Configurar canal para Android
@@ -72,7 +67,6 @@ export async function registerForPushNotificationsAsync() {
         });
       }
     } else {
-      console.log('Must use physical device for Push Notifications');
     }
   } catch (error) {
     console.error('Error en registerForPushNotificationsAsync:', error);

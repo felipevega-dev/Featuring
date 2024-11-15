@@ -10,6 +10,7 @@ import {
   Modal,
   Linking,
   LogBox,
+  ActivityIndicator,
 } from "react-native";
 import { Stack, useRouter } from "expo-router";
 import { styled } from "nativewind";
@@ -20,6 +21,8 @@ import DropDownPicker from "react-native-dropdown-picker";
 import { FontAwesome } from "@expo/vector-icons";
 import Constants from "expo-constants";
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
+import { useLocation } from '@/hooks/useLocation';
+import { Ionicons } from "@expo/vector-icons";
 
 // Ignorar la advertencia específica
 LogBox.ignoreLogs(["VirtualizedLists should never be nested"]);
@@ -56,6 +59,9 @@ const EditarPerfil = () => {
   const [modalContent, setModalContent] = useState<
     "generos" | "habilidades" | "redes_sociales"
   >("generos");
+  const { requestLocationPermission } = useLocation();
+  const [isLoadingLocation, setIsLoadingLocation] = useState(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
 
   const [habilidadesMusicales, setHabilidadesMusicales] = useState([
     "Canto",
@@ -199,7 +205,6 @@ const EditarPerfil = () => {
 
         // No construimos la URL pública aquí, solo guardamos el path
         setFotoPerfil(data.foto_perfil);
-        console.log('Loaded profile image path:', data.foto_perfil);
       }
     } catch (error) {
       console.error("Error al obtener el perfil:", error);
@@ -290,8 +295,6 @@ const EditarPerfil = () => {
         if (updateError) {
           throw updateError;
         }
-
-        console.log('Nueva imagen de perfil guardada:', filePath);
       }
     } catch (error) {
       console.error("Error al cambiar la foto de perfil:", error);
@@ -581,6 +584,23 @@ const EditarPerfil = () => {
     }
   };
 
+  const handleRequestLocation = async () => {
+    setIsLoadingLocation(true);
+    setLocationError(null);
+    try {
+      const newLocation = await requestLocationPermission();
+      if (newLocation && perfil) {
+        setPerfil({ ...perfil, ubicacion: newLocation.ubicacion });
+      } else {
+        setLocationError('No se pudo obtener la ubicación. Por favor, inténtalo de nuevo.');
+      }
+    } catch (err) {
+      setLocationError('Error al solicitar permisos de ubicación. Por favor, inténtalo de nuevo.');
+    } finally {
+      setIsLoadingLocation(false);
+    }
+  };
+
   if (!perfil) {
     return (
       <View>
@@ -724,15 +744,34 @@ const EditarPerfil = () => {
           </View>
         </StyledView>
 
-        <StyledView className="mb-2">
+        <StyledView className="mb-4">
           <StyledText className="text-lg font-bold mb-2 text-primary-700">
             Ubicación:
           </StyledText>
-          <StyledTextInput
-            className="border border-gray-300 p-2 rounded-md"
-            value={perfil.ubicacion}
-            onChangeText={(text) => setPerfil({ ...perfil, ubicacion: text })}
-          />
+          <View className="flex-row items-center">
+            <StyledTextInput
+              className="flex-1 border border-gray-300 p-2 rounded-md mr-2"
+              value={perfil.ubicacion}
+              editable={false}
+              placeholder="Tu ubicación aparecerá aquí"
+            />
+            <TouchableOpacity
+              className="bg-primary-500 p-2 rounded-md"
+              onPress={handleRequestLocation}
+              disabled={isLoadingLocation}
+            >
+              {isLoadingLocation ? (
+                <ActivityIndicator color="#ffffff" size="small" />
+              ) : (
+                <Ionicons name="location" size={24} color="white" />
+              )}
+            </TouchableOpacity>
+          </View>
+          {locationError && (
+            <Text className="text-danger-600 text-sm mt-1">
+              {locationError}
+            </Text>
+          )}
         </StyledView>
 
         <StyledView className="mb-2">

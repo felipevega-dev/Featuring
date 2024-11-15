@@ -90,7 +90,6 @@ export default function Chat() {
           filter: `or(emisor_id.eq.${currentUserId},receptor_id.eq.${currentUserId})`
         }, 
         async (payload) => {
-          console.log('Cambio en mensajes detectado:', payload);
           await fetchChatList(); // Actualiza la lista cuando hay cambios
         }
       )

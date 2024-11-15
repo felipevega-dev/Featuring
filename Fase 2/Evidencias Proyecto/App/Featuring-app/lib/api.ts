@@ -7,7 +7,6 @@ export const fetchPosts = async () => {
     .order("fecha", { ascending: false });
 
   if (error) {
-    console.log("Error fetching posts:", error);
     return [];
   } else {
     return data;

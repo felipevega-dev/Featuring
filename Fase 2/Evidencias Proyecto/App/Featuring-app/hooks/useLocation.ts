@@ -1,34 +1,54 @@
 import * as Location from 'expo-location';
-import { Alert } from 'react-native';
 
-export function useLocation() {
-  const requestLocationPermission = async () => {
-    let { status } = await Location.requestForegroundPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permiso denegado', 'No se puede acceder a la ubicación');
-      return null;
-    }
+interface LocationData {
+  coords: {
+    latitude: number;
+    longitude: number;
+  };
+  ubicacion: string;
+  pais: string;
+}
 
-    let location = await Location.getCurrentPositionAsync({});
-    const { latitude, longitude } = location.coords;
-
+export const useLocation = () => {
+  const requestLocationPermission = async (): Promise<LocationData | null> => {
     try {
-      const [placeDetails] = await Location.reverseGeocodeAsync({
-        latitude,
-        longitude,
-      });
-      if (placeDetails) {
-        const ubicacion = `${placeDetails.city || ''}, ${placeDetails.country || ''}`.trim();
-        return { ...location, ubicacion };
-      } else {
-        throw new Error('No se pudo obtener la información de la ubicación');
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      
+      if (status !== 'granted') {
+        return null;
       }
+
+      const location = await Location.getCurrentPositionAsync({});
+      const geocode = await Location.reverseGeocodeAsync({
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude
+      });
+
+      if (geocode && geocode[0]) {
+        const address = geocode[0];
+
+        const ubicacion = [
+          address.city,
+          address.country
+        ]
+          .filter(Boolean)
+          .join(', ');
+
+        return {
+          coords: {
+            latitude: location.coords.latitude,
+            longitude: location.coords.longitude
+          },
+          ubicacion: ubicacion,
+          pais: address.country || ''
+        };
+      }
+      return null;
     } catch (error) {
-      console.error('Error al obtener la ubicación:', error);
-      Alert.alert('Error', 'No se pudo obtener la información de la ubicación');
+      console.error('Error getting location:', error);
       return null;
     }
   };
 
   return { requestLocationPermission };
-}
+};

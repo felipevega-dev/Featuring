@@ -132,8 +132,6 @@ export default function SignUp() {
     setShowLegalModal(false);
     
     try {
-      console.log("Iniciando registro con email:", form.email);
-
       const { data: existingUser } = await supabase
         .from('perfil')
         .select('email')
@@ -141,15 +139,12 @@ export default function SignUp() {
         .single();
 
       if (existingUser) {
-        console.log("Usuario existente encontrado:", existingUser);
         Alert.alert(
           "Usuario Existente",
           "Ya existe una cuenta registrada con este correo electrónico."
         );
         return;
       }
-
-      console.log("Intentando registrar usuario...");
       const { data, error } = await supabase.auth.signUp({
         email: form.email,
         password: form.password,
@@ -180,10 +175,7 @@ export default function SignUp() {
         return;
       }
 
-      console.log("Respuesta del registro:", data);
-
       if (data.user) {
-        console.log("Usuario creado exitosamente:", data.user.id);
         router.replace({
           pathname: "/(auth)/verify-email",
           params: { 

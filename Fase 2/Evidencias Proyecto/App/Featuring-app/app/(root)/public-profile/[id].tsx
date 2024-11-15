@@ -10,6 +10,7 @@ import {
   Linking,
   Modal,
   RefreshControl,
+  Alert,
 } from "react-native";
 import { supabase } from "@/lib/supabase";
 import { useLocalSearchParams, router } from "expo-router";
@@ -23,6 +24,7 @@ import { RealtimeChannel } from "@supabase/supabase-js";
 import { TooltipBadge } from '@/components/TooltipBadge';
 import { TooltipTitle } from '@/components/TooltipTitle';
 import { ReportButton } from '@/components/reports/ReportButton';
+import { sendPushNotification } from '@/utils/pushNotifications';
 
 interface Perfil {
   usuario_id: string;
@@ -105,6 +107,9 @@ export default function PublicProfile() {
   const [seguidoresCount, setSeguidoresCount] = useState(0);
   const [subscription, setSubscription] = useState<RealtimeChannel | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [isLiked, setIsLiked] = useState(false);
+  const [isLoadingLike, setIsLoadingLike] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<'none' | 'liked' | 'match'>("none");
 
   useEffect(() => {
     fetchPerfil();
@@ -158,6 +163,12 @@ export default function PublicProfile() {
       };
     }
   }, [id]);
+
+  useEffect(() => {
+    if (currentUserId && id) {
+      checkConnectionStatus();
+    }
+  }, [currentUserId, id]);
 
   const fetchPerfil = async () => {
     try {
@@ -245,6 +256,39 @@ export default function PublicProfile() {
           preferencias: data.preferencias
         };
         setPerfil(perfilData);
+
+        // Verificar el estado de la conexión al cargar el perfil
+        if (currentUserId) {
+          const { data: connections, error: connectionError } = await supabase
+            .from("conexion")
+            .select('*')
+            .or(
+              `and(usuario1_id.eq.${currentUserId},usuario2_id.eq.${id}),and(usuario1_id.eq.${id},usuario2_id.eq.${currentUserId})`
+            );
+
+          if (!connectionError && connections) {
+            // Verificar si hay alguna conexión con estado true
+            const matchConnection = connections.find(conn => conn.estado === true);
+            
+            if (matchConnection) {
+              setConnectionStatus('match');
+              setIsLiked(true);
+            } else {
+              // Si no hay match pero hay una conexión del usuario actual
+              const userConnection = connections.find(
+                conn => conn.usuario1_id === currentUserId && conn.usuario2_id === id
+              );
+              
+              if (userConnection) {
+                setConnectionStatus('liked');
+                setIsLiked(true);
+              } else {
+                setConnectionStatus('none');
+                setIsLiked(false);
+              }
+            }
+          }
+        }
       }
     } catch (error) {
       console.error("Error al obtener el perfil:", error);
@@ -456,13 +500,262 @@ export default function PublicProfile() {
 
   const onRefresh = React.useCallback(() => {
     setRefreshing(true);
-    Promise.all([
+    const promises = [
       fetchPerfil(),
       fetchCanciones(),
       fetchVideos(),
-      fetchSeguidores()
-    ]).finally(() => setRefreshing(false));
-  }, []);
+      fetchSeguidores(),
+    ];
+
+    // Solo añadir checkConnectionStatus si tenemos los IDs necesarios
+    if (currentUserId && id) {
+      promises.push(checkConnectionStatus());
+    }
+
+    Promise.all(promises).finally(() => setRefreshing(false));
+  }, [currentUserId, id]);
+
+  const handleLike = async () => {
+    if (!currentUserId || currentUserId === id || isLoadingLike) return;
+
+    try {
+      setIsLoadingLike(true);
+
+      // Verificar si ya existe una conexión exactamente igual
+      const { data: existingDuplicates, error: duplicateError } = await supabase
+        .from("conexion")
+        .select()
+        .eq('usuario1_id', currentUserId)
+        .eq('usuario2_id', id);
+
+      if (duplicateError) throw duplicateError;
+
+      if (existingDuplicates && existingDuplicates.length > 0) {
+        Alert.alert("Ya existe una conexión con este usuario");
+        return;
+      }
+
+      // Verificar si existe una conexión en la otra dirección
+      const { data: existingConnections, error: selectError } = await supabase
+        .from("conexion")
+        .select()
+        .eq('usuario1_id', id)
+        .eq('usuario2_id', currentUserId);
+
+      if (selectError) throw selectError;
+
+      // Si existe una conexión del otro usuario, crear match
+      if (existingConnections && existingConnections.length > 0) {
+        const existingConnection = existingConnections[0];
+        
+        // Actualizar la conexión existente a match
+        await supabase
+          .from("conexion")
+          .update({ estado: true })
+          .eq("id", existingConnection.id);
+
+        // Crear la conexión recíproca como match
+        const { error: insertMatchError } = await supabase
+          .from("conexion")
+          .insert({
+            usuario1_id: currentUserId,
+            usuario2_id: id,
+            estado: true
+          });
+
+        if (insertMatchError) throw insertMatchError;
+
+        // Enviar notificaciones push de match a ambos usuarios
+        if (perfil?.redes_sociales && perfil.redes_sociales.length > 0) {
+          const { data: likedUserData, error: likedUserError } = await supabase
+            .from('perfil')
+            .select('username, push_token')
+            .eq('usuario_id', id)
+            .single();
+
+          if (likedUserError) throw likedUserError;
+
+          if (likedUserData?.push_token) {
+            await sendPushNotification(
+              likedUserData.push_token,
+              '¡Nuevo Match!',
+              `¡Has hecho match con ${perfil.username}!`
+            );
+          }
+
+          const { data: currentUserData } = await supabase
+            .from('perfil')
+            .select('push_token')
+            .eq('usuario_id', currentUserId)
+            .single();
+
+          if (currentUserData?.push_token) {
+            await sendPushNotification(
+              currentUserData.push_token,
+              '¡Nuevo Match!',
+              `¡Has hecho match con ${likedUserData.username}!`
+            );
+          }
+
+          // Crear notificaciones de match para ambos usuarios
+          await supabase
+            .from('notificacion')
+            .insert([
+              {
+                usuario_id: id,
+                tipo_notificacion: 'match',
+                usuario_origen_id: currentUserId,
+                mensaje: `¡Has hecho match con ${perfil.username}!`,
+                leido: false
+              },
+              {
+                usuario_id: currentUserId,
+                tipo_notificacion: 'match',
+                usuario_origen_id: id,
+                mensaje: `¡Has hecho match con ${likedUserData.username}!`,
+                leido: false
+              }
+            ]);
+        }
+
+        setConnectionStatus('match');
+        setIsLiked(true);
+        Alert.alert(
+          "¡Match!",
+          "¡Has hecho match con este usuario!",
+          [
+            {
+              text: "Enviar mensaje",
+              onPress: () => router.push(`/chat/${id}`),
+            },
+            {
+              text: "Continuar",
+              style: "cancel",
+            },
+          ]
+        );
+        return;
+      }
+
+      // Si no existe ninguna conexión, crear una nueva
+      const { error: insertError } = await supabase
+        .from("conexion")
+        .insert({
+          usuario1_id: currentUserId,
+          usuario2_id: id,
+          estado: false,
+        });
+
+      if (insertError) throw insertError;
+
+      // Enviar notificación push de like
+      if (perfil?.redes_sociales && perfil.redes_sociales.length > 0) {
+        const { data: likedUserData, error: likedUserError } = await supabase
+          .from('perfil')
+          .select('username, push_token')
+          .eq('usuario_id', id)
+          .single();
+
+        if (likedUserError) throw likedUserError;
+
+        if (likedUserData?.push_token) {
+          await sendPushNotification(
+            likedUserData.push_token,
+            '¡Nuevo Like!',
+            `${perfil.username} te ha dado like`
+          );
+        }
+
+        const { data: currentUserData } = await supabase
+          .from('perfil')
+          .select('push_token')
+          .eq('usuario_id', currentUserId)
+          .single();
+
+        if (currentUserData?.push_token) {
+          await sendPushNotification(
+            currentUserData.push_token,
+            '¡Nuevo Like!',
+            `${perfil.username} te ha dado like`
+          );
+        }
+
+        // Crear notificación de like
+        const { error: notificationError } = await supabase
+          .from('notificacion')
+          .insert({
+            usuario_id: id,
+            tipo_notificacion: 'like',
+            leido: false,
+            usuario_origen_id: currentUserId,
+            mensaje: `${perfil.username} te ha dado like`
+          });
+
+        if (notificationError) {
+          console.error('Error al crear notificación de like:', notificationError);
+        }
+      }
+
+      await checkConnectionStatus();
+      setIsLiked(true);
+      Alert.alert("¡Like enviado!", "Si el otro usuario también te da like, ¡harán match!");
+
+    } catch (error) {
+      console.error('Error al dar like:', error);
+      Alert.alert("Error", "No se pudo enviar el like. Inténtalo de nuevo.");
+    } finally {
+      setIsLoadingLike(false);
+    }
+  };
+
+  const checkConnectionStatus = async () => {
+    try {
+      // Verificar que ambos IDs existan antes de hacer la consulta
+      if (!currentUserId || !id) {
+        console.log('IDs no disponibles aún:', { currentUserId, id });
+        return;
+      }
+
+      const { data: connections, error } = await supabase
+        .from("conexion")
+        .select('*')
+        .or(
+          `and(usuario1_id.eq.${currentUserId},usuario2_id.eq.${id}),and(usuario1_id.eq.${id},usuario2_id.eq.${currentUserId})`
+        );
+
+      if (error) throw error;
+
+      if (connections && connections.length > 0) {
+        // Verificar si hay alguna conexión con estado true
+        const matchConnection = connections.find(conn => conn.estado === true);
+        
+        if (matchConnection) {
+          // Si hay una conexión con estado true, son amigos
+          setConnectionStatus('match');
+          setIsLiked(true);
+          return;
+        }
+
+        // Si no hay match pero hay una conexión del usuario actual, es un like enviado
+        const userConnection = connections.find(
+          conn => conn.usuario1_id === currentUserId && conn.usuario2_id === id
+        );
+        
+        if (userConnection) {
+          setConnectionStatus('liked');
+          setIsLiked(true);
+        } else {
+          setConnectionStatus('none');
+          setIsLiked(false);
+        }
+      } else {
+        setConnectionStatus('none');
+        setIsLiked(false);
+      }
+    } catch (error) {
+      console.error('Error al verificar el estado de la conexión:', error);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -528,13 +821,72 @@ export default function PublicProfile() {
 
   return (
     <View className="flex-1 bg-primary-600 p-1 pt-10">
-      <TouchableOpacity 
-        onPress={() => router.back()}
-        className="absolute top-20 left-8 z-50 bg-secondary-400 p-2 rounded-full"
-        style={{ elevation: 5 }}
-      >
-        <Ionicons name="arrow-back" size={24} color="#6D29D2" />
-      </TouchableOpacity>
+      <View className="flex-row justify-between px-8 absolute top-20 w-full z-50">
+        <TouchableOpacity 
+          onPress={() => router.back()}
+          className="bg-secondary-400 p-2 rounded-full"
+          style={{ elevation: 5 }}
+        >
+          <Ionicons name="arrow-back" size={24} color="#6D29D2" />
+        </TouchableOpacity>
+
+        {currentUserId && currentUserId !== id && (
+          <View className="flex-row items-center">
+            {connectionStatus === 'match' ? (
+              <TouchableOpacity 
+                onPress={() => router.push(`/chat/${id}`)}
+                className="bg-secondary-400 p-2 rounded-full mr-2"
+                style={{ elevation: 5 }}
+              >
+                <Ionicons name="chatbubble-outline" size={24} color="#6D29D2" />
+              </TouchableOpacity>
+            ) : null}
+            
+            <TouchableOpacity 
+              onPress={handleLike}
+              disabled={isLoadingLike || connectionStatus !== 'none'}
+              className={`bg-secondary-400 p-2 rounded-full ${
+                connectionStatus !== 'none' ? 'opacity-50' : ''
+              }`}
+              style={{ elevation: 5 }}
+            >
+              {isLoadingLike ? (
+                <ActivityIndicator size="small" color="#6D29D2" />
+              ) : (
+                <>
+                  <Ionicons 
+                    name={connectionStatus !== 'none' ? "heart" : "heart-outline"} 
+                    size={24} 
+                    color={connectionStatus === 'match' ? "#E53E3E" : "#6D29D2"}
+                  />
+                  {connectionStatus === 'match' && (
+                    <View className="absolute -top-1 -right-1 bg-green-500 rounded-full w-4 h-4 items-center justify-center">
+                      <Ionicons name="checkmark" size={12} color="white" />
+                    </View>
+                  )}
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
+
+      {/* Indicador de estado de conexión */}
+      {connectionStatus !== 'none' && (
+        <View className="absolute top-32 right-8 z-50">
+          <View 
+            className={`px-3 py-1 rounded-full ${
+              connectionStatus === 'match' 
+                ? 'bg-green-500' 
+                : 'bg-secondary-400'
+            }`}
+          >
+            <Text className="text-white text-xs font-bold">
+              {connectionStatus === 'match' ? 'Amigos' : 'Like enviado'}
+            </Text>
+          </View>
+        </View>
+      )}
 
       <ScrollView 
         className="flex-1 mt-4"
