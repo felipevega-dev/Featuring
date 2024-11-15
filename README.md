@@ -34,15 +34,20 @@ Featuring es una aplicación móvil diseñada para conectar a apasionados de la 
    git clone https://github.com/tu-usuario/Featuring.git
    cd Featuring
    ```
-2. **Instala las dependencias:**
+
+2. **Navega a la carpeta del proyecto:**
+   ```bash
+   cd Fase2\Evidencias Proyecto\App\
+   ```
+3. **Instala las dependencias:**
    ```bash
    npm install
    ```
-3. **Inicia el servidor de desarrollo:**
+4. **Inicia el servidor de desarrollo:**
    ```bash
    npm expo start
    ```
-4. **Abre la aplicación en tu dispositivo o emulador:**
+5. **Abre la aplicación en tu dispositivo o emulador:**
 
 Escanea el código QR con la aplicación Expo Go o ejecuta en un emulador.
 
