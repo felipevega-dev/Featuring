@@ -19,14 +19,12 @@ export default function AudioPlayer({ uri }: AudioPlayerProps) {
   useEffect(() => {
     return sound
       ? () => {
-          console.log('Unloading Sound');
           sound.unloadAsync();
         }
       : undefined;
   }, [sound]);
 
   const loadSound = async () => {
-    console.log('Loading Sound');
     const { sound } = await Audio.Sound.createAsync(
       { uri },
       { shouldPlay: false },

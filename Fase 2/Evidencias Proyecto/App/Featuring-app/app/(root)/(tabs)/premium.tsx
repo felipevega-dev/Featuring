@@ -8,6 +8,7 @@ import { supabase } from "@/lib/supabase";
 import LegalAgreementModalPremium from '@/components/LegalAgreementModalPremium';
 import { hispanicCountryCodes } from "@/utils/countryCodes";
 import ENV from '@/config/env';
+import { useLocation } from '@/hooks/useLocation';
 
 interface PlanFeature {
   title: string;
@@ -141,9 +142,10 @@ const PremiumScreen = () => {
   const [showLegalModal, setShowLegalModal] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<PremiumPlan | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const { requestLocationPermission } = useLocation();
 
   useEffect(() => {
-    checkUserCountry();
+    checkUserLocation();
     checkTrialStatus();
   }, []);
 
@@ -179,22 +181,41 @@ const PremiumScreen = () => {
     }
   };
 
-  const checkUserCountry = async () => {
+  const checkUserLocation = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      const locationData = await requestLocationPermission();
+      if (locationData?.ubicacion) {
+        const country = locationData.ubicacion.split(',').pop()?.trim();
+        
+        const countryMapping: { [key: string]: string } = {
+          'Argentina': 'Argentina',
+          'Bolivia': 'Bolivia',
+          'Chile': 'Chile',
+          'Colombia': 'Colombia',
+          'Costa Rica': 'Costa Rica',
+          'Cuba': 'Cuba',
+          'Ecuador': 'Ecuador',
+          'El Salvador': 'El Salvador',
+          'España': 'España',
+          'Guatemala': 'Guatemala',
+          'Honduras': 'Honduras',
+          'México': 'México',
+          'Nicaragua': 'Nicaragua',
+          'Panamá': 'Panamá',
+          'Paraguay': 'Paraguay',
+          'Perú': 'Perú',
+          'Puerto Rico': 'Puerto Rico',
+          'República Dominicana': 'República Dominicana',
+          'Uruguay': 'Uruguay',
+          'Venezuela': 'Venezuela'
+        };
 
-      const { data: profile } = await supabase
-        .from('perfil')
-        .select('nacionalidad')
-        .eq('usuario_id', user.id)
-        .single();
-
-      if (profile?.nacionalidad) {
-        setUserCountry(profile.nacionalidad);
+        const matchedCountry = countryMapping[country || ''] || 'Chile';
+        setUserCountry(matchedCountry);
       }
     } catch (error) {
-      console.error('Error fetching user country:', error);
+      console.error('Error getting user location:', error);
+      setUserCountry("Chile");
     }
   };
 
@@ -351,7 +372,7 @@ const PremiumScreen = () => {
     setRefreshing(true);
     try {
       await Promise.all([
-        checkUserCountry(),
+        checkUserLocation(),
         checkTrialStatus(),
         fetchExchangeRate()
       ]);
@@ -360,7 +381,7 @@ const PremiumScreen = () => {
     } finally {
       setRefreshing(false);
     }
-  }, [userCountry]);
+  }, []);
 
   return (
     <>

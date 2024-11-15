@@ -423,7 +423,6 @@ export default function Match() {
             filter: `or(usuario1_id.eq.${currentUserId},usuario2_id.eq.${currentUserId})`
           },
           (payload) => {
-            console.log('Cambio en conexiones:', payload);
             fetchUsers();
           }
         )
@@ -441,7 +440,6 @@ export default function Match() {
             filter: `usuario_id.eq.${currentUserId}`
           },
           (payload) => {
-            console.log('Cambio en preferencias:', payload);
             fetchUsers();
           }
         )
@@ -591,10 +589,6 @@ export default function Match() {
               profile.distance && 
               userPreferences.preferencias_distancia !== null && 
               profile.distance > userPreferences.preferencias_distancia) {
-            console.log('Filtrado por distancia:', {
-              distancia: profile.distance,
-              limite: userPreferences.preferencias_distancia
-            });
             return false;
           }
 
@@ -602,10 +596,6 @@ export default function Match() {
           if (userPreferences.match_filtrar_nacionalidad && 
               userPreferences.match_nacionalidades && 
               userPreferences.match_nacionalidades.length > 0) {
-            console.log('Filtrado por nacionalidad:', {
-              nacionalidadPerfil: profile.nacionalidad || 'No especificada',
-              nacionalidadesPreferidas: userPreferences.match_nacionalidades
-            });
             if (!userPreferences.match_nacionalidades.includes(profile.nacionalidad)) {
               return false;
             }
@@ -614,11 +604,6 @@ export default function Match() {
           // Filtro de géneros musicales
           if (userPreferences.preferencias_genero && 
               userPreferences.preferencias_genero.length > 0) {
-            console.log('Filtrado por géneros:', {
-              generosPreferidos: userPreferences.preferencias_genero,
-              generosPerfil: profile.perfil_genero.map(g => g.genero)
-            });
-            
             // Verificar si hay al menos un género en común
             const tieneGeneroEnComun = profile.perfil_genero.some(g => 
               userPreferences.preferencias_genero.includes(g.genero)
@@ -632,11 +617,6 @@ export default function Match() {
           // Filtro de habilidades musicales
           if (userPreferences.preferencias_habilidad && 
               userPreferences.preferencias_habilidad.length > 0) {
-            console.log('Filtrado por habilidades:', {
-              habilidadesPreferidas: userPreferences.preferencias_habilidad,
-              habilidadesPerfil: profile.perfil_habilidad.map(h => h.habilidad)
-            });
-            
             // Verificar si hay al menos una habilidad en común
             const tieneHabilidadEnComun = profile.perfil_habilidad.some(h => 
               userPreferences.preferencias_habilidad.includes(h.habilidad)
@@ -736,8 +716,6 @@ export default function Match() {
 
       if (insertError) throw insertError;
 
-      console.log("Conexión guardada, esperando match");
-
       return false;
     } catch (error) {
       console.error("Error al guardar la conexión:", error);
@@ -756,7 +734,6 @@ export default function Match() {
         .eq("id", connectionId);
 
       if (error) throw error;
-      console.log(`Conexión ${connectionId} actualizada a estado: ${status}`);
     } catch (error) {
       console.error("Error al actualizar el estado de la conexión:", error);
     }

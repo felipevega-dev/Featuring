@@ -59,9 +59,8 @@ export async function POST(request: Request) {
       status: 201,
     });
   } catch (error) {
-    console.log(error);
     return Response.json(
-      { error: error.message || "Error interno del servidor" },
+      { error: error instanceof Error ? error.message : "Error interno del servidor" },
       { status: 500 }
     );
   }

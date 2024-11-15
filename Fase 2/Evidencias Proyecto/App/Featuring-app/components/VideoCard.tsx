@@ -18,6 +18,7 @@ import Constants from "expo-constants";
 import { useLocalSearchParams } from 'expo-router';
 import { sendPushNotification } from '@/utils/pushNotifications';
 import { validateContent } from '@/utils/contentFilter';
+import { router } from 'expo-router';
 
 const { width, height } = Dimensions.get("window");
 
@@ -127,7 +128,6 @@ const VideoCard: React.FC<VideoCardProps> = ({
 
   useEffect(() => {
     if (shouldShowComments === 'true' && scrollToId === video.id.toString()) {
-      console.log('Abriendo comentarios para video:', video.id);
       setShowNotificationComments(true);
       fetchComentarios();
     }
@@ -723,6 +723,10 @@ const VideoCard: React.FC<VideoCardProps> = ({
     );
   };
 
+  const handleProfilePress = () => {
+    router.push(`/public-profile/${video.usuario_id}`);
+  };
+
   return (
     <View style={{ width, height }}>
       <TouchableOpacity onPress={togglePlayPause} style={{ flex: 1 }}>
@@ -759,18 +763,23 @@ const VideoCard: React.FC<VideoCardProps> = ({
 
       {/* Información del usuario y fecha de subida */}
       <View className="absolute left-4 bottom-28 flex-row items-center">
-        <Image
-          source={{ 
-            uri: video.perfil?.foto_perfil 
-              ? `${supabaseUrl}/storage/v1/object/public/fotoperfil/${video.perfil.foto_perfil}`
-              : "https://via.placeholder.com/40" 
-          }}
-          className="w-10 h-10 rounded-full mr-2"
-        />
-        <View>
-          <Text className="text-white font-JakartaBold">{video.perfil?.username || "Usuario desconocido"}</Text>
-          <Text className="text-white text-xs">{formatUploadDate(video.created_at)}</Text>
-        </View>
+        <TouchableOpacity 
+          onPress={handleProfilePress}
+          className="flex-row items-center"
+        >
+          <Image
+            source={{ 
+              uri: video.perfil?.foto_perfil 
+                ? `${supabaseUrl}/storage/v1/object/public/fotoperfil/${video.perfil.foto_perfil}`
+                : "https://via.placeholder.com/40" 
+            }}
+            className="w-10 h-10 rounded-full mr-2"
+          />
+          <View>
+            <Text className="text-white font-JakartaBold">{video.perfil?.username || "Usuario desconocido"}</Text>
+            <Text className="text-white text-xs">{formatUploadDate(video.created_at)}</Text>
+          </View>
+        </TouchableOpacity>
       </View>
         <View className="absolute left-4 bottom-20">
           <Text className="text-white">{video.descripcion}</Text>
