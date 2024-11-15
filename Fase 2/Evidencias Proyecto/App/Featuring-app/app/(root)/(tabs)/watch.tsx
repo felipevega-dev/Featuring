@@ -59,12 +59,10 @@ export const WatchContent = () => {
 
   useEffect(() => {
     if (pendingScroll && videos.length > 0) {
-      console.log('Intentando scroll a video:', pendingScroll);
       const videoIndex = videos.findIndex(
         video => video.id.toString() === pendingScroll
       );
-      console.log('Índice encontrado:', videoIndex);
-      
+
       if (videoIndex !== -1 && flatListRef.current) {
         setTimeout(() => {
           flatListRef.current?.scrollToIndex({
@@ -87,7 +85,6 @@ export const WatchContent = () => {
     highestMeasuredFrameIndex: number;
     averageItemLength: number;
   }) => {
-    console.log('Scroll falló, intentando de nuevo...');
     const wait = new Promise(resolve => setTimeout(resolve, 100));
     wait.then(() => {
       flatListRef.current?.scrollToIndex({

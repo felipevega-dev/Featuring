@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { SafeAreaView, KeyboardAvoidingView, Platform, StatusBar, Alert } from "react-native";
+import { SafeAreaView, KeyboardAvoidingView, Platform, StatusBar, Alert, TouchableOpacity } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import { useChat } from '@/hooks/useChat';
 import { ChatHeader } from '@/components/chat/ChatHeader';
@@ -219,6 +219,10 @@ export default function ChatDetail() {
     }
   };
 
+  const handleProfilePress = () => {
+    router.push(`/public-profile/${id}`);
+  };
+
   if (isLoading) {
     return null; // O un componente de carga
   }
@@ -232,6 +236,7 @@ export default function ChatDetail() {
         selectedMessage={selectedMessage}
         onDeleteMessage={handleDeleteMessage}
         onOptionsPress={() => setModalVisible(true)}
+        onProfilePress={handleProfilePress}
       />
       
       <MessageList

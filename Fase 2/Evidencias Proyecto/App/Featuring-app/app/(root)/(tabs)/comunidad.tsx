@@ -383,7 +383,6 @@ const Comunidad = () => {
   };
 
   const handleSongSelect = (song: Cancion) => {
-    console.log("Canción seleccionada:", song);
   };
 
   const handleSearch = (searchTerm: string, selectedGenre: string) => {

@@ -53,7 +53,6 @@ export default function RootLayout() {
           router.replace('/')
         } else if (event === 'SIGNED_IN' && session?.user) {
           const token = await registerForPushNotificationsAsync();
-          console.log('Token registrado después de inicio de sesión:', token);
         }
       });
 
@@ -70,7 +69,6 @@ export default function RootLayout() {
           const { data: { user } } = await supabase.auth.getUser();
           if (user) {
             const token = await registerForPushNotificationsAsync();
-            console.log('Token registrado en inicio:', token);
           }
         } catch (error) {
           console.error('Error al configurar notificaciones:', error);
