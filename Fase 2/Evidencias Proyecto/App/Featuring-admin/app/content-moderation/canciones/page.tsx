@@ -372,7 +372,7 @@ export default function SongsModeration() {
   // Agregar useEffect para cargar las canciones
   useEffect(() => {
     fetchSongs()
-  }, [])
+  }, [fetchSongs])
 
   // Agregar useEffect para cargar la sesión
   useEffect(() => {
