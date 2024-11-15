@@ -25,14 +25,12 @@ export const useAdminStats = () => {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        console.log('Fetching stats...')
         
         const { count: usersCount, error: usersError } = await supabase
           .from('perfil')
           .select('*', { count: 'exact' })
         
         if (usersError) console.error('Error fetching users:', usersError)
-        console.log('Users count:', usersCount)
 
         const { count: pendingSongsCount, error: pendingSongsError } = await supabase
           .from('cancion')
@@ -40,7 +38,6 @@ export const useAdminStats = () => {
           .eq('estado', 'pendiente')
         
         if (pendingSongsError) console.error('Error fetching pending songs:', pendingSongsError)
-        console.log('Pending songs count:', pendingSongsCount)
 
         // Obtener contenido pendiente de videos
         const { count: pendingVideosCount } = await supabase

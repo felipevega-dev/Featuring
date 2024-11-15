@@ -536,8 +536,6 @@ export default function WatchReports() {
                               controls 
                               className="w-full rounded-lg"
                               onError={(e) => {
-                                console.error('Error loading video:', e);
-                                console.log('Video source:', contentDetails.url);
                               }}
                             >
                               <source src={contentDetails.url} type="video/mp4" />
