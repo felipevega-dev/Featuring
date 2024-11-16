@@ -155,7 +155,7 @@ export default function VideosModeration() {
       const { error: sancionError } = await supabaseAdmin
         .from('sancion_administrativa')
         .insert({
-          usuario_id: selectedVideo.userId,
+          usuario_id: selectedVideo.usuario_id,
           admin_id: session.user.id,
           tipo_sancion: sancionForm.tipo,
           motivo: sancionForm.motivo,
@@ -172,7 +172,7 @@ export default function VideosModeration() {
         const { error: storageError } = await supabase
           .storage
           .from('videos')
-          .remove([selectedVideo.name])
+          .remove([selectedVideo.url])
 
         if (storageError) throw storageError
       }
