@@ -24,6 +24,7 @@ import { RealtimeChannel } from "@supabase/supabase-js";
 import { TooltipBadge } from '@/components/TooltipBadge';
 import { TooltipTitle } from '@/components/TooltipTitle';
 import { ReportButton } from '@/components/reports/ReportButton';
+import { sendPushNotification } from '@/utils/pushNotifications';
 
 interface Perfil {
   usuario_id: string;
@@ -348,7 +349,7 @@ export default function PublicProfile() {
         likes_count: video.likes?.[0]?.count || 0
       })) || [];
 
-      setVideos(videosFormateados);
+      setVideos(videosFormateados as Video[]);
     } catch (error) {
       console.error("Error al obtener los videos:", error);
     }
@@ -386,7 +387,6 @@ export default function PublicProfile() {
           valoracion,
           comentario,
           created_at,
-          usuario_id,
           perfil:usuario_id (
             username,
             foto_perfil
@@ -395,19 +395,20 @@ export default function PublicProfile() {
         .eq('usuario_valorado_id', id)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
-
+      if (error) {
+        console.error('Error en la consulta de valoraciones:', error);
+        throw error;
+      }
       const valoracionesFormateadas: Rating[] = valoraciones.map(val => ({
         id: val.id,
         valoracion: val.valoracion,
         comentario: val.comentario,
         created_at: val.created_at,
         perfil: {
-          username: val.perfil.username,
-          foto_perfil: val.perfil.foto_perfil
+          username: val.perfil?.username || 'Usuario desconocido',
+          foto_perfil: val.perfil?.foto_perfil || null
         }
       }));
-
       setRatings(valoracionesFormateadas);
     } catch (error) {
       console.error('Error al cargar valoraciones:', error);
@@ -564,25 +565,58 @@ export default function PublicProfile() {
 
         if (insertMatchError) throw insertMatchError;
 
-        // Crear notificaciones de match para ambos usuarios
-        await supabase
-          .from('notificacion')
-          .insert([
-            {
-              usuario_id: id,
-              tipo_notificacion: 'match',
-              usuario_origen_id: currentUserId,
-              mensaje: `¡Has hecho match con ${perfil.username}!`,
-              leido: false
-            },
-            {
-              usuario_id: currentUserId,
-              tipo_notificacion: 'match',
-              usuario_origen_id: id,
-              mensaje: `¡Has hecho match con ${perfil.username}!`,
-              leido: false
-            }
-          ]);
+        // Enviar notificaciones push de match a ambos usuarios
+        if (perfil?.redes_sociales && perfil.redes_sociales.length > 0) {
+          const { data: likedUserData, error: likedUserError } = await supabase
+            .from('perfil')
+            .select('username, push_token')
+            .eq('usuario_id', id)
+            .single();
+
+          if (likedUserError) throw likedUserError;
+
+          if (likedUserData?.push_token) {
+            await sendPushNotification(
+              likedUserData.push_token,
+              '¡Nuevo Match!',
+              `¡Has hecho match con ${perfil.username}!`
+            );
+          }
+
+          const { data: currentUserData } = await supabase
+            .from('perfil')
+            .select('push_token')
+            .eq('usuario_id', currentUserId)
+            .single();
+
+          if (currentUserData?.push_token) {
+            await sendPushNotification(
+              currentUserData.push_token,
+              '¡Nuevo Match!',
+              `¡Has hecho match con ${likedUserData.username}!`
+            );
+          }
+
+          // Crear notificaciones de match para ambos usuarios
+          await supabase
+            .from('notificacion')
+            .insert([
+              {
+                usuario_id: id,
+                tipo_notificacion: 'match',
+                usuario_origen_id: currentUserId,
+                mensaje: `¡Has hecho match con ${perfil.username}!`,
+                leido: false
+              },
+              {
+                usuario_id: currentUserId,
+                tipo_notificacion: 'match',
+                usuario_origen_id: id,
+                mensaje: `¡Has hecho match con ${likedUserData.username}!`,
+                leido: false
+              }
+            ]);
+        }
 
         setConnectionStatus('match');
         setIsLiked(true);
@@ -614,19 +648,52 @@ export default function PublicProfile() {
 
       if (insertError) throw insertError;
 
-      // Crear notificación de like
-      const { error: notificationError } = await supabase
-        .from('notificacion')
-        .insert({
-          usuario_id: id,
-          tipo_notificacion: 'like',
-          leido: false,
-          usuario_origen_id: currentUserId,
-          mensaje: `${perfil.username} te ha dado like`
-        });
+      // Enviar notificación push de like
+      if (perfil?.redes_sociales && perfil.redes_sociales.length > 0) {
+        const { data: likedUserData, error: likedUserError } = await supabase
+          .from('perfil')
+          .select('username, push_token')
+          .eq('usuario_id', id)
+          .single();
 
-      if (notificationError) {
-        console.error('Error al crear notificación de like:', notificationError);
+        if (likedUserError) throw likedUserError;
+
+        if (likedUserData?.push_token) {
+          await sendPushNotification(
+            likedUserData.push_token,
+            '¡Nuevo Like!',
+            `${perfil.username} te ha dado like`
+          );
+        }
+
+        const { data: currentUserData } = await supabase
+          .from('perfil')
+          .select('push_token')
+          .eq('usuario_id', currentUserId)
+          .single();
+
+        if (currentUserData?.push_token) {
+          await sendPushNotification(
+            currentUserData.push_token,
+            '¡Nuevo Like!',
+            `${perfil.username} te ha dado like`
+          );
+        }
+
+        // Crear notificación de like
+        const { error: notificationError } = await supabase
+          .from('notificacion')
+          .insert({
+            usuario_id: id,
+            tipo_notificacion: 'like',
+            leido: false,
+            usuario_origen_id: currentUserId,
+            mensaje: `${perfil.username} te ha dado like`
+          });
+
+        if (notificationError) {
+          console.error('Error al crear notificación de like:', notificationError);
+        }
       }
 
       await checkConnectionStatus();
@@ -645,7 +712,6 @@ export default function PublicProfile() {
     try {
       // Verificar que ambos IDs existan antes de hacer la consulta
       if (!currentUserId || !id) {
-        console.log('IDs no disponibles aún:', { currentUserId, id });
         return;
       }
 

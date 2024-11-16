@@ -3,6 +3,8 @@ import { useEffect } from "react";
 import { Redirect, useRouter } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import { View, ActivityIndicator } from "react-native";
+import { enableScreens } from 'react-native-screens';
+enableScreens();
 
 export default function Index() {
   const router = useRouter();

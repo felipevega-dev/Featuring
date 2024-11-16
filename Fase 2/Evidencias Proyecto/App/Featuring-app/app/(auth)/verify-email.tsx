@@ -49,11 +49,20 @@ export default function VerifyEmail() {
 
     setIsLoading(true);
     try {
+      console.log("Intentando verificar con:", {
+        email: email,
+        token: otp.trim(),
+        type: "signup"
+      });
+
       const { data: verifyData, error: verifyError } = await supabase.auth.verifyOtp({
         email: email as string,
         token: otp.trim(),
         type: "signup"
       });
+
+      console.log("Respuesta de verificación:", { verifyData, verifyError });
+
       if (verifyError) {
         console.error("Error detallado de verificación:", {
           message: verifyError.message,
@@ -78,7 +87,10 @@ export default function VerifyEmail() {
         return;
       }
 
+      console.log("Verificación exitosa:", verifyData);
+
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      console.log("Sesión actual:", { session, sessionError });
 
       Alert.alert(
         "Éxito",
@@ -87,6 +99,7 @@ export default function VerifyEmail() {
           {
             text: "OK",
             onPress: () => {
+              console.log("Redirigiendo a preguntas...");
               router.replace("/(auth)/preguntas");
             }
           }
@@ -113,6 +126,7 @@ export default function VerifyEmail() {
     
     setIsResending(true);
     try {
+      console.log("Reenviando código a:", email);
       const { error } = await supabase.auth.resend({
         type: "signup",
         email: email as string,

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { SafeAreaView, KeyboardAvoidingView, Platform, StatusBar, Alert, TouchableOpacity } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import { useChat } from '@/hooks/useChat';
@@ -17,7 +17,7 @@ import { useRouter } from "expo-router";
 export default function ChatDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const { messages, isLoading, error, sendMessage, markMessagesAsRead } = useChat(currentUserId, id);
+  const { messages, isLoading, error, sendMessage, markMessagesAsRead, fetchMessages } = useChat(currentUserId, id);
   
   // Estados para el chat
   const [newMessage, setNewMessage] = useState("");
@@ -29,6 +29,7 @@ export default function ChatDetail() {
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [selectedMedia, setSelectedMedia] = useState<Message | null>(null);
   const [isBlocked, setIsBlocked] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const supabaseUrl = Constants.expoConfig?.extra?.supabaseUrl;
 
@@ -54,9 +55,13 @@ export default function ChatDetail() {
       }
     };
 
-    getCurrentUser();
-    getOtherUserInfo();
-  }, [id]);
+    const initialize = async () => {
+      await getCurrentUser();
+      await getOtherUserInfo();
+    };
+
+    initialize();
+  }, [currentUserId, id]);
 
   // Añadir un nuevo useEffect para marcar mensajes como leídos
   useEffect(() => {
@@ -223,6 +228,15 @@ export default function ChatDetail() {
     router.push(`/public-profile/${id}`);
   };
 
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await fetchMessages();
+    } finally {
+      setRefreshing(false);
+    }
+  }, [fetchMessages]);
+
   if (isLoading) {
     return null; // O un componente de carga
   }
@@ -244,6 +258,8 @@ export default function ChatDetail() {
         currentUserId={currentUserId}
         onLongPress={handleLongPress}
         onMediaPress={handleMediaPress}
+        onRefresh={handleRefresh}
+        refreshing={refreshing}
       />
       
       <KeyboardAvoidingView

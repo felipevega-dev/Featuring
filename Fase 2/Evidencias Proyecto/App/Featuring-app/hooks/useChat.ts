@@ -1,90 +1,132 @@
-import { useState, useEffect, useCallback } from 'react';
-import { RealtimeChannel } from '@supabase/supabase-js';
-import { supabase } from "@/lib/supabase";
+import { useState, useEffect, useRef } from 'react';
+import { supabase } from '@/lib/supabase';
 import { Message } from '@/types/chat';
 
-export const useChat = (currentUserId: string | null, otherId: string) => {
+export function useChat(currentUserId: string | null, otherUserId: string) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<Error | null>(null);
+  const retryCount = useRef(0);
+  const maxRetries = 3;
 
-  const fetchMessages = useCallback(async () => {
-    if (!currentUserId) return;
-    
-    try {
-      setIsLoading(true);
-      
-      const { data: bloqueos } = await supabase
-        .from("bloqueo")
-        .select("*")
-        .or(`and(usuario_id.eq.${currentUserId},bloqueado_id.eq.${otherId}),and(usuario_id.eq.${otherId},bloqueado_id.eq.${currentUserId})`);
+  useEffect(() => {
+    let subscription: any;
+    let retryTimeout: NodeJS.Timeout;
+    let intervalId: NodeJS.Timeout;
 
-      if (bloqueos && bloqueos.length > 0) {
-        setMessages([]);
-        return;
+    const fetchMessages = async () => {
+      try {
+        if (!currentUserId) return;
+
+        const { data, error: fetchError } = await supabase
+          .from('mensaje')
+          .select('*')
+          .or(`and(emisor_id.eq.${currentUserId},receptor_id.eq.${otherUserId}),and(emisor_id.eq.${otherUserId},receptor_id.eq.${currentUserId})`)
+          .order('fecha_envio', { ascending: false });
+
+        if (fetchError) throw fetchError;
+        setMessages(data || []);
+        retryCount.current = 0;
+      } catch (err) {
+        setError(err as Error);
+        if (retryCount.current < maxRetries) {
+          retryCount.current += 1;
+          retryTimeout = setTimeout(fetchMessages, 2000 * retryCount.current);
+        }
+      } finally {
+        setIsLoading(false);
       }
+    };
 
-      const { data, error } = await supabase
-        .from("mensaje")
-        .select("*")
-        .or(
-          `and(emisor_id.eq.${currentUserId},receptor_id.eq.${otherId}),and(emisor_id.eq.${otherId},receptor_id.eq.${currentUserId})`
+    const setupSubscription = () => {
+      if (!currentUserId) return;
+
+      subscription = supabase
+        .channel('public:mensaje')
+        .on('postgres_changes', 
+          { 
+            event: '*', 
+            schema: 'public', 
+            table: 'mensaje',
+            filter: `or(emisor_id.eq.${currentUserId},receptor_id.eq.${currentUserId})`
+          }, 
+          async (payload) => {
+            const newMessage = payload.new as Message;
+            if (
+              (newMessage.emisor_id === currentUserId && newMessage.receptor_id === otherUserId) ||
+              (newMessage.emisor_id === otherUserId && newMessage.receptor_id === currentUserId)
+            ) {
+              await fetchMessages(); // Recargar mensajes cuando hay cambios
+            }
+          }
         )
-        .order("fecha_envio", { ascending: false })
-        .limit(20);
+        .subscribe();
+    };
 
-      if (error) throw error;
+    setupSubscription();
+    fetchMessages();
 
-      await supabase
-        .from("mensaje")
-        .update({ leido: true })
-        .eq('receptor_id', currentUserId)
-        .eq('emisor_id', otherId)
-        .eq('leido', false);
+    // Configurar intervalo de actualización automática (cada 2 segundos)
+    intervalId = setInterval(fetchMessages, 2000);
 
-      setMessages(data || []);
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Error desconocido';
-      setError(errorMessage);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [currentUserId, otherId]);
+    return () => {
+      if (subscription) {
+        supabase.removeChannel(subscription);
+      }
+      if (retryTimeout) {
+        clearTimeout(retryTimeout);
+      }
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+    };
+  }, [currentUserId, otherUserId]);
 
-  const sendMessage = useCallback(async (content: string, type: string, url?: string) => {
-    if (!currentUserId || (!content.trim() && type === "texto")) return;
-
+  const sendMessage = async (content: string, contentType: "texto" | "audio" | "imagen" | "video_chat", mediaUrl?: string) => {
     try {
+      if (!currentUserId) throw new Error("Usuario no autenticado");
+
+      const newMessage = {
+        emisor_id: currentUserId,
+        receptor_id: otherUserId,
+        contenido: content,
+        tipo_contenido: contentType,
+        url_contenido: mediaUrl || null,
+        fecha_envio: new Date().toISOString(),
+        leido: false
+      };
+
       const { data, error } = await supabase
-        .from("mensaje")
-        .insert({
-          emisor_id: currentUserId,
-          receptor_id: otherId,
-          contenido: content.trim(),
-          tipo_contenido: type,
-          url_contenido: url || null,
-        })
+        .from('mensaje')
+        .insert(newMessage)
         .select()
         .single();
 
       if (error) throw error;
-      setMessages(prev => [data, ...prev]);
+
+      // Actualizar inmediatamente el estado local
+      if (data) {
+        setMessages(prevMessages => [data, ...prevMessages]);
+      }
+      
       return data;
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Error desconocido';
-      setError(errorMessage);
-      return null;
+      setError(err as Error);
+      throw err;
     }
-  }, [currentUserId, otherId]);
+  };
 
   const markMessagesAsRead = async () => {
     try {
       if (!currentUserId) return;
-      
+
       const { error } = await supabase
-        .rpc('mark_messages_as_read', {
-          p_receptor_id: currentUserId,
-          p_emisor_id: otherId
+        .from('mensaje')
+        .update({ leido: true })
+        .match({ 
+          emisor_id: otherUserId,
+          receptor_id: currentUserId,
+          leido: false
         });
 
       if (error) throw error;
@@ -92,56 +134,33 @@ export const useChat = (currentUserId: string | null, otherId: string) => {
       // Actualizar el estado local
       setMessages(prevMessages => 
         prevMessages.map(msg => 
-          msg.receptor_id === currentUserId && msg.emisor_id === otherId
+          msg.emisor_id === otherUserId && msg.receptor_id === currentUserId
             ? { ...msg, leido: true }
             : msg
         )
       );
-    } catch (error) {
-      console.error('Error marking messages as read:', error);
+    } catch (err) {
+      setError(err as Error);
     }
   };
 
-  useEffect(() => {
-    let channel: RealtimeChannel;
-    
-    const initialize = async () => {
-      await fetchMessages();
-      
-      channel = supabase
-        .channel(`chat-${otherId}-${currentUserId}`)
-        .on('postgres_changes', {
-          event: '*',
-          schema: 'public',
-          table: 'mensaje',
-          filter: `or(and(emisor_id.eq.${currentUserId},receptor_id.eq.${otherId}),and(emisor_id.eq.${otherId},receptor_id.eq.${currentUserId}))`,
-        }, payload => {
-          if (payload.eventType === 'INSERT') {
-            setMessages(prev => [payload.new as Message, ...prev]);
-          } else if (payload.eventType === 'DELETE') {
-            setMessages(prev => prev.filter(msg => msg.id !== payload.old.id));
-          }
-        })
-        .subscribe();
-    };
+  const fetchMessages = async () => {
+    try {
+      if (!currentUserId) return;
 
-    if (currentUserId) {
-      initialize();
+      const { data, error: fetchError } = await supabase
+        .from('mensaje')
+        .select('*')
+        .or(`and(emisor_id.eq.${currentUserId},receptor_id.eq.${otherUserId}),and(emisor_id.eq.${otherUserId},receptor_id.eq.${currentUserId})`)
+        .order('fecha_envio', { ascending: false });
+
+      if (fetchError) throw fetchError;
+      setMessages(data || []);
+    } catch (err) {
+      setError(err as Error);
+      throw err;
     }
-
-    return () => {
-      if (channel) {
-        channel.unsubscribe();
-      }
-    };
-  }, [currentUserId, otherId, fetchMessages]);
-
-  return {
-    messages,
-    isLoading,
-    error,
-    sendMessage,
-    fetchMessages,
-    markMessagesAsRead
   };
-}; 
+
+  return { messages, isLoading, error, sendMessage, markMessagesAsRead, fetchMessages };
+} 
