@@ -4,8 +4,6 @@ import { useState, useEffect, Fragment } from 'react'
 import { supabaseAdmin } from '../../../lib/supabase'
 import Link from 'next/link'
 import Image from 'next/image'
-import { Menu, Transition } from '@headlessui/react'
-import { ChevronDownIcon } from '@heroicons/react/20/solid'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import { Session } from '@supabase/supabase-js'
 import { notificationService } from '../../../services/notificationService';
@@ -146,7 +144,6 @@ export default function CommunityReports() {
         setContentDetails({
           id: parseInt(reporte.contenido_id || '0'),
           titulo: '[Error al cargar la canción]',
-          descripcion: 'No se pudo cargar la información de la canción.',
           caratula: '',
           archivo_audio: '',
           usuario_id: reporte.usuario_reportado_id,
