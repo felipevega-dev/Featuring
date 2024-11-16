@@ -1,9 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState} from 'react'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import { useRouter } from 'next/navigation'
-import Image from 'next/image'
+
 
 export default function Login() {
   const [email, setEmail] = useState('')

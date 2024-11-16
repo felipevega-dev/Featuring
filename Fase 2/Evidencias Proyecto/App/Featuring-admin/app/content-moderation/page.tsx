@@ -8,7 +8,6 @@ import {
   FiImage, 
   FiMic, 
   FiFilm,
-  FiAlertCircle,
   FiActivity,
   FiCheckCircle
 } from 'react-icons/fi'

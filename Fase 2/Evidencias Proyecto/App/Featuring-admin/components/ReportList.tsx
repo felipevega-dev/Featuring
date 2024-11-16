@@ -1,8 +1,7 @@
-import { useState } from 'react'
 import { supabaseAdmin } from '../lib/supabase'
 
-export default function ReportList({ reports, onReportSelect, onReportAction }) {
-  const handleReportAction = async (reportId, action) => {
+export default function ReportList({ reports, onReportSelect, onReportAction }: { reports: any[], onReportSelect: (report: any) => void, onReportAction: () => void }) {
+  const handleReportAction = async (reportId: string, action: string) => {
     try {
       await supabaseAdmin
         .from('reporte')
