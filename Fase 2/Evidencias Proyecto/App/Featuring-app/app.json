@@ -26,8 +26,14 @@
         "INTERNET",
         "READ_EXTERNAL_STORAGE",
         "WRITE_EXTERNAL_STORAGE",
-        "RECORD_AUDIO"
-      ]
+        "RECORD_AUDIO",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "MODIFY_AUDIO_SETTINGS",
+        "USE_BIOMETRIC",
+        "VIBRATE"
+      ],
+      "googleServicesFile": false
     },
     "web": {
       "bundler": "metro",
@@ -35,12 +41,7 @@
       "favicon": "./assets/images/FeatLogo.png"
     },
     "plugins": [
-      [
-        "expo-router",
-        {
-          "origin": "https://uber.com/"
-        }
-      ],
+      "expo-router",
       [
         "expo-notifications",
         {
@@ -48,7 +49,14 @@
           "color": "#ffffff",
           "sounds": []
         }
-      ]
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow Featuring to use your location."
+        }
+      ],
+      "expo-local-authentication"
     ],
     "experiments": {
       "typedRoutes": true
