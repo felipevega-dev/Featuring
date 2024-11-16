@@ -20,7 +20,14 @@
         "foregroundImage": "./assets/images/FeatLogo.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.vegadev.featuringapp"
+      "package": "com.vegadev.featuringapp",
+      "softwareKeyboardLayoutMode": "pan",
+      "permissions": [
+        "INTERNET",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "RECORD_AUDIO"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -39,7 +46,7 @@
         {
           "icon": "./assets/images/FeatLogo.png",
           "color": "#ffffff",
-          "sounds": ["./assets/notification-sound.wav"]
+          "sounds": []
         }
       ]
     ],
