@@ -41,28 +41,9 @@ export default function AcceptedCollaborationNotification({
 
   const verificarEstadoValoracion = async () => {
     try {
-      // Primero verificar si la canción aún existe
-      const { data: cancionData, error: cancionError } = await supabase
-        .from('cancion')
-        .select('id')
-        .eq('id', notification.contenido_id)
-        .single();
-
-      if (cancionError || !cancionData) {
-        // Si la canción no existe, eliminar la notificación
-        await supabase
-          .from('notificacion')
-          .delete()
-          .eq('id', notification.id);
-        
-        onRespond();
-        return;
-      }
-
-      // Obtener la colaboración
       const { data: colaboracionData, error: colaboracionError } = await supabase
         .from('colaboracion')
-        .select('id, usuario_id, usuario_id2')
+        .select('id, usuario_id, usuario_id2, cancion_id')
         .eq('cancion_id', notification.contenido_id)
         .single();
 
@@ -84,14 +65,6 @@ export default function AcceptedCollaborationNotification({
 
         if (!valoracionError && valoracionData) {
           setYaValorado(true);
-          
-          // Si ya está valorado, marcar la notificación como leída
-          await supabase
-            .from('notificacion')
-            .update({ leido: true })
-            .eq('id', notification.id);
-            
-          onRespond();
         }
       }
     } catch (error) {
@@ -159,7 +132,9 @@ export default function AcceptedCollaborationNotification({
             onPress={() => setIsRatingModalVisible(true)}
             className="bg-primary-500 p-2 rounded mt-2"
           >
-            <Text className="text-white text-center">Valorar colaboración</Text>
+            <Text className="text-white text-center">
+              Valorar colaboración
+            </Text>
           </TouchableOpacity>
         ) : (
           <Text className="text-yellow-500 text-center mt-2">
@@ -178,6 +153,7 @@ export default function AcceptedCollaborationNotification({
           }}
           colaboracionId={colaboracionId}
           colaboradorUsername={notification.perfil?.username || 'Usuario'}
+          colaboradorId={notification.usuario_origen_id}
           usuarioId={currentUserId}
         />
       )}
