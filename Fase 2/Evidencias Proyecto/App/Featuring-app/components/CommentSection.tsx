@@ -52,33 +52,37 @@ export default function CommentSection({ songId, currentUserId, isVisible, onClo
   const [likedComments, setLikedComments] = useState<{ [key: number]: boolean }>({});
 
   useEffect(() => {
+    let subscription: RealtimeChannel | null = null;
+    
     if (isVisible) {
       fetchComments();
-      subscribeToComments();
+      
+      subscription = supabase
+        .channel(`comments-${songId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'comentario_cancion',
+            filter: `cancion_id=eq.${songId}`
+          },
+          (payload) => {
+            // Solo actualizar si es una inserción de otro usuario
+            if (payload.eventType === 'INSERT' && payload.new.usuario_id !== currentUserId) {
+              fetchComments();
+            }
+          }
+        )
+        .subscribe();
     }
-  }, [songId, isVisible]);
-
-  const subscribeToComments = () => {
-    const subscription = supabase
-      .channel(`comments-${songId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'comentario_cancion',
-          filter: `cancion_id=eq.${songId}`
-        },
-        () => {
-          fetchComments();
-        }
-      )
-      .subscribe();
 
     return () => {
-      subscription.unsubscribe();
+      if (subscription) {
+        subscription.unsubscribe();
+      }
     };
-  };
+  }, [songId, isVisible]);
 
   const fetchComments = async () => {
     const { data, error } = await supabase
@@ -153,108 +157,65 @@ export default function CommentSection({ songId, currentUserId, isVisible, onClo
     try {
       setIsSendingComment(true);
 
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-
-      const { data: previousComments, error: previousCommentsError } = await supabase
-        .from('comentario_cancion')
-        .select('id')
-        .eq('cancion_id', cancion.id)
-        .eq('usuario_id', currentUserId)
-        .gte('created_at', today.toISOString());
-
-      if (previousCommentsError) throw previousCommentsError;
-
-      const { data: userData, error: userError } = await supabase
+      // Primero obtener los datos del perfil del usuario actual
+      const { data: userProfile, error: profileError } = await supabase
         .from('perfil')
         .select('username, foto_perfil')
         .eq('usuario_id', currentUserId)
         .single();
 
-      if (userError) throw userError;
+      if (profileError) throw profileError;
 
-      const { data: songOwnerData, error: ownerError } = await supabase
-        .from('perfil')
-        .select('push_token')
-        .eq('usuario_id', cancion.usuario_id)
-        .single();
-
-      if (ownerError) throw ownerError;
-
+      // Luego insertar el comentario
       const { data: commentData, error: commentError } = await supabase
         .from('comentario_cancion')
         .insert({
-          cancion_id: cancion.id,
+          cancion_id: songId,
           usuario_id: currentUserId,
           contenido: newComment.trim()
         })
-        .select()
+        .select('id, usuario_id, contenido, created_at')
         .single();
 
       if (commentError) throw commentError;
 
-      if (currentUserId !== cancion.usuario_id) {
-        const { data: existingNotification, error: notificationError } = await supabase
-          .from('notificacion')
-          .select('id, mensaje')
-          .eq('usuario_id', cancion.usuario_id)
-          .eq('usuario_origen_id', currentUserId)
-          .eq('tipo_notificacion', 'comentario_cancion')
-          .eq('contenido_id', cancion.id)
-          .gte('created_at', today.toISOString())
-          .single();
+      if (commentData) {
+        // Crear el nuevo comentario con los datos del perfil
+        const newComentario = {
+          ...commentData,
+          likes_count: 0,
+          perfil: {
+            username: userProfile.username,
+            foto_perfil: userProfile.foto_perfil
+          },
+          isLiked: false,
+          respuestas: [],
+          respuestas_count: 0
+        };
+        
+        // Actualizar estado local
+        setComments(prevComments => [newComentario, ...prevComments]);
+        setNewComment('');
 
-        if (!notificationError || notificationError.code === 'PGRST116') {
-          let mensaje;
-          if (existingNotification) {
-            const commentCount = previousComments.length + 1;
-            mensaje = `Ha comentado en tu canción "${cancion.titulo}": "${newComment.slice(0, 30)}${newComment.length > 30 ? '...' : ''}" y ${commentCount - 1} comentarios más`;
-            
-            await supabase
-              .from('notificacion')
-              .update({ mensaje })
-              .eq('id', existingNotification.id);
-          } else {
-            mensaje = `Ha comentado en tu canción "${cancion.titulo}": "${newComment.slice(0, 50)}${newComment.length > 50 ? '...' : ''}"`;
-            
-            await supabase
-              .from('notificacion')
-              .insert({
-                usuario_id: cancion.usuario_id,
-                tipo_notificacion: 'comentario_cancion',
-                leido: false,
-                usuario_origen_id: currentUserId,
-                contenido_id: cancion.id,
-                mensaje
-              });
+        // Manejar notificaciones si es necesario
+        if (currentUserId !== cancion.usuario_id) {
+          const { data: songOwnerData } = await supabase
+            .from('perfil')
+            .select('push_token')
+            .eq('usuario_id', cancion.usuario_id)
+            .single();
 
-            if (songOwnerData?.push_token) {
-              await sendPushNotification(
-                songOwnerData.push_token,
-                '¡Nuevo Comentario!',
-                `${userData.username} ha comentado en tu canción "${cancion.titulo}"`
-              );
-            }
+          if (songOwnerData?.push_token) {
+            await sendPushNotification(
+              songOwnerData.push_token,
+              '¡Nuevo Comentario!',
+              `${userProfile.username} ha comentado en tu canción "${cancion.titulo}"`
+            );
           }
         }
       }
-
-      const newCommentFormatted = {
-        id: commentData.id,
-        usuario_id: currentUserId,
-        contenido: newComment.trim(),
-        created_at: commentData.created_at,
-        perfil: {
-          username: userData.username,
-          foto_perfil: userData.foto_perfil
-        }
-      };
-
-      setComments(prevComments => [newCommentFormatted, ...prevComments]);
-      setNewComment('');
-
     } catch (error) {
-      console.error('Error al agregar comentario:', error);
+      console.error('Error al enviar comentario:', error);
       Alert.alert('Error', 'No se pudo enviar el comentario');
     } finally {
       setIsSendingComment(false);
