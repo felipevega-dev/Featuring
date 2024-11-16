@@ -655,7 +655,7 @@ export default function CommentSection({ songId, currentUserId, isVisible, onClo
   };
 
   const renderComment = ({ item }: { item: Comment }) => (
-    <View className="bg-white p-4 rounded-lg mb-3 shadow">
+    <View key={`comment-${item.id}`} className="bg-white p-4 rounded-lg mb-3 shadow">
       <View className="flex-row justify-between items-start mb-2">
         <TouchableOpacity 
           onPress={() => handleProfilePress(item.usuario_id)}
@@ -763,7 +763,7 @@ export default function CommentSection({ songId, currentUserId, isVisible, onClo
       {showReplies[item.id] && item.respuestas && item.respuestas.length > 0 && (
         <View className="ml-10 mt-2">
           {item.respuestas.map((respuesta) => (
-            <View key={respuesta.id} className="bg-gray-50 p-3 rounded-lg mb-2">
+            <View key={`reply-${respuesta.id}`} className="bg-gray-50 p-3 rounded-lg mb-2">
               <View className="flex-row justify-between items-center">
                 <View className="flex-row items-center flex-1">
                   <Image
@@ -799,6 +799,11 @@ export default function CommentSection({ songId, currentUserId, isVisible, onClo
     return comments.reduce((total, comment) => {
       return total + 1 + (comment.respuestas?.length || 0);
     }, 0);
+  };
+
+  const handleCloseCommentsModal = () => {
+    setCommentsModalVisible(false);
+    router.setParams({ showComments: undefined });
   };
 
   return (
@@ -864,7 +869,7 @@ export default function CommentSection({ songId, currentUserId, isVisible, onClo
           <FlatList
             data={comments}
             renderItem={renderComment}
-            keyExtractor={(item) => item.id.toString()}
+            keyExtractor={(item) => `comment-${item.id}`}
             className="mb-4"
             ListEmptyComponent={
               <Text className="text-center text-gray-500 font-JakartaMedium">
