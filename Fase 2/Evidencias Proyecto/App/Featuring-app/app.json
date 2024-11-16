@@ -32,8 +32,7 @@
         "MODIFY_AUDIO_SETTINGS",
         "USE_BIOMETRIC",
         "VIBRATE"
-      ],
-      "googleServicesFile": false
+      ]
     },
     "web": {
       "bundler": "metro",

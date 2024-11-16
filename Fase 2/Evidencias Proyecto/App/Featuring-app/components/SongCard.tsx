@@ -1253,7 +1253,7 @@ const SongCard: React.FC<SongCardProps> = ({
       {item.respuestas &&
         item.respuestas.map((respuesta) => (
           <View
-            key={respuesta.id}
+            key={`reply-${respuesta.id}-${item.id}`}
             className="ml-8 mt-2 border-l-2 border-general-300 pl-2"
           >
             <View className="flex-row justify-between items-start mb-1">
@@ -1361,10 +1361,7 @@ const SongCard: React.FC<SongCardProps> = ({
 
   const handleCloseCommentsModal = () => {
     setCommentsModalVisible(false);
-    // Limpiar el parámetro showComments de la URL
-    const currentParams = new URLSearchParams(window.location.search);
-    currentParams.delete("showComments");
-    router.setParams({ showComments: "" });
+    router.setParams({ showComments: undefined });
   };
 
   const getTotalCommentsCount = () => {
