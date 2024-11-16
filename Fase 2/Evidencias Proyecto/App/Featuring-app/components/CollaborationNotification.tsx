@@ -111,21 +111,23 @@ export default function CollaborationNotification({
 
       if (notificationError) throw notificationError;
 
-      // Crear notificación de respuesta
+      // Crear notificación de respuesta para el usuario que envió la solicitud
       await supabase
         .from('notificacion')
-        .insert({
-          usuario_id: notification.usuario_origen_id,
-          tipo_notificacion: 'colaboracion_aceptada',
-          contenido_id: notification.contenido_id,
-          mensaje: 'Tu solicitud de colaboración ha sido aceptada',
-          leido: false,
-          usuario_origen_id: currentUserId
-        });
+        .insert([
+          {
+            usuario_id: notification.usuario_origen_id,
+            tipo_notificacion: 'colaboracion_aceptada',
+            contenido_id: notification.contenido_id,
+            mensaje: 'Tu solicitud de colaboración ha sido aceptada. ¡Puedes valorar a tu colaborador!',
+            leido: false,
+            usuario_origen_id: currentUserId
+          }
+        ]);
 
       Alert.alert('Éxito', 'Has aceptado la colaboración');
       
-      // Mostrar el modal de valoración solo si no existe una valoración previa
+      // Mostrar el modal de valoración
       if (!valoracionPrevia && updatedColaboracion) {
         setColaboracionId(updatedColaboracion.id);
         setIsRatingModalVisible(true);

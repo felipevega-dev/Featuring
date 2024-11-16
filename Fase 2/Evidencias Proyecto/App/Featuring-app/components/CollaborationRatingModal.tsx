@@ -30,6 +30,7 @@ export default function CollaborationRatingModal({
   const [rating, setRating] = useState(0);
   const [hoveredRating, setHoveredRating] = useState(0);
   const [comentario, setComentario] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleRate = async () => {
     if (rating === 0) {
@@ -37,7 +38,11 @@ export default function CollaborationRatingModal({
       return;
     }
 
+    if (isSubmitting) return;
+
     try {
+      setIsSubmitting(true);
+
       const { data: valoracionPrevia, error: valoracionError } = await supabase
         .from('valoracion_colaboracion')
         .select('id')
@@ -48,7 +53,7 @@ export default function CollaborationRatingModal({
       if (!valoracionError && valoracionPrevia) {
         Alert.alert(
           'Valoración no permitida',
-          'Ya has valorado a este usuario anteriormente. Solo se permite una valoración por colaborador.'
+          'Ya has valorado a este usuario anteriormente.'
         );
         return;
       }
@@ -82,6 +87,8 @@ export default function CollaborationRatingModal({
     } catch (error) {
       console.error('Error al enviar valoración:', error);
       Alert.alert('Error', 'No se pudo registrar tu valoración');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -139,15 +146,23 @@ export default function CollaborationRatingModal({
           <View className="flex-row justify-end space-x-4">
             <TouchableOpacity
               onPress={onClose}
+              disabled={isSubmitting}
               className="px-4 py-2 rounded-lg bg-gray-200"
             >
               <Text>Cancelar</Text>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={handleRate}
-              className="px-4 py-2 rounded-lg bg-primary-500"
+              disabled={isSubmitting || rating === 0}
+              className={`px-4 py-2 rounded-lg ${
+                isSubmitting || rating === 0 
+                  ? 'bg-gray-400' 
+                  : 'bg-primary-500'
+              }`}
             >
-              <Text className="text-white">Enviar valoración</Text>
+              <Text className="text-white">
+                {isSubmitting ? 'Enviando...' : 'Enviar valoración'}
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
