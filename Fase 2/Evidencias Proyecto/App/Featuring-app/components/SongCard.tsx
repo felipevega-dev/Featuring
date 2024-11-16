@@ -19,6 +19,7 @@ import { useAudioPlayer } from "@/contexts/AudioPlayerContext";
 import EditSongModal from "./EditSongModal";
 import { RealtimeChannel } from "@supabase/supabase-js";
 import Constants from "expo-constants";
+import { sendPushNotification } from "@/utils/pushNotifications";
 import { validateContent } from "@/utils/contentFilter";
 import CommentSection from "./CommentSection";
 
@@ -393,10 +394,29 @@ const SongCard: React.FC<SongCardProps> = ({
         .eq("cancion_id", cancion.id)
         .eq("usuario_id", currentUserId);
 
+      // Actualizar el estado local inmediatamente
       setLikes(likes.filter((like) => like.usuario_id !== currentUserId));
       setIsLiked(false);
     } else {
       try {
+        // Obtener el username del usuario que da like
+        const { data: userData, error: userError } = await supabase
+          .from("perfil")
+          .select("username")
+          .eq("usuario_id", currentUserId)
+          .single();
+
+        if (userError) throw userError;
+
+        // Obtener el token de push del usuario que recibe el like
+        const { data: songOwnerData, error: ownerError } = await supabase
+          .from("perfil")
+          .select("push_token")
+          .eq("usuario_id", cancion.usuario_id)
+          .single();
+
+        if (ownerError) throw ownerError;
+
         const { data } = await supabase
           .from("likes_cancion")
           .insert({ cancion_id: cancion.id, usuario_id: currentUserId })
@@ -404,27 +424,43 @@ const SongCard: React.FC<SongCardProps> = ({
           .single();
 
         if (data) {
+          // Actualizar el estado local inmediatamente
           setLikes([...likes, data]);
           setIsLiked(true);
-          
-          // Solo crear notificación en la base de datos
-          const { error: notificationError } = await supabase
-            .from('notificacion')
-            .insert({
-              usuario_id: cancion.usuario_id,
-              tipo_notificacion: 'like_cancion',
-              leido: false,
-              usuario_origen_id: currentUserId,
-              contenido_id: cancion.id,
-              mensaje: `Le ha dado me gusta a tu canción "${cancion.titulo}"`
-            });
 
-          if (notificationError) {
-            console.error('Error al crear notificación de like:', notificationError);
+          // Si el usuario que da like no es el dueño de la canción
+          if (currentUserId !== cancion.usuario_id) {
+            // Enviar notificación push si el usuario tiene token
+            if (songOwnerData?.push_token) {
+              await sendPushNotification(
+                songOwnerData.push_token,
+                "¡Nuevo Like!",
+                `A ${userData.username} le ha gustado tu canción "${cancion.titulo}"`
+              );
+            }
+
+            // Crear notificación en la base de datos
+            const { error: notificationError } = await supabase
+              .from("notificacion")
+              .insert({
+                usuario_id: cancion.usuario_id,
+                tipo_notificacion: "like_cancion",
+                leido: false,
+                usuario_origen_id: currentUserId,
+                contenido_id: cancion.id,
+                mensaje: `Le ha dado me gusta a tu canción "${cancion.titulo}"`,
+              });
+
+            if (notificationError) {
+              console.error(
+                "Error al crear notificación de like:",
+                notificationError
+              );
+            }
           }
         }
       } catch (error) {
-        console.error('Error al dar like:', error);
+        console.error("Error al dar like:", error);
       }
     }
   };
@@ -544,6 +580,15 @@ const SongCard: React.FC<SongCardProps> = ({
                   contenido_id: cancion.id,
                   mensaje,
                 });
+
+                // Enviar notificación push solo para el primer comentario del día
+                if (songOwnerData?.push_token) {
+                  await sendPushNotification(
+                    songOwnerData.push_token,
+                    "¡Nuevo Comentario!",
+                    `${userData.username} ha comentado en tu canción "${cancion.titulo}"`
+                  );
+                }
               }
             }
           }
@@ -618,6 +663,15 @@ const SongCard: React.FC<SongCardProps> = ({
 
         // Si el usuario que da like no es el dueño del comentario
         if (currentUserId !== comentario.usuario_id) {
+          // Enviar notificación push si el usuario tiene token
+          if (commentOwnerData?.push_token) {
+            await sendPushNotification(
+              commentOwnerData.push_token,
+              "¡Nuevo Like en tu comentario!",
+              `A ${userData.username} le gustó tu comentario en "${cancion.titulo}"`
+            );
+          }
+
           // Crear notificación en la base de datos
           const { error: notificationError } = await supabase
             .from("notificacion")
@@ -1058,6 +1112,15 @@ const SongCard: React.FC<SongCardProps> = ({
 
         // Si el usuario que responde no es el dueño del comentario
         if (currentUserId !== commentData.usuario_id) {
+          // Enviar notificación push si el usuario tiene token
+          if (commentOwnerData?.push_token) {
+            await sendPushNotification(
+              commentOwnerData.push_token,
+              "¡Nueva Respuesta!",
+              `${userData.username} ha respondido a tu comentario en "${cancion.titulo}"`
+            );
+          }
+
           // Crear notificación en la base de datos
           const { error: notificationError } = await supabase
             .from("notificacion")

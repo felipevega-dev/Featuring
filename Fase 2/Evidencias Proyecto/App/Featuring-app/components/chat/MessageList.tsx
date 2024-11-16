@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, FlatList, TouchableOpacity, Text, Image, Modal } from 'react-native';
+import { View, FlatList, TouchableOpacity, Text, Image, Modal, RefreshControl } from 'react-native';
 import { Video, ResizeMode } from "expo-av";
 import { FontAwesome } from "@expo/vector-icons";
 import AudioPlayer from '@/components/AudioPlayer';
@@ -21,6 +21,8 @@ interface MessageListProps {
   currentUserId: string | null;
   onLongPress: (message: Message) => void;
   onMediaPress: (message: Message) => void;
+  onRefresh?: () => void;
+  refreshing?: boolean;
 }
 
 const formatTime = (dateString: string): string => {
@@ -175,11 +177,29 @@ const MessageItem = React.memo(({
   );
 });
 
+// Actualizar el mapeo de tipos de contenido
+const getReportContentType = (messageType: "texto" | "audio" | "imagen" | "video_chat") => {
+  switch (messageType) {
+    case "texto":
+      return "chat";
+    case "imagen":
+      return "video";
+    case "video_chat":
+      return "video";
+    case "audio":
+      return "chat";
+    default:
+      return "chat";
+  }
+};
+
 export const MessageList = ({ 
   messages, 
   currentUserId, 
   onLongPress,
-  onMediaPress 
+  onMediaPress,
+  onRefresh,
+  refreshing = false
 }: MessageListProps) => {
   const [reportModalVisible, setReportModalVisible] = useState(false);
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
@@ -216,6 +236,14 @@ export const MessageList = ({
           paddingVertical: 10,
           margin: 12,
         }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#6D29D2" // Color del spinner de recarga
+            colors={["#6D29D2"]} // Para Android
+          />
+        }
       />
 
       <ReportModal

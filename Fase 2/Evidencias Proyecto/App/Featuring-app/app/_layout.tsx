@@ -48,7 +48,7 @@ export default function RootLayout() {
         // Auth state change listener
         const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
           if (event === 'SIGNED_OUT') {
-            router.replace('/')
+            router.replace('/sign-in')
           }
         });
 

@@ -21,6 +21,7 @@ export default function Chat() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [isFirstLoad, setIsFirstLoad] = useState(true);
   const router = useRouter();
   const subscriptionRef = useRef<RealtimeChannel | null>(null);
   const supabaseUrl = Constants.expoConfig?.extra?.supabaseUrl;
@@ -29,94 +30,89 @@ export default function Chat() {
   const [filteredChatList, setFilteredChatList] = useState<ChatListItem[]>([]);
 
   useEffect(() => {
-    let refreshInterval: NodeJS.Timeout;
-    
-    const initialize = async () => {
+    const getCurrentUser = async () => {
       try {
-        await getCurrentUser();
-        
-        if (currentUserId) {
-          // Carga inicial de datos
-          await fetchChatList();
-          
-          // Configurar suscripción en tiempo real
-          subscribeToMessages();
-          
-          // Configurar refresco automático
-          refreshInterval = setInterval(() => {
-            fetchChatList();
-          }, 5000); // Actualiza cada 5 segundos
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          console.log('Usuario obtenido:', user.id);
+          setCurrentUserId(user.id);
         }
       } catch (error) {
-        console.error('Error en la inicialización:', error);
-      } finally {
-        setIsLoading(false);
+        console.error('Error obteniendo usuario:', error);
       }
     };
 
-    // Iniciar la carga
-    initialize();
+    getCurrentUser();
+  }, []);
 
-    // Limpieza al desmontar
+  useEffect(() => {
+    let subscription: any;
+
+    const setupSubscription = async () => {
+      if (!currentUserId) return;
+
+      console.log('Configurando suscripción para:', currentUserId);
+      subscription = supabase
+        .channel('public:mensaje')
+        .on('postgres_changes', 
+          { 
+            event: '*', 
+            schema: 'public', 
+            table: 'mensaje',
+            filter: `or(emisor_id.eq.${currentUserId},receptor_id.eq.${currentUserId})`
+          }, 
+          async () => {
+            console.log('Cambios detectados, actualizando lista...');
+            await fetchChatList();
+          }
+        )
+        .subscribe();
+
+      // Solo cargar la lista inicial si es la primera carga
+      if (isFirstLoad) {
+        console.log('Primera carga, obteniendo lista inicial...');
+        await fetchChatList();
+        setIsFirstLoad(false);
+      }
+    };
+
+    setupSubscription();
+
     return () => {
-      if (refreshInterval) {
-        clearInterval(refreshInterval);
-      }
-      if (subscriptionRef.current) {
-        supabase.removeChannel(subscriptionRef.current);
+      if (subscription) {
+        console.log('Limpiando suscripción...');
+        supabase.removeChannel(subscription);
       }
     };
-  }, [currentUserId]); // Dependencia en currentUserId
-
-  const getCurrentUser = async () => {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (user) setCurrentUserId(user.id);
-  };
-
-  const subscribeToMessages = () => {
-    if (subscriptionRef.current) {
-      supabase.removeChannel(subscriptionRef.current);
-    }
-
-    subscriptionRef.current = supabase
-      .channel('public:mensaje')
-      .on('postgres_changes', 
-        { 
-          event: '*', 
-          schema: 'public', 
-          table: 'mensaje',
-          filter: `or(emisor_id.eq.${currentUserId},receptor_id.eq.${currentUserId})`
-        }, 
-        async (payload) => {
-          await fetchChatList(); // Actualiza la lista cuando hay cambios
-        }
-      )
-      .subscribe();
-  };
+  }, [currentUserId, isFirstLoad]);
 
   const fetchChatList = async () => {
-    if (!currentUserId) return;
+    if (!currentUserId) {
+      console.log('No hay currentUserId, retornando...');
+      setIsLoading(false);
+      return;
+    }
 
     try {
-      if (refreshing) {
+      if (!refreshing) {
         setIsLoading(true);
       }
       
-      // First, get all blocked users (both blocked by and blocking the current user)
       const { data: blockedUsers, error: blockedError } = await supabase
         .from("bloqueo")
         .select("usuario_id, bloqueado_id")
         .or(`usuario_id.eq.${currentUserId},bloqueado_id.eq.${currentUserId}`);
 
-      if (blockedError) throw blockedError;
+      if (blockedError) {
+        console.error('Error al obtener usuarios bloqueados:', blockedError);
+        throw blockedError;
+      }
 
-      // Create a set of blocked user IDs (both ways)
       const blockedUserIds = new Set(
         blockedUsers?.flatMap(block => [block.usuario_id, block.bloqueado_id])
         .filter(id => id !== currentUserId)
       );
+
 
       const { data: connections, error: connectionsError } = await supabase
         .from("conexion")
@@ -124,14 +120,21 @@ export default function Chat() {
         .or(`usuario1_id.eq.${currentUserId},usuario2_id.eq.${currentUserId}`)
         .eq("estado", true);
 
-      if (connectionsError) throw connectionsError;
+      if (connectionsError) {
+        console.error('Error al obtener conexiones:', connectionsError);
+        throw connectionsError;
+      }
+
 
       if (!connections || connections.length === 0) {
+        console.log('No hay conexiones, estableciendo lista vacía...');
         setChatList([]);
+        setIsLoading(false);
+        setRefreshing(false);
         return;
       }
 
-      // Filter out connections with blocked users
+      // Filtrar conexiones con usuarios bloqueados
       const filteredConnections = connections.filter(connection => {
         const otherUserId = connection.usuario1_id === currentUserId
           ? connection.usuario2_id
@@ -152,6 +155,7 @@ export default function Chat() {
         return false;
       });
 
+      console.log('Obteniendo detalles de usuarios...');
       const chatListData = await Promise.all(
         uniqueConnections.map(async (connection) => {
           const otherUserId =
@@ -185,7 +189,6 @@ export default function Chat() {
             console.error("Error al obtener mensajes:", messageError);
           }
 
-          // Determinar si hay mensajes no leídos
           const unreadMessages = lastMessageData 
             ? lastMessageData.emisor_id !== currentUserId && !lastMessageData.leido
             : false;
@@ -203,6 +206,7 @@ export default function Chat() {
       );
 
       const newChatListData = chatListData.filter((item): item is ChatListItem => item !== null);
+      console.log('Lista de chats actualizada:', newChatListData.length);
       
       setChatList(prevList => {
         const hasChanges = JSON.stringify(prevList) !== JSON.stringify(newChatListData);
@@ -210,8 +214,9 @@ export default function Chat() {
       });
 
     } catch (error) {
-      console.error("Error al obtener la lista de chats:", error);
+      console.error("Error detallado al obtener la lista de chats:", error);
     } finally {
+      console.log('Finalizando fetchChatList...');
       setIsLoading(false);
       setRefreshing(false);
     }
