@@ -5,7 +5,6 @@ import Constants from 'expo-constants';
 import { Ionicons } from '@expo/vector-icons';
 import { icons } from "@/constants/index";
 import { router } from "expo-router";
-import { sendPushNotification } from '@/utils/pushNotifications';
 
 interface Comment {
   id: number;
@@ -196,23 +195,6 @@ export default function CommentSection({ songId, currentUserId, isVisible, onClo
         // Actualizar estado local
         setComments(prevComments => [newComentario, ...prevComments]);
         setNewComment('');
-
-        // Manejar notificaciones si es necesario
-        if (currentUserId !== cancion.usuario_id) {
-          const { data: songOwnerData } = await supabase
-            .from('perfil')
-            .select('push_token')
-            .eq('usuario_id', cancion.usuario_id)
-            .single();
-
-          if (songOwnerData?.push_token) {
-            await sendPushNotification(
-              songOwnerData.push_token,
-              '¡Nuevo Comentario!',
-              `${userProfile.username} ha comentado en tu canción "${cancion.titulo}"`
-            );
-          }
-        }
       }
     } catch (error) {
       console.error('Error al enviar comentario:', error);
@@ -433,15 +415,6 @@ export default function CommentSection({ songId, currentUserId, isVisible, onClo
               contenido_id: respondingTo.id,
               mensaje
             });
-
-          // Enviar notificación push solo para la primera respuesta del día
-          if (commentOwnerData?.push_token) {
-            await sendPushNotification(
-              commentOwnerData.push_token,
-              '¡Nueva Respuesta!',
-              `${userData.username} ha respondido a tu comentario en "${cancion.titulo}"`
-            );
-          }
         }
       }
 
@@ -577,19 +550,7 @@ export default function CommentSection({ songId, currentUserId, isVisible, onClo
         // Enviar notificación si no es tu propio comentario
         const comment = comments.find(c => c.id === commentId);
         if (comment && comment.usuario_id !== currentUserId) {
-          const { data: userData } = await supabase
-            .from('perfil')
-            .select('username')
-            .eq('usuario_id', currentUserId)
-            .single();
-
-          const { data: commentOwnerData } = await supabase
-            .from('perfil')
-            .select('push_token')
-            .eq('usuario_id', comment.usuario_id)
-            .single();
-
-          // Crear notificación
+          // Solo crear notificación en la base de datos
           await supabase.from('notificacion').insert({
             usuario_id: comment.usuario_id,
             tipo_notificacion: 'like_comentario',
@@ -598,15 +559,6 @@ export default function CommentSection({ songId, currentUserId, isVisible, onClo
             contenido_id: commentId,
             mensaje: `Le ha gustado tu comentario en "${cancion.titulo}"`
           });
-
-          // Enviar push notification
-          if (commentOwnerData?.push_token) {
-            await sendPushNotification(
-              commentOwnerData.push_token,
-              '¡Nuevo Like en tu comentario!',
-              `A ${userData?.username} le gustó tu comentario en "${cancion.titulo}"`
-            );
-          }
         }
       }
     } catch (error) {

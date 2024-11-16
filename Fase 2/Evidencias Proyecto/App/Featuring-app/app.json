@@ -42,14 +42,6 @@
     "plugins": [
       "expo-router",
       [
-        "expo-notifications",
-        {
-          "icon": "./assets/images/FeatLogo.png",
-          "color": "#ffffff",
-          "sounds": []
-        }
-      ],
-      [
         "expo-location",
         {
           "locationAlwaysAndWhenInUsePermission": "Allow Featuring to use your location."

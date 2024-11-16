@@ -19,7 +19,6 @@ import { useRouter } from "expo-router";
 import * as Location from "expo-location";
 import { useLocalSearchParams } from 'expo-router';
 import Constants from "expo-constants";
-import { sendPushNotification } from '@/utils/pushNotifications';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { ReportButton } from '@/components/reports/ReportButton';
 import { useFocusEffect } from 'expo-router';
@@ -789,25 +788,16 @@ export default function Match() {
 
         if (userError) throw userError;
 
-        // Obtener el token de push y username del usuario que recibe el like
+        // Obtener el username del usuario que recibe el like
         const { data: likedUserData, error: likedUserError } = await supabase
           .from('perfil')
-          .select('username, push_token')
+          .select('username')
           .eq('usuario_id', likedUserId)
           .single();
 
         if (likedUserError) throw likedUserError;
 
         const isMatch = await saveConnection(currentUserId, likedUserId);
-
-        // Enviar notificación push de like si el usuario tiene token
-        if (likedUserData?.push_token) {
-          await sendPushNotification(
-            likedUserData.push_token,
-            '¡Nuevo Like!',
-            `${userData.username} te ha dado like`
-          );
-        }
 
         // Actualizar inmediatamente el estado local
         setCards((prevCards) => {
@@ -833,31 +823,7 @@ export default function Match() {
 
         if (isMatch) {
           showMatchAlert(likedUserId);
-
-          // Enviar notificación push de match a ambos usuarios
-          if (likedUserData?.push_token) {
-            await sendPushNotification(
-              likedUserData.push_token,
-              '¡Nuevo Match!',
-              `¡Has hecho match con ${userData.username}!`
-            );
-          }
-
-          // Obtener el push token del usuario actual para notificarle también
-          const { data: currentUserData } = await supabase
-            .from('perfil')
-            .select('push_token')
-            .eq('usuario_id', currentUserId)
-            .single();
-
-          if (currentUserData?.push_token) {
-            await sendPushNotification(
-              currentUserData.push_token,
-              '¡Nuevo Match!',
-              `¡Has hecho match con ${likedUserData.username}!`
-            );
-          }
-
+          
           // Crear notificaciones de match
           const { error: matchNotificationError } = await supabase
             .from('notificacion')

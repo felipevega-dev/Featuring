@@ -16,7 +16,6 @@ import { Image } from "expo-image";
 import { useVideo } from "@/contexts/VideoContext";
 import Constants from "expo-constants";
 import { useLocalSearchParams } from 'expo-router';
-import { sendPushNotification } from '@/utils/pushNotifications';
 import { validateContent } from '@/utils/contentFilter';
 import { router } from 'expo-router';
 
@@ -179,24 +178,6 @@ const VideoCard: React.FC<VideoCardProps> = ({
       setIsLiked(false);
     } else {
       try {
-        // Obtener el username del usuario que da like
-        const { data: userData, error: userError } = await supabase
-          .from('perfil')
-          .select('username')
-          .eq('usuario_id', currentUserId)
-          .single();
-
-        if (userError) throw userError;
-
-        // Obtener el token de push del dueño del video
-        const { data: videoOwnerData, error: ownerError } = await supabase
-          .from('perfil')
-          .select('push_token')
-          .eq('usuario_id', video.usuario_id)
-          .single();
-
-        if (ownerError) throw ownerError;
-
         const { data } = await supabase
           .from("likes_video")
           .insert({ video_id: video.id, usuario_id: currentUserId })
@@ -209,15 +190,6 @@ const VideoCard: React.FC<VideoCardProps> = ({
           
           // Si el usuario que da like no es el dueño del video
           if (currentUserId !== video.usuario_id) {
-            // Enviar notificación push si el usuario tiene token
-            if (videoOwnerData?.push_token) {
-              await sendPushNotification(
-                videoOwnerData.push_token,
-                '¡Nuevo Like en tu video!',
-                `A ${userData.username} le ha gustado tu video`
-              );
-            }
-
             // Crear notificación en la base de datos
             const { error: notificationError } = await supabase
               .from('notificacion')
@@ -355,103 +327,61 @@ const VideoCard: React.FC<VideoCardProps> = ({
     }
   };
 
-  const handleCommentLike = async (comentarioId: number) => {
-    const comentario = comentarios.find((c) => c.id === comentarioId);
-    if (!comentario) return;
-
-    const newIsLiked = !comentario.isLiked;
-
+  const handleCommentLike = async (commentId: number) => {
     try {
-      if (newIsLiked) {
-        // Obtener el username del usuario que da like
-        const { data: userData, error: userError } = await supabase
-          .from('perfil')
-          .select('username')
-          .eq('usuario_id', currentUserId)
-          .single();
+      const isLiked = likedComments[commentId];
 
-        if (userError) throw userError;
-
-        // Obtener el token de push del dueño del comentario
-        const { data: commentOwnerData, error: ownerError } = await supabase
-          .from('perfil')
-          .select('push_token')
-          .eq('usuario_id', comentario.usuario_id)
-          .single();
-
-        if (ownerError) throw ownerError;
-
-        // Dar like
-        await supabase
-          .from("likes_comentario_video")
-          .insert({ 
-            comentario_id: comentarioId,
-            usuario_id: currentUserId 
-          });
-
-        // Actualizar el estado local inmediatamente
-        setComentarios(prevComentarios => 
-          prevComentarios.map(c => 
-            c.id === comentarioId 
-              ? {
-                  ...c,
-                  isLiked: true,
-                  likes_count: (c.likes_count || 0) + 1
-                }
-              : c
-          )
-        );
-
-        // Si el usuario que da like no es el dueño del comentario
-        if (currentUserId !== comentario.usuario_id) {
-          // Enviar notificación push si el usuario tiene token
-          if (commentOwnerData?.push_token) {
-            await sendPushNotification(
-              commentOwnerData.push_token,
-              '¡Nuevo Like en tu comentario!',
-              `A ${userData.username} le gustó tu comentario en el video`
-            );
-          }
-
-          // Crear notificación en la base de datos
-          const { error: notificationError } = await supabase
-            .from('notificacion')
-            .insert({
-              usuario_id: comentario.usuario_id,
-              tipo_notificacion: 'like_comentario_video',
-              leido: false,
-              usuario_origen_id: currentUserId,
-              contenido_id: comentarioId,
-              mensaje: `Le ha dado me gusta a tu comentario en el video`
-            });
-
-          if (notificationError) {
-            console.error('Error al crear notificación de like en comentario:', notificationError);
-          }
-        }
-      } else {
+      if (isLiked) {
         // Quitar like
         await supabase
-          .from("likes_comentario_video")
+          .from('likes_comentario_video')
           .delete()
-          .eq("comentario_id", comentarioId)
-          .eq("usuario_id", currentUserId);
+          .eq('comentario_id', commentId)
+          .eq('usuario_id', currentUserId);
 
-        // Actualizar el estado local inmediatamente
-        setComentarios(prevComentarios => 
-          prevComentarios.map(c => 
-            c.id === comentarioId 
-              ? {
-                  ...c,
-                  isLiked: false,
-                  likes_count: Math.max(0, (c.likes_count || 0) - 1)
-                }
-              : c
-          )
-        );
+        setCommentLikes(prev => ({
+          ...prev,
+          [commentId]: (prev[commentId] || 1) - 1
+        }));
+        setLikedComments(prev => ({
+          ...prev,
+          [commentId]: false
+        }));
+      } else {
+        // Dar like
+        await supabase
+          .from('likes_comentario_video')
+          .insert({
+            comentario_id: commentId,
+            usuario_id: currentUserId
+          });
+
+        setCommentLikes(prev => ({
+          ...prev,
+          [commentId]: (prev[commentId] || 0) + 1
+        }));
+        setLikedComments(prev => ({
+          ...prev,
+          [commentId]: true
+        }));
+
+        // Enviar notificación si no es tu propio comentario
+        const comment = comentarios.find(c => c.id === commentId);
+        if (comment && comment.usuario_id !== currentUserId) {
+          // Solo crear notificación en la base de datos
+          await supabase.from('notificacion').insert({
+            usuario_id: comment.usuario_id,
+            tipo_notificacion: 'like_comentario_video',
+            leido: false,
+            usuario_origen_id: currentUserId,
+            contenido_id: commentId,
+            mensaje: `Le ha gustado tu comentario en el video`
+          });
+        }
       }
     } catch (error) {
-      console.error("Error al dar/quitar like al comentario:", error);
+      console.error('Error al manejar like:', error);
+      Alert.alert('Error', 'No se pudo procesar tu like');
     }
   };
 

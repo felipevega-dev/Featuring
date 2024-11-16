@@ -31,7 +31,36 @@ export default function RootLayout() {
       if (fontsLoaded) {
         SplashScreen.hideAsync().catch(console.error);
       }
-    }, [fontsLoaded]);
+
+      const handleDeepLink = (event: Linking.EventType) => {
+        let data = Linking.parse(event.url);
+        
+        if (data.path === 'change-password') {
+          router.push('/change-password');
+        }
+      };
+
+      // Setup listeners and handlers
+      const setupListeners = async () => {
+        // Deep link listener
+        const linkingSubscription = Linking.addEventListener('url', handleDeepLink);
+
+        // Auth state change listener
+        const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+          if (event === 'SIGNED_OUT') {
+            router.replace('/')
+          }
+        });
+
+        // Cleanup function
+        return () => {
+          linkingSubscription.remove();
+          authSubscription.unsubscribe();
+        };
+      };
+
+      setupListeners();
+    }, [fontsLoaded, router]);
 
     if (!fontsLoaded) {
       return null;
