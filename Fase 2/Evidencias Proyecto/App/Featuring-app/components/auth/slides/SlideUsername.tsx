@@ -3,7 +3,7 @@ import { View, Text, TextInput, StyleSheet, Alert } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
 import { useValidateUsername } from '@/hooks/useValidateUsername';
 import { PreguntasState, PreguntasAction } from '@/types/preguntas';
-import { hispanicCountryCodes, HispanicCountry, phoneNumberMaxLength } from '../../../utils/countryCodes';
+import { hispanicCountryPhoneCodes, HispanicCountry, phoneNumberMaxLength } from '../../../utils/countryCodes';
 import { Picker } from '@react-native-picker/picker';
 import { checkPhoneNumberExists } from '@/utils/profileUtils';
 
@@ -29,7 +29,7 @@ export function SlideUsername({ state, dispatch, onValidationComplete }: SlideUs
 
   useEffect(() => {
     if (nacionalidad) {
-      const newCountryCode = hispanicCountryCodes[nacionalidad as HispanicCountry];
+      const newCountryCode = hispanicCountryPhoneCodes[nacionalidad as HispanicCountry];
       setCountryCode(newCountryCode);
       setPhoneNumber('');
     }
@@ -115,7 +115,7 @@ export function SlideUsername({ state, dispatch, onValidationComplete }: SlideUs
           }
           style={[styles.picker, { height: 40, fontSize: 12 }]}
         >
-          {Object.keys(hispanicCountryCodes).map((country) => (
+          {Object.keys(hispanicCountryPhoneCodes).map((country) => (
             <Picker.Item key={country} label={country} value={country} />
           ))}
         </Picker>

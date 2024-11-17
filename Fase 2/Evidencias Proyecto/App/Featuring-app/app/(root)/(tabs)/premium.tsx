@@ -6,7 +6,6 @@ import Animated, { FadeInDown, SlideInRight } from 'react-native-reanimated';
 import { router } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import LegalAgreementModalPremium from '@/components/LegalAgreementModalPremium';
-import { hispanicCountryCodes } from "@/utils/countryCodes";
 import ENV from '@/config/env';
 import { useLocation } from '@/hooks/useLocation';
 

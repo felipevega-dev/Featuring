@@ -21,6 +21,29 @@ export const hispanicCountryCodes: { [key: string]: string } = {
   "Venezuela": "VE"
 };
 
+export const hispanicCountryPhoneCodes: { [key: string]: string } = {
+  "Argentina": "+54",
+  "Bolivia": "+591",
+  "Chile": "+56",
+  "Colombia": "+57",
+  "Costa Rica": "+506",
+  "Cuba": "+53",
+  "Ecuador": "+593",
+  "El Salvador": "+503",
+  "España": "+34",
+  "Guatemala": "+502",
+  "Honduras": "+504",
+  "México": "+52",
+  "Nicaragua": "+505",
+  "Panamá": "+507",
+  "Paraguay": "+595",
+  "Perú": "+51",
+  "Puerto Rico": "+1",
+  "República Dominicana": "+1",
+  "Uruguay": "+598",
+  "Venezuela": "+58"
+};
+
 export const phoneNumberMaxLength = {
   "Argentina": 14, // +54 9 11 1234-5678
   "Bolivia": 12, // +591 12345678
@@ -44,4 +67,4 @@ export const phoneNumberMaxLength = {
   "Venezuela": 13, // +58 412 1234567
 };
 
-export type HispanicCountry = keyof typeof hispanicCountryCodes;
+export type HispanicCountry = keyof typeof phoneNumberMaxLength;

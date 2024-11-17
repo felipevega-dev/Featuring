@@ -184,12 +184,19 @@ export default function SignUp() {
 
       if (data.user) {
         console.log("Usuario creado exitosamente:", data.user.id);
+        
+        // Comentamos la redirección a verify-email temporalmente
+        /* 
         router.replace({
           pathname: "/(auth)/verify-email",
           params: { 
             email: form.email
           }
         });
+        */
+        
+        // Redirigimos directamente a preguntas
+        router.replace("/(auth)/preguntas");
       } else {
         throw new Error("No se pudo crear el usuario");
       }
