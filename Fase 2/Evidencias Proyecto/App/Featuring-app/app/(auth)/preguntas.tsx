@@ -122,10 +122,10 @@ export default function Preguntas() {
         "Por favor, ingresa un nombre de usuario y número de teléfono válidos.",
         "Selecciona tu género.",
         "Ingresa una fecha de nacimiento válida.",
-        "Selecciona al menos una habilidad musical.",
-        "Elige al menos un género musical.",
         "Sube una foto de perfil.",
         "Escribe una breve descripción sobre ti.",
+        "Selecciona al menos una habilidad musical.",
+        "Elige al menos un género musical.",
         "Proporciona tu ubicación."
       ];
       Alert.alert("Información incompleta", slideMessages[activeIndex]);
@@ -190,22 +190,22 @@ export default function Preguntas() {
                 dispatch={dispatch} 
                 onValidationComplete={(isValid) => updateSlideValidation(2, isValid)}
               />
-              <SlideHabilidadesMusicales 
+              <SlideFotoPerfil 
                 state={state} 
                 dispatch={dispatch} 
                 onValidationComplete={(isValid) => updateSlideValidation(3, isValid)}
               />
-              <SlideGenerosMusicales 
+              <SlideDescripcion 
                 state={state} 
                 dispatch={dispatch} 
                 onValidationComplete={(isValid) => updateSlideValidation(4, isValid)}
               />
-              <SlideFotoPerfil 
+              <SlideHabilidadesMusicales 
                 state={state} 
                 dispatch={dispatch} 
                 onValidationComplete={(isValid) => updateSlideValidation(5, isValid)}
               />
-              <SlideDescripcion 
+              <SlideGenerosMusicales 
                 state={state} 
                 dispatch={dispatch} 
                 onValidationComplete={(isValid) => updateSlideValidation(6, isValid)}
