@@ -98,10 +98,12 @@ const OnboardingTutorial: React.FC<OnboardingTutorialProps> = ({ isVisible, onCl
 
   const markTutorialAsCompleted = async () => {
     try {
-      await supabase
+      const { error } = await supabase
         .from('perfil')
         .update({ tutorial_completado: true })
         .eq('usuario_id', userId);
+        
+      if (error) throw error;
       onClose();
     } catch (error) {
       console.error('Error al marcar tutorial como completado:', error);

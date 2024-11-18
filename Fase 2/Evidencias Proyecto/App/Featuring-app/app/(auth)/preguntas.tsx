@@ -84,11 +84,9 @@ export default function Preguntas() {
         try {
           let profileImagePath = state.profileImage;
           if (profileImagePath && profileImagePath.startsWith('file://')) {
-            // Si la imagen es local, súbela al storage
             profileImagePath = await uploadProfileImage(profileImagePath);
           }
 
-          // Actualiza el estado con el nuevo path de la imagen
           dispatch({ type: 'SET_PROFILE_IMAGE', payload: profileImagePath });
 
           // Guarda el perfil con el nuevo path de la imagen

@@ -26,7 +26,6 @@ export default function RootLayout() {
 
   const checkUserAndTutorialStatus = async () => {
     try {
-      // Obtener usuario actual
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
@@ -35,14 +34,14 @@ export default function RootLayout() {
       // Verificar si el perfil está completo y si el tutorial no se ha mostrado
       const { data: perfil, error } = await supabase
         .from('perfil')
-        .select('tutorial_completado, username, biografia, nacionalidad')
+        .select('tutorial_completado, username, nacionalidad')
         .eq('usuario_id', user.id)
         .single();
 
       if (error) throw error;
 
-      // Verificar si el perfil está completo (tiene los campos básicos llenos)
-      const isProfileComplete = perfil.username && perfil.biografia && perfil.nacionalidad;
+      // Verificar si el perfil está completo (solo campos requeridos)
+      const isProfileComplete = perfil.username && perfil.nacionalidad;
 
       // Mostrar tutorial si:
       // 1. El perfil está completo
@@ -80,7 +79,7 @@ export default function RootLayout() {
         (payload) => {
           // Verificar si el perfil se actualizó y mostrar el tutorial si es necesario
           const perfil = payload.new;
-          const isProfileComplete = perfil.username && perfil.biografia && perfil.nacionalidad;
+          const isProfileComplete = perfil.username && perfil.nacionalidad;
           if (isProfileComplete && !perfil.tutorial_completado) {
             setShowTutorial(true);
           }
