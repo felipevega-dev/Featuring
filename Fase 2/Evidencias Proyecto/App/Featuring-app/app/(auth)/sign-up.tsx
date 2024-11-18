@@ -157,7 +157,6 @@ export default function SignUp() {
           data: {
             full_name: form.nombreCompleto,
           },
-          emailRedirectTo: undefined,
         },
       });
 
@@ -193,10 +192,35 @@ export default function SignUp() {
             email: form.email
           }
         });
+        router.replace("/(auth)/preguntas");
         */
         
         // Redirigimos directamente a preguntas
-        router.replace("/(auth)/preguntas");
+  
+        try {
+          const { error: verifyError } = await supabase.auth.verifyOtp({
+            email: form.email,
+            token: 'signup',
+            type: 'signup'
+          });
+
+          if (verifyError) throw verifyError;
+
+          const { error: signInError } = await supabase.auth.signInWithPassword({
+            email: form.email,
+            password: form.password,
+          });
+
+          if (signInError) throw signInError;
+
+          router.replace("/(auth)/preguntas");
+        } catch (verifyErr) {
+          console.error("Error en verificación:", verifyErr);
+          Alert.alert(
+            "Error",
+            "Hubo un problema al verificar tu cuenta. Por favor, intenta de nuevo."
+          );
+        }
       } else {
         throw new Error("No se pudo crear el usuario");
       }
