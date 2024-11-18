@@ -2,13 +2,26 @@ import React, { useEffect, useState } from 'react';
 import { Stack } from "expo-router";
 import { supabase } from '@/lib/supabase';
 import OnboardingTutorial from '@/components/OnboardingTutorial';
+import { registerForPushNotificationsAsync } from '@/utils/pushNotifications';
 
 export default function RootLayout() {
   const [showTutorial, setShowTutorial] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
-    checkUserAndTutorialStatus();
+    const initializeApp = async () => {
+      try {
+        console.log('Iniciando verificación de usuario y tutorial...');
+        await checkUserAndTutorialStatus();
+        
+        console.log('Iniciando registro de notificaciones...');
+        await registerForPushNotificationsAsync();
+      } catch (error) {
+        console.error('Error en la inicialización:', error);
+      }
+    };
+
+    initializeApp();
   }, []);
 
   const checkUserAndTutorialStatus = async () => {
@@ -31,9 +44,19 @@ export default function RootLayout() {
       // Verificar si el perfil está completo (tiene los campos básicos llenos)
       const isProfileComplete = perfil.username && perfil.biografia && perfil.nacionalidad;
 
-      // Mostrar tutorial solo si el perfil está completo y el tutorial no se ha mostrado
-      if (isProfileComplete && !perfil.tutorial_completado) {
+      // Mostrar tutorial si:
+      // 1. El perfil está completo
+      // 2. tutorial_completado es explícitamente false (no null)
+      if (isProfileComplete && perfil.tutorial_completado === false) {
         setShowTutorial(true);
+      }
+
+      // Si tutorial_completado es null, actualizarlo a false
+      if (perfil.tutorial_completado === null) {
+        await supabase
+          .from('perfil')
+          .update({ tutorial_completado: false })
+          .eq('usuario_id', user.id);
       }
     } catch (error) {
       console.error('Error al verificar estado del tutorial:', error);

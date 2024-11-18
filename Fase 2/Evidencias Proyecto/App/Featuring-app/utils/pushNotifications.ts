@@ -17,94 +17,93 @@ export async function registerForPushNotificationsAsync() {
   let token;
 
   try {
-    if (Device.isDevice) {
-      const { status: existingStatus } = await Notifications.getPermissionsAsync();
-      let finalStatus = existingStatus;
+    // Log inicial
+    console.log('Iniciando registro de push notifications...');
 
-      if (existingStatus !== 'granted') {
-        const { status } = await Notifications.requestPermissionsAsync();
-        finalStatus = status;
-      }
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError || !session) {
+      console.log('❌ No hay sesión activa:', sessionError);
+      return null;
+    }
+    console.log('✅ Sesión activa encontrada:', session.user.id);
 
-      if (finalStatus !== 'granted') {
-        console.log('No se obtuvieron permisos para las notificaciones');
-        return;
-      }
+    if (!Device.isDevice) {
+      console.log('❌ No es un dispositivo físico');
+      return null;
+    }
 
-      // Obtener el token con el nuevo projectId
-      const tokenData = await Notifications.getExpoPushTokenAsync({
-        projectId: '3c032550-ab89-4b62-aadf-92576aa5ee1d'
-      });
-      
-      token = tokenData.data;
+    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    let finalStatus = existingStatus;
+    console.log('Estado de permisos actual:', existingStatus);
 
-      // Actualizar token en Supabase
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      
-      if (userError) {
-        console.error('Error al obtener usuario:', userError);
-        return;
-      }
+    if (existingStatus !== 'granted') {
+      console.log('Solicitando permisos...');
+      const { status } = await Notifications.requestPermissionsAsync();
+      finalStatus = status;
+      console.log('Nuevo estado de permisos:', status);
+    }
 
-      if (user) {
-        // Primero verificamos si hay un token antiguo
-        const { data: existingProfile } = await supabase
+    if (finalStatus !== 'granted') {
+      console.log('❌ No se obtuvieron permisos');
+      return null;
+    }
+
+    console.log('✅ Permisos obtenidos, obteniendo token...');
+    const tokenData = await Notifications.getExpoPushTokenAsync({
+      projectId: '3c032550-ab89-4b62-aadf-92576aa5ee1d'
+    });
+    
+    token = tokenData.data;
+    console.log('✅ Token obtenido:', token);
+
+    if (session.user) {
+      console.log('Verificando perfil existente...');
+      const { data: existingProfile, error: profileError } = await supabase
+        .from('perfil')
+        .select('push_token')
+        .eq('usuario_id', session.user.id)
+        .single();
+
+      console.log('Resultado de búsqueda de perfil:', { existingProfile, profileError });
+
+      if (profileError) {
+        console.log('Creando nuevo perfil con token...');
+        const { error: insertError } = await supabase
           .from('perfil')
-          .select('push_token')
-          .eq('usuario_id', user.id)
-          .single();
+          .insert({ 
+            usuario_id: session.user.id,
+            push_token: token,
+            tutorial_completado: false
+          });
 
-        if (existingProfile?.push_token !== token) {
-          // Si el token es diferente, actualizamos
-          const { error: updateError } = await supabase
-            .from('perfil')
-            .update({ 
-              push_token: token,
-              token_updated_at: new Date().toISOString()
-            })
-            .eq('usuario_id', user.id);
+        if (insertError) {
+          console.error('❌ Error al crear perfil:', insertError);
+        } else {
+          console.log('✅ Perfil creado exitosamente con token');
+        }
+      } else if (existingProfile.push_token !== token) {
+        console.log('Actualizando token existente...');
+        const { error: updateError } = await supabase
+          .from('perfil')
+          .update({ push_token: token })
+          .eq('usuario_id', session.user.id);
 
-          if (updateError) {
-            console.error('Error al actualizar push token:', updateError);
-            return;
-          }
-          
-          console.log('Token actualizado exitosamente');
+        if (updateError) {
+          console.error('❌ Error al actualizar push token:', updateError);
+        } else {
+          console.log('✅ Token actualizado exitosamente');
         }
       }
-
-      // Configurar canal para Android
-      if (Platform.OS === 'android') {
-        await Notifications.setNotificationChannelAsync('default', {
-          name: 'default',
-          importance: Notifications.AndroidImportance.MAX,
-          vibrationPattern: [0, 250, 250, 250],
-          lightColor: '#FF231F7C',
-        });
-      }
-    } else {
-      console.log('Las notificaciones push requieren un dispositivo físico');
     }
+
+    return token;
   } catch (error) {
-    console.error('Error en registerForPushNotificationsAsync:', error);
-    // Intentar limpiar el token en caso de error
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        await supabase
-          .from('perfil')
-          .update({ push_token: null })
-          .eq('usuario_id', user.id);
-      }
-    } catch (cleanupError) {
-      console.error('Error al limpiar token:', cleanupError);
-    }
+    console.error('❌ Error en registerForPushNotificationsAsync:', error);
+    return null;
   }
-
-  return token;
 }
 
-// Función para enviar notificación push con mejor manejo de errores
+// Función para enviar notificación push
 export async function sendPushNotification(expoPushToken: string, title: string, body: string) {
   try {
     const message = {
@@ -131,7 +130,6 @@ export async function sendPushNotification(expoPushToken: string, title: string,
       throw new Error(`Error al enviar notificación: ${JSON.stringify(responseData)}`);
     }
 
-    console.log('Notificación enviada exitosamente:', responseData);
     return responseData;
   } catch (error) {
     console.error('Error al enviar notificación push:', error);
