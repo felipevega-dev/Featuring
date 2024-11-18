@@ -132,8 +132,6 @@ export default function SignUp() {
     setShowLegalModal(false);
     
     try {
-      console.log("Iniciando registro con email:", form.email);
-
       const { data: existingUser } = await supabase
         .from('perfil')
         .select('email')
@@ -141,7 +139,6 @@ export default function SignUp() {
         .single();
 
       if (existingUser) {
-        console.log("Usuario existente encontrado:", existingUser);
         Alert.alert(
           "Usuario Existente",
           "Ya existe una cuenta registrada con este correo electrónico."
@@ -149,7 +146,20 @@ export default function SignUp() {
         return;
       }
 
-      console.log("Intentando registrar usuario...");
+      const { data: existingUsername } = await supabase
+        .from('perfil')
+        .select('username')
+        .eq('username', form.nombreCompleto)
+        .single();
+
+      if (existingUsername) {
+        Alert.alert(
+          "Nombre de Usuario No Disponible",
+          "Este nombre de usuario ya está en uso. Por favor, elige otro."
+        );
+        return;
+      }
+
       const { data, error } = await supabase.auth.signUp({
         email: form.email,
         password: form.password,
@@ -161,17 +171,20 @@ export default function SignUp() {
       });
 
       if (error) {
-        console.error("Error detallado del registro:", {
-          message: error.message,
-          status: error.status,
-          name: error.name,
-          details: error
-        });
-        
         if (error.message.includes('User already registered')) {
           Alert.alert(
             "Usuario Existente",
             "Ya existe una cuenta registrada con este correo electrónico."
+          );
+        } else if (error.message.includes('Password')) {
+          Alert.alert(
+            "Error en la Contraseña",
+            "La contraseña no cumple con los requisitos de seguridad."
+          );
+        } else if (error.message.includes('Email')) {
+          Alert.alert(
+            "Error en el Correo",
+            "Por favor, verifica que el correo electrónico sea válido."
           );
         } else {
           throw error;
@@ -179,33 +192,8 @@ export default function SignUp() {
         return;
       }
 
-      console.log("Respuesta del registro:", data);
-
       if (data.user) {
-        console.log("Usuario creado exitosamente:", data.user.id);
-        
-        // Comentamos la redirección a verify-email temporalmente
-        /* 
-        router.replace({
-          pathname: "/(auth)/verify-email",
-          params: { 
-            email: form.email
-          }
-        });
-        router.replace("/(auth)/preguntas");
-        */
-        
-        // Redirigimos directamente a preguntas
-  
         try {
-          const { error: verifyError } = await supabase.auth.verifyOtp({
-            email: form.email,
-            token: 'signup',
-            type: 'signup'
-          });
-
-          if (verifyError) throw verifyError;
-
           const { error: signInError } = await supabase.auth.signInWithPassword({
             email: form.email,
             password: form.password,
@@ -213,12 +201,12 @@ export default function SignUp() {
 
           if (signInError) throw signInError;
 
-          router.replace("/(auth)/preguntas");
-        } catch (verifyErr) {
-          console.error("Error en verificación:", verifyErr);
+          setShowSuccessModal(true);
+        } catch (signInErr) {
+          console.error("Error al iniciar sesión:", signInErr);
           Alert.alert(
             "Error",
-            "Hubo un problema al verificar tu cuenta. Por favor, intenta de nuevo."
+            "Hubo un problema al iniciar sesión. Por favor, intenta de nuevo."
           );
         }
       } else {
