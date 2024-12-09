@@ -23,6 +23,22 @@ const { width, height } = Dimensions.get("window");
 const STATUSBAR_HEIGHT = Platform.OS === "ios" ? 20 : StatusBar.currentHeight ?? 0;
 const BOTTOM_TAB_HEIGHT = 35; 
 
+const suppressWarnings = () => {
+  // Suppress specific warnings in development
+  if (__DEV__) {
+    const ignoreWarns = ['Possible unhandled promise rejection'];
+    const warn = console.warn;
+    console.warn = (...arg) => {
+      for (const warning of ignoreWarns) {
+        if (arg[0].startsWith(warning)) {
+          return;
+        }
+      }
+      warn.apply(console, arg);
+    };
+  }
+};
+
 export const WatchContent = () => {
   const { videos, setVideos, isLoading, error, refetchVideos } = useVideos();
   const [isUploadModalVisible, setIsUploadModalVisible] = useState(false);
@@ -32,6 +48,10 @@ export const WatchContent = () => {
   const { setCurrentPlayingId, setIsScreenFocused } = useVideo();
   const { scrollToId } = useLocalSearchParams<{ scrollToId: string }>();
   const [pendingScroll, setPendingScroll] = useState<string | null>(null);
+
+  React.useEffect(() => {
+    suppressWarnings();
+  }, []);
 
   useEffect(() => {
     getCurrentUser();
@@ -97,11 +117,15 @@ export const WatchContent = () => {
   };
 
   const getCurrentUser = async () => {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (user) {
-      setCurrentUserId(user.id);
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user) {
+        setCurrentUserId(user.id);
+      }
+    } catch (error) {
+      console.log('Error getting current user:', error);
     }
   };
 
@@ -138,8 +162,20 @@ export const WatchContent = () => {
     );
   };
 
-  if (isLoading || error) {
-    return null; // O un componente de carga/error
+  if (isLoading) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: "black" }}>
+        <View style={{ flex: 1 }} />
+      </SafeAreaView>
+    );
+  }
+
+  if (error) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: "black" }}>
+        <View style={{ flex: 1 }} />
+      </SafeAreaView>
+    );
   }
 
   const videoHeight = height - STATUSBAR_HEIGHT - BOTTOM_TAB_HEIGHT;

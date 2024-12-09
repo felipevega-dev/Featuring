@@ -173,86 +173,94 @@ export default function UserManagement() {
   }, []);
 
   async function fetchUsers() {
-    setLoading(true)
-    setError(null)
+    setLoading(true);
+    setError(null);
     try {
-      // Construir la query base para perfiles
-      let query = supabaseAdmin.from('perfil').select(`
-        *,
-        perfil_genero (genero),
-        perfil_habilidad (habilidad),
-        red_social (nombre, url)
-      `);
+      // 1. Primero obtenemos todos los perfiles existentes
+      const { data: perfiles, error: perfilError, count } = await supabaseAdmin
+        .from('perfil')
+        .select(`
+          *,
+          perfil_genero (genero),
+          perfil_habilidad (habilidad),
+          red_social (nombre, url)
+        `)
+        .order('created_at', { ascending: false });
 
-      // Aplicar búsqueda si existe
-      if (searchTerm) {
-        query = query.ilike('username', `%${searchTerm}%`);
-      }
-
-      // Obtener el conteo total y los perfiles
-      const { data: perfiles, error: perfilError, count } = await query;
       if (perfilError) throw perfilError;
 
-      // Obtener usuarios de auth
-      const { data: authUsers, error: authError } = await supabaseAdmin.auth.admin.listUsers({
-        page: currentPage,
-        perPage: USERS_PER_PAGE,
-      });
-      if (authError) throw authError;
+      if (!perfiles) {
+        setUsers([]);
+        return;
+      }
 
-      // Obtener sanciones activas
-      const { data: allSanciones } = await supabaseAdmin
-        .from('sancion_administrativa')
-        .select('*')
-        .eq('estado', 'activa');
+      // 2. Obtenemos los IDs de usuarios que tienen perfil
+      const userIds = perfiles.map(perfil => perfil.usuario_id);
 
-      // Procesar usuarios con sus perfiles y sanciones
-      let usersWithProfiles = await Promise.all(
-        authUsers.users.map(async (authUser) => {
-          const perfil = perfiles?.find(p => p.usuario_id === authUser.id);
-          const userSanciones = allSanciones?.filter(s => s.usuario_id === authUser.id) || [];
-          
-          const amonestacionesActivas = userSanciones.filter(
-            s => s.tipo_sancion === 'amonestacion'
-          ).length || 0;
+      // 3. Obtenemos los datos de auth.users solo para los usuarios con perfil
+      const usersWithProfiles = await Promise.all(
+        userIds.map(async (userId) => {
+          try {
+            const { data: { user }, error: authError } = await supabaseAdmin.auth.admin.getUserById(userId);
+            if (authError || !user) return null;
 
-          const suspensionActiva = userSanciones.some(
-            s => ['suspension_temporal', 'suspension_permanente'].includes(s.tipo_sancion)
-          ) || false;
+            const perfil = perfiles.find(p => p.usuario_id === userId);
+            
+            // Aplicar filtro de búsqueda si existe
+            if (searchTerm && !perfil?.username?.toLowerCase().includes(searchTerm.toLowerCase())) {
+              return null;
+            }
 
-          return {
-            ...authUser,
-            perfil: perfil ? {
-              ...perfil,
-              full_name: perfil.username || "",
-              generos: perfil.perfil_genero.map((g: { genero: string }) => g.genero),
-              habilidades: perfil.perfil_habilidad.map((h: { habilidad: string }) => h.habilidad),
-            } : null,
-            sancionActiva: userSanciones.length > 0,
-            suspensionActiva,
-            amonestacionesActivas
-          };
+            // 4. Obtener sanciones activas para el usuario
+            const { data: userSanciones } = await supabaseAdmin
+              .from('sancion_administrativa')
+              .select('*')
+              .eq('usuario_id', userId)
+              .eq('estado', 'activa');
+
+            const amonestacionesActivas = userSanciones?.filter(
+              s => s.tipo_sancion === 'amonestacion'
+            ).length || 0;
+
+            const suspensionActiva = userSanciones?.some(
+              s => ['suspension_temporal', 'suspension_permanente'].includes(s.tipo_sancion)
+            ) || false;
+
+            // 5. Construir objeto de usuario completo
+            return {
+              ...user,
+              perfil: perfil ? {
+                ...perfil,
+                full_name: perfil.username || "",
+                generos: perfil.perfil_genero.map((g: { genero: string }) => g.genero),
+                habilidades: perfil.perfil_habilidad.map((h: { habilidad: string }) => h.habilidad),
+              } : null,
+              sancionActiva: (userSanciones?.length || 0) > 0,
+              suspensionActiva,
+              amonestacionesActivas
+            };
+          } catch (error) {
+            console.error('Error fetching user:', error);
+            return null;
+          }
         })
       );
 
-      // Aplicar filtros después de procesar los usuarios
+      // 6. Filtrar usuarios nulos y aplicar filtros adicionales
+      let filteredUsers = usersWithProfiles.filter((user): user is UserWithSanciones => 
+        user !== null && user.perfil !== null
+      );
+
+      // Aplicar filtros de estado
       if (filter === 'suspended') {
-        usersWithProfiles = usersWithProfiles.filter(user => user.suspensionActiva);
+        filteredUsers = filteredUsers.filter(user => user.suspensionActiva);
       } else if (filter === 'warned') {
-        usersWithProfiles = usersWithProfiles.filter(user => user.amonestacionesActivas > 0);
+        filteredUsers = filteredUsers.filter(user => user.amonestacionesActivas > 0);
       }
 
-      // Actualizar el total de usuarios según el filtro
-      setTotalUsers(usersWithProfiles.length);
+      setUsers(filteredUsers);
+      setTotalUsers(filteredUsers.length);
 
-      // Ordenar usuarios por prioridad
-      const sortedUsers = usersWithProfiles.sort((a, b) => {
-        const prioridadA = a.suspensionActiva ? 2 : (a.amonestacionesActivas > 0 ? 1 : 0);
-        const prioridadB = b.suspensionActiva ? 2 : (b.amonestacionesActivas > 0 ? 1 : 0);
-        return prioridadB - prioridadA;
-      });
-
-      setUsers(sortedUsers);
     } catch (error) {
       console.error('Error al obtener los usuarios:', error);
       setError('No se pudieron cargar los usuarios');
@@ -856,30 +864,46 @@ export default function UserManagement() {
 
   const fetchUserStats = async () => {
     try {
-      // Total de usuarios
+      // Total de usuarios con perfil
       const { count: totalCount } = await supabase
         .from('perfil')
         .select('*', { count: 'exact', head: true });
 
       // Usuarios únicos con amonestaciones activas
-      const { data: warnedUsers } = await supabase
+      const { data: warnedUsersData } = await supabase
         .from('sancion_administrativa')
-        .select('usuario_id')
+        .select(`
+          usuario_id,
+          tipo_sancion,
+          estado
+        `)
         .eq('tipo_sancion', 'amonestacion')
         .eq('estado', 'activa');
 
-      const uniqueWarnedUsers = new Set(warnedUsers?.map(u => u.usuario_id) || []);
+      // Contar usuarios únicos con amonestaciones
+      const uniqueWarnedUsers = new Set(
+        warnedUsersData?.map(sancion => sancion.usuario_id) || []
+      );
 
-      // Usuarios suspendidos (usando la columna suspended)
-      const { count: suspendedCount } = await supabase
-        .from('perfil')
-        .select('*', { count: 'exact', head: true })
-        .eq('suspended', true);
+      // Usuarios suspendidos
+      const { data: suspendedUsersData } = await supabase
+        .from('sancion_administrativa')
+        .select(`
+          usuario_id,
+          tipo_sancion,
+          estado
+        `)
+        .in('tipo_sancion', ['suspension_temporal', 'suspension_permanente'])
+        .eq('estado', 'activa');
+
+      const uniqueSuspendedUsers = new Set(
+        suspendedUsersData?.map(sancion => sancion.usuario_id) || []
+      );
 
       setUserStats({
         totalUsers: totalCount || 0,
         warnedUsers: uniqueWarnedUsers.size,
-        suspendedUsers: suspendedCount || 0
+        suspendedUsers: uniqueSuspendedUsers.size
       });
     } catch (error) {
       console.error('Error al obtener estadísticas:', error);
