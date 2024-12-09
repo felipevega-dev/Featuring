@@ -33,7 +33,7 @@ Featuring es una aplicación móvil diseñada para conectar a apasionados de la 
 
 1. **Clona el repositorio:**
    ```bash
-   git clone https://github.com/tu-usuario/Featuring.git
+   git clone https://github.com/felipevega-dev/Featuring.git
    cd Featuring
    ```
 
