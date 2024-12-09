@@ -1,0 +1,69 @@
+{
+  "expo": {
+    "name": "Featuring-app",
+    "slug": "featuring-app",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/FeatLogo.png",
+    "scheme": "myapp",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./assets/images/FeatSplash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/FeatLogo.png",
+        "backgroundColor": "#ffffff"
+      },
+      "package": "com.vegadev.featuringapp",
+      "softwareKeyboardLayoutMode": "pan",
+      "permissions": [
+        "INTERNET",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "RECORD_AUDIO",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "MODIFY_AUDIO_SETTINGS",
+        "USE_BIOMETRIC",
+        "VIBRATE"
+      ]
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "server",
+      "favicon": "./assets/images/FeatLogo.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/FeatLogo.png",
+          "color": "#ffffff",
+          "sounds": []
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow Featuring to use your location."
+        }
+      ],
+      "expo-local-authentication"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "3c032550-ab89-4b62-aadf-92576aa5ee1d"
+      }
+    }
+  }
+}
